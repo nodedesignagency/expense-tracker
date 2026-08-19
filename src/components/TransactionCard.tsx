@@ -15,7 +15,7 @@ export function TransactionCard({ transaction, onOpen }: Props) {
 
   return (
     <li>
-      <button className="txn" onClick={() => onOpen?.(transaction.id)}>
+      <button className="txn glass" onClick={() => onOpen?.(transaction.id)}>
         <div className="txn__top">
           <Avatar brand={brand} name={name} size={50} />
           <div className="txn__identity">

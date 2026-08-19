@@ -6,9 +6,8 @@
 }
 
 .settings__title {
-  font-size: 30px;
-  font-weight: 700;
-  letter-spacing: -0.035em;
+  font: var(--t-title);
+  letter-spacing: -0.02em;
   padding: 6px 0 0;
 }
 
@@ -18,8 +17,7 @@
 }
 
 .settings__label {
-  font-size: 13px;
-  font-weight: 600;
+  font: var(--t-legend);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-faint);
@@ -60,28 +58,26 @@
 }
 
 .settings__row-title {
-  font-size: 16.5px;
-  font-weight: 600;
+  font: var(--t-nav);
   color: var(--text);
 }
 
 .settings__row-sub {
-  font-size: 14px;
+  font: var(--t-figure);
   color: var(--text-dim);
 }
 
 .settings__reset {
-  height: 54px;
+  height: 48px;
   border-radius: var(--r-chip);
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--hairline);
-  font-size: 16px;
-  font-weight: 600;
+  font: var(--t-nav);
   color: #FF8B99;
 }
 
 .settings__foot {
   text-align: center;
-  font-size: 13px;
+  font: var(--t-figure);
   color: var(--text-faint);
 }

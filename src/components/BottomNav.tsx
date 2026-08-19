@@ -15,7 +15,7 @@ export function BottomNav() {
 
   return (
     <nav className="nav" aria-label="Primary">
-      <div className="nav__pill">
+      <div className="nav__pill glass">
         {TABS.map(({ id, label, icon: Icon }) => {
           const active = tab === id
           return (
@@ -26,7 +26,7 @@ export function BottomNav() {
               aria-current={active ? 'page' : undefined}
               onClick={() => dispatch({ type: 'setTab', tab: id })}
             >
-              <Icon size={22} />
+              <Icon size={19} />
               {active ? <span>{label}</span> : <span className="sr-only">{label}</span>}
             </button>
           )
@@ -34,7 +34,7 @@ export function BottomNav() {
       </div>
 
       <button className="nav__add" onClick={() => dispatch({ type: 'openComposer' })}>
-        <PlusIcon size={20} />
+        <PlusIcon size={17} />
         <span>Add</span>
       </button>
     </nav>

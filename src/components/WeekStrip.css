@@ -2,34 +2,31 @@
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 2px;
-  padding: 18px 14px 4px;
+  padding: 16px 14px 2px;
 }
 
 .weekstrip__day {
   display: grid;
   justify-items: center;
-  gap: 10px;
+  gap: 9px;
 }
 
 .weekstrip__label {
-  font-size: 13px;
-  font-weight: 500;
+  font: var(--t-figure);
   color: var(--text-dim);
   letter-spacing: -0.01em;
 }
 
+/* Spec: 32 × 32. Past and present days are glass; future days are dashed. */
 .weekstrip__circle {
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
+  width: var(--size-day);
+  height: var(--size-day);
   border-radius: 50%;
-  background: var(--surface-2);
-  box-shadow: inset 0 0 0 1px var(--hairline);
-  font-size: 17px;
-  font-weight: 600;
+  font: var(--t-nav);
   color: var(--text);
-  transition: transform 160ms var(--ease), background var(--dur) var(--ease),
+  transition: transform 160ms var(--ease), background-color var(--dur) var(--ease),
     box-shadow var(--dur) var(--ease);
 }
 
@@ -38,15 +35,32 @@
 }
 
 .weekstrip__day[data-future='true'] .weekstrip__circle {
-  background: transparent;
+  background-color: transparent;
+  background-image: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   color: var(--text-dim);
-  box-shadow: none;
-  border: 1.5px dashed rgba(255, 255, 255, 0.22);
+  border: 1.5px dashed rgba(255, 255, 255, 0.2);
+}
+
+.weekstrip__day[data-future='true'] .weekstrip__circle::before {
+  content: none;
 }
 
 .weekstrip__day[data-selected='true'] .weekstrip__circle {
-  background: linear-gradient(150deg, var(--accent-from), var(--accent-to));
+  background-color: transparent;
+  background-image: linear-gradient(150deg, var(--accent-from), var(--accent-to));
   color: #fff;
   border: none;
-  box-shadow: 0 8px 22px var(--accent-glow);
+  box-shadow: 0 6px 18px var(--accent-glow);
+}
+
+.weekstrip__day[data-selected='true'] .weekstrip__circle::before {
+  background: linear-gradient(
+    148deg,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0.12) 30%,
+    rgba(255, 255, 255, 0) 55%,
+    rgba(255, 255, 255, 0.22) 100%
+  );
 }

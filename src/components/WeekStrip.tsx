@@ -30,7 +30,7 @@ export function WeekStrip() {
             onClick={() => dispatch({ type: 'selectDate', date: isSelected ? null : iso })}
           >
             <span className="weekstrip__label">{weekdayShort(iso)}</span>
-            <span className="weekstrip__circle tnum">{dayOfMonth(iso)}</span>
+            <span className="weekstrip__circle glass tnum">{dayOfMonth(iso)}</span>
           </button>
         )
       })}

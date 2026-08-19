@@ -3,15 +3,13 @@
   width: 100%;
   padding: 16px 16px 15px;
   border-radius: var(--r-tile);
-  background: var(--surface-1);
-  box-shadow: inset 0 0 0 1px var(--hairline);
   text-align: left;
-  transition: transform 160ms var(--ease), background var(--dur) var(--ease);
+  transition: transform 160ms var(--ease), background-color var(--dur) var(--ease);
 }
 
 .txn:active {
   transform: scale(0.985);
-  background: var(--surface-2);
+  background-color: var(--surface-2);
 }
 
 .txn__top {
@@ -28,9 +26,8 @@
 }
 
 .txn__name {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.022em;
+  font: var(--t-name);
+  letter-spacing: -0.015em;
   color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -38,8 +35,7 @@
 }
 
 .txn__rail {
-  font-size: 12.5px;
-  font-weight: 400;
+  font: var(--t-figure);
   color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -55,9 +51,9 @@
 }
 
 .txn__amount {
-  font-size: 17.5px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font: var(--t-name);
+  font-weight: 600;
+  letter-spacing: -0.015em;
 }
 
 .txn__amount[data-direction='credit'] {
@@ -69,7 +65,7 @@
 }
 
 .txn__balance {
-  font-size: 12.5px;
+  font: var(--t-figure);
   color: var(--text-dim);
 }
 
@@ -81,17 +77,17 @@
 }
 
 .txn__chip {
-  padding: 8px 16px;
+  padding: 7px 14px;
   border-radius: var(--r-chip);
-  background: var(--surface-2);
-  box-shadow: inset 0 0 0 1px var(--hairline);
-  font-size: 14.5px;
-  font-weight: 500;
+  background-color: var(--glass-base);
+  background-image: var(--glass-fill);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  font: var(--t-legend);
   color: #EAEAEE;
 }
 
 .txn__time {
-  font-size: 14.5px;
+  font: var(--t-figure);
   color: var(--text-dim);
   padding-right: 4px;
 }

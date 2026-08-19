@@ -12,14 +12,12 @@
 }
 
 .detail__name {
-  font-size: 21px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font: var(--t-name);
+  letter-spacing: -0.015em;
 }
 
 .detail__amount {
-  font-size: 38px;
-  font-weight: 700;
+  font: var(--t-display);
   letter-spacing: -0.035em;
 }
 
@@ -55,13 +53,12 @@
 }
 
 .detail__row dt {
-  font-size: 15px;
+  font: var(--t-figure);
   color: var(--text-dim);
 }
 
 .detail__row dd {
-  font-size: 15.5px;
-  font-weight: 600;
+  font: var(--t-legend);
   text-align: right;
 }
 
@@ -71,11 +68,10 @@
   justify-content: center;
   gap: 8px;
   width: 100%;
-  height: 54px;
+  height: 48px;
   border-radius: var(--r-chip);
   background: rgba(255, 78, 99, 0.14);
   box-shadow: inset 0 0 0 1px rgba(255, 78, 99, 0.32);
   color: #FF8B99;
-  font-size: 16.5px;
-  font-weight: 600;
+  font: var(--t-nav);
 }

@@ -1,0 +1,53 @@
+/*
+ * Glass surfaces.
+ *
+ * Figma's Glass effect has no direct CSS equivalent, so it is rebuilt from the
+ * parts a browser does have: a backdrop blur for the frost, a near-transparent
+ * white gradient for the fill, and a masked 1px rim that brightens along the
+ * light axis (-58 deg) for the refraction highlight. Tokens live in tokens.css
+ * so every glass element moves together.
+ */
+.glass {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--glass-base);
+  background-image: var(--glass-fill);
+  backdrop-filter: blur(var(--glass-blur)) saturate(135%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(135%);
+}
+
+/*
+ * The specular rim: a 1px gradient ring, masked so only the border shows.
+ * `isolation: isolate` above makes .glass a stacking context, so z-index -1
+ * paints the rim over the element's own background but under its content —
+ * without touching how children are positioned.
+ */
+.glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--glass-rim);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Raised glass: the lit state — a brighter fill over a visible white stroke. */
+.glass--raised {
+  background-color: var(--glass-base-raised);
+  background-image: var(--glass-fill-raised);
+  box-shadow: inset 0 0 0 1px var(--glass-stroke);
+}
+
+.glass--raised::before {
+  background: var(--glass-rim-raised);
+}

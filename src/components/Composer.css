@@ -17,12 +17,11 @@
   justify-content: center;
   min-width: 0;
   gap: 8px;
-  height: 50px;
+  height: 46px;
   border-radius: 16px;
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--hairline);
-  font-size: 15.5px;
-  font-weight: 600;
+  font: var(--t-nav);
   color: var(--text-dim);
   transition: all var(--dur) var(--ease);
 }
@@ -47,8 +46,7 @@
 }
 
 .field__label {
-  font-size: 13px;
-  font-weight: 600;
+  font: var(--t-legend);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-faint);
@@ -80,9 +78,8 @@
   border-radius: 18px;
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--hairline);
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font: var(--t-display);
+  letter-spacing: -0.035em;
   color: var(--text);
 }
 
@@ -113,12 +110,11 @@
 }
 
 .chip {
-  padding: 9px 15px;
+  padding: 8px 14px;
   border-radius: var(--r-chip);
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--hairline);
-  font-size: 14.5px;
-  font-weight: 500;
+  font: var(--t-legend);
   color: var(--text-dim);
   transition: all var(--dur) var(--ease);
 }
@@ -136,18 +132,17 @@
 }
 
 .composer__error {
-  font-size: 14.5px;
+  font: var(--t-figure);
   color: #FF8B99;
 }
 
 .composer__submit {
   width: 100%;
-  height: 58px;
+  height: 50px;
   border-radius: var(--r-chip);
   background: linear-gradient(150deg, var(--accent-from), var(--accent-to));
   color: #fff;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font: var(--t-nav);
+  letter-spacing: -0.01em;
   box-shadow: 0 10px 26px var(--accent-glow);
 }

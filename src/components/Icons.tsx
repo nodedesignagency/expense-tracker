@@ -21,11 +21,11 @@ function base({ size = 24, ...rest }: IconProps) {
 /** The 2×2 dot glyph that marks each side of the scope switch. */
 export function GridIcon({ size = 16, ...rest }: IconProps) {
   return (
-    <svg {...base({ size, ...rest })} fill="currentColor" stroke="none">
-      <rect x="3" y="3" width="7.4" height="7.4" rx="2.4" />
-      <rect x="13.6" y="3" width="7.4" height="7.4" rx="2.4" />
-      <rect x="3" y="13.6" width="7.4" height="7.4" rx="2.4" />
-      <rect x="13.6" y="13.6" width="7.4" height="7.4" rx="2.4" />
+    <svg {...base({ size, ...rest })} fill="none" stroke="currentColor" strokeWidth={2.1}>
+      <circle cx="7.2" cy="7.2" r="3.6" />
+      <circle cx="16.8" cy="7.2" r="3.6" />
+      <circle cx="7.2" cy="16.8" r="3.6" />
+      <circle cx="16.8" cy="16.8" r="3.6" />
     </svg>
   )
 }

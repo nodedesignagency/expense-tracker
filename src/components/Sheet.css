@@ -45,9 +45,8 @@
 }
 
 .sheet__title {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.025em;
+  font: var(--t-title);
+  letter-spacing: -0.02em;
 }
 
 .sheet__close {

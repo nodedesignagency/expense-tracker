@@ -26,7 +26,7 @@ export function quipFor(totals: Totals): string {
 
 export function BalanceCard({ netCents, totals, monthLabel }: BalanceCardProps) {
   return (
-    <section className="balance" aria-label={`Net balance, ${monthLabel}`}>
+    <section className="balance glass" aria-label={`Net balance, ${monthLabel}`}>
       <div className="balance__body">
         <p className="balance__label">Net Balance</p>
         <p className="balance__amount tnum">{formatMoney(netCents)}</p>
@@ -46,7 +46,7 @@ export function BalanceCard({ netCents, totals, monthLabel }: BalanceCardProps) 
       <p className="balance__bubble">{quipFor(totals)}</p>
 
       <div className="balance__mascot">
-        <Mascot size={126} />
+        <Mascot size={118} />
       </div>
     </section>
   )

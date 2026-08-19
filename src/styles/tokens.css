@@ -32,7 +32,66 @@
   /* Layout */
   --app-w: 393px;
   --gutter: 20px;
-  --nav-h: 76px;
+  --nav-h: 66px;
+
+  /*
+   * Glass system — values transcribed from the Figma spec.
+   *
+   * Surface  fill: linear FFFFFF 8% -> FFFFFF 1%, fill opacity 20%
+   * Raised   fill: linear FFFFFF 25% -> FFFFFF 12%, fill opacity 100%
+   * Stroke   FFFFFF 16%, 1px inside
+   * Blur     15.6
+   * Glass    light -58 deg at 25%, refraction 73, depth 100, dispersion 79,
+   *          frost 91, splay 100 — approximated in CSS by a backdrop blur plus
+   *          a specular rim running along the light axis.
+   */
+  --glass-base: #131316;
+  --glass-base-raised: #26262B;
+  --glass-fill: linear-gradient(135deg, rgba(255, 255, 255, 0.016), rgba(255, 255, 255, 0.002));
+  --glass-fill-raised: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.12));
+  --glass-stroke: rgba(255, 255, 255, 0.16);
+  --glass-blur: 15.6px;
+  --glass-rim: linear-gradient(
+    148deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0.1) 24%,
+    rgba(255, 255, 255, 0.015) 50%,
+    rgba(255, 255, 255, 0.09) 74%,
+    rgba(255, 255, 255, 0.3) 100%
+  );
+  --glass-rim-raised: linear-gradient(
+    148deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.18) 26%,
+    rgba(255, 255, 255, 0.06) 52%,
+    rgba(255, 255, 255, 0.16) 76%,
+    rgba(255, 255, 255, 0.42) 100%
+  );
+
+  /* Control metrics — fixed heights from the spec */
+  --h-control: 34px;
+  --h-control-inner: 26px;
+  --h-nav: 40px;
+  --size-day: 32px;
+
+  /*
+   * Type scale from the spec. Weights: 400 regular, 500 medium, 600 semibold.
+   *   40/600  net balance
+   *   18/500  day heading
+   *   16/500  counterparty name
+   *   15/500  nav labels
+   *   14/400  section labels ("NET BALANCE", "Showing 290 Entries")
+   *   12/500  legend pills
+   *   12/400  supporting figures ("Balance: $20,000")
+   */
+  --t-display: 600 40px/1.05 var(--font-rounded);
+  --t-title: 600 18px/1.25 var(--font-rounded);
+  --t-heading: 500 18px/1.25 var(--font-rounded);
+  --t-name: 500 16px/1.3 var(--font-rounded);
+  --t-nav: 500 15px/1 var(--font-rounded);
+  --t-label: 400 14px/1.35 var(--font-rounded);
+  --t-legend: 500 12px/1.35 var(--font-rounded);
+  --t-figure: 400 12px/1.35 var(--font-rounded);
 
   /* Type */
   --font-rounded: ui-rounded, 'SF Pro Rounded', -apple-system-round, 'SFProRounded-Regular',
