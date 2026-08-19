@@ -1,105 +1,88 @@
 /*
- * One glass bar carries the whole nav: destinations on the left, the primary
- * action on the right. It floats 24 above the bottom of the screen.
+ * The nav is not a bar. Two independent groups float over the list, both 24
+ * from the bottom: a row of destinations pinned left, the Add button pinned
+ * right. Nothing draws a container behind either of them.
  *
- * Inactive destinations are bare 32×32 targets with real space around them, so
- * each reads as its own control rather than a run of adjacent pills.
+ * Spec, per item: a 40-tall frame at radius 47.38, padding 11.85 x 8.88,
+ * 5.92 gap. The active destination is the only one that paints its fill —
+ * the rest are the same frame with fill and stroke switched off.
  */
 .nav {
   position: absolute;
-  left: 16px;
-  right: 16px;
+  left: 24px;
+  right: 24px;
   bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  height: 48px;
-  padding: 4px;
-  border-radius: var(--r-chip);
+  gap: 12px;
+  pointer-events: none;
+}
+
+.nav > * {
+  pointer-events: auto;
 }
 
 .nav__group {
   display: flex;
   align-items: center;
-  min-width: 0;
-  gap: 14px;
-  padding-left: 4px;
+  gap: 5.92px;
 }
 
 .nav__item {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  width: 32px;
-  height: 32px;
+  gap: 5.92px;
+  width: 40px;
+  height: 40px;
   flex: 0 0 auto;
   padding: 0;
-  border-radius: var(--r-chip);
+  border-radius: 47.38px;
   color: var(--text-dim);
   font: var(--t-nav);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
 
 .nav__item[data-active='true'] {
   width: auto;
-  padding: 0 14px;
+  padding: 0 11.85px;
   background-color: var(--glass-base-raised);
   background-image: var(--glass-fill-raised);
   color: var(--text);
-  box-shadow: inset 0 0 0 1px var(--glass-stroke);
+  box-shadow: inset 0 0 0 1.48px var(--glass-stroke);
 }
 
 .nav__item[data-active='true'] svg {
   color: var(--accent-solid);
 }
 
+/* Spec: 84 x 40, radius 69.19, radial fill, 25% white stroke. */
 .nav__add {
-  position: relative;
-  isolation: isolate;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  height: var(--h-nav);
+  gap: 4px;
+  width: 84px;
+  height: 40px;
   flex: 0 0 auto;
-  padding: 0 20px;
-  border-radius: var(--r-chip);
-  background: linear-gradient(150deg, var(--accent-from), var(--accent-to));
+  border-radius: 69.19px;
+  background: radial-gradient(
+    72% 122% at 56% 55%,
+    #FF1B43 0%,
+    #FF3A5D 24%,
+    #FF7891 60%,
+    #FFB8C6 100%
+  );
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25), 0 8px 24px var(--accent-glow);
   color: #fff;
   font: var(--t-nav);
-  box-shadow: 0 8px 22px var(--accent-glow);
   transition: transform 140ms var(--ease);
 }
 
 .nav__add:active {
   transform: scale(0.96);
-}
-
-/* The action button carries the same lit rim as the raised glass surfaces. */
-.nav__add::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(
-    148deg,
-    rgba(255, 255, 255, 0.62) 0%,
-    rgba(255, 255, 255, 0.16) 32%,
-    rgba(255, 255, 255, 0.04) 56%,
-    rgba(255, 255, 255, 0.34) 100%
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  pointer-events: none;
 }
