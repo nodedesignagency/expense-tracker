@@ -1,7 +1,7 @@
 .txn {
   display: block;
   width: 100%;
-  padding: 16px 16px 15px;
+  padding: 16px 16px 14px;
   border-radius: var(--r-tile);
   text-align: left;
   transition: transform 160ms var(--ease), background-color var(--dur) var(--ease);
@@ -69,11 +69,19 @@
   color: var(--text-dim);
 }
 
+/* Spec rule: white gradient, transparent at both ends, solid at the centre. */
+.txn__rule {
+  display: block;
+  height: 1px;
+  margin: 14px 0 0;
+  background: var(--rule-fade);
+}
+
 .txn__meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 14px;
+  margin-top: 12px;
 }
 
 .txn__chip {

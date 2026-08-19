@@ -1,7 +1,7 @@
 /* Design tokens — sampled from the reference mockup. */
 :root {
   /* Surfaces */
-  --bg: #000000;
+  --bg: #0A0A0A;
   --surface-1: #0F0F10;
   --surface-2: #161618;
   --surface-3: #1E1E21;
@@ -25,8 +25,8 @@
   --accent-solid: #FF476A;
 
   /* Radii */
-  --r-card: 30px;
-  --r-tile: 26px;
+  --r-card: 32px;
+  --r-tile: 32px;
   --r-chip: 999px;
 
   /* Layout */
@@ -68,6 +68,16 @@
     rgba(255, 255, 255, 0.42) 100%
   );
 
+  /*
+   * Hairline rules. Spec gradient is FFFFFF 0% / 100% / 0% across the line, so
+   * a rule fades in from nothing, peaks at its centre and fades out again.
+   * Half-rules (either side of the entry count) carry one half of that ramp.
+   */
+  --rule-peak: rgba(255, 255, 255, 0.16);
+  --rule-fade: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, var(--rule-peak) 50%, rgba(255, 255, 255, 0) 100%);
+  --rule-fade-in: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, var(--rule-peak) 100%);
+  --rule-fade-out: linear-gradient(90deg, var(--rule-peak) 0%, rgba(255, 255, 255, 0) 100%);
+
   /* Control metrics — fixed heights from the spec */
   --h-control: 34px;
   --h-control-inner: 26px;
@@ -94,9 +104,9 @@
   --t-figure: 400 12px/1.35 var(--font-rounded);
 
   /* Type */
-  --font-rounded: ui-rounded, 'SF Pro Rounded', -apple-system-round, 'SFProRounded-Regular',
-    'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Display', system-ui,
-    sans-serif;
+  --font-rounded: ui-rounded, 'SF Pro Rounded', 'SFProRounded-Regular', -apple-system-round,
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Inter',
+    'Segoe UI Variable Display', system-ui, sans-serif;
 
   /* Motion */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);

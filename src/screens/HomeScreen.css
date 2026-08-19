@@ -5,10 +5,19 @@
   padding: 22px var(--gutter) 4px;
 }
 
+/* Each half carries one side of the rule gradient, so the pair reads as one
+   line fading out toward both screen edges. */
 .entrycount__rule {
   flex: 1 1 auto;
   height: 1px;
-  background: var(--hairline);
+}
+
+.entrycount__rule[data-side='left'] {
+  background: var(--rule-fade-in);
+}
+
+.entrycount__rule[data-side='right'] {
+  background: var(--rule-fade-out);
 }
 
 .entrycount__text {

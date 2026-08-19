@@ -35,12 +35,12 @@ export function HomeScreen() {
       <FilterBar />
 
       <div className="entrycount">
-        <span className="entrycount__rule" />
+        <span className="entrycount__rule" data-side="left" />
         <span className="entrycount__text">
           Showing {scopeRows.length.toLocaleString('en-US')}{' '}
           {scopeRows.length === 1 ? 'Entry' : 'Entries'}
         </span>
-        <span className="entrycount__rule" />
+        <span className="entrycount__rule" data-side="right" />
       </div>
 
       {groups.length === 0 ? (

@@ -17,13 +17,17 @@
   pointer-events: auto;
 }
 
-/* Spec: the nav pill and the Add button are both 40 tall. */
+/*
+ * Spec: the nav pill and the Add button are both 40 tall. Inactive
+ * destinations are bare 32×32 icons with real space around them — each one
+ * reads as its own target rather than a run of adjacent pills.
+ */
 .nav__pill {
   display: flex;
   align-items: center;
   min-width: 0;
   height: var(--h-nav);
-  gap: 2px;
+  gap: 14px;
   padding: 4px;
   border-radius: var(--r-chip);
 }
@@ -31,18 +35,22 @@
 .nav__item {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  width: 32px;
   height: 32px;
   flex: 0 0 auto;
-  padding: 0 12px;
+  padding: 0;
   border-radius: var(--r-chip);
   color: var(--text-dim);
   font: var(--t-nav);
   letter-spacing: -0.01em;
-  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
 
 .nav__item[data-active='true'] {
+  width: auto;
+  padding: 0 14px;
   background-color: var(--glass-base-raised);
   background-image: var(--glass-fill-raised);
   color: var(--text);
