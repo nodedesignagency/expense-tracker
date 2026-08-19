@@ -1,0 +1,106 @@
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px var(--gutter) 0;
+}
+
+/* ---- scope switch ---- */
+.scope {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 4px;
+  border-radius: var(--r-chip);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.scope__thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  border-radius: var(--r-chip);
+  background: var(--surface-raised);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong), 0 6px 16px rgba(0, 0, 0, 0.45);
+  transition: transform var(--dur) var(--ease);
+}
+
+.scope__thumb[data-scope='personal'] {
+  transform: translateX(100%);
+}
+
+.scope__option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 13px;
+  border-radius: var(--r-chip);
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-dim);
+  transition: color var(--dur) var(--ease);
+  white-space: nowrap;
+}
+
+.scope__option[data-active='true'] {
+  color: var(--text);
+}
+
+.scope__option svg {
+  opacity: 0.75;
+}
+
+/* ---- round actions ---- */
+.topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
+.round-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 41px;
+  height: 41px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  transition: background var(--dur) var(--ease), transform 140ms var(--ease);
+}
+
+.round-btn:active {
+  transform: scale(0.94);
+}
+
+.round-btn[data-active='true'] {
+  background: var(--surface-raised);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+
+.round-btn__badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent-solid);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--bg);
+}

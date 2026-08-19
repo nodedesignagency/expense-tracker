@@ -1,0 +1,55 @@
+.filterbar {
+  display: grid;
+  gap: 12px;
+  padding: 14px var(--gutter) 0;
+  animation: filterbar-in 220ms var(--ease);
+}
+
+.filterbar__search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 50px;
+  padding: 0 16px;
+  border-radius: var(--r-chip);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--text-dim);
+}
+
+.filterbar__search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.filterbar__search input::placeholder {
+  color: var(--text-faint);
+}
+
+.filterbar__search button {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--accent-solid);
+}
+
+.filterbar__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip--clear {
+  color: var(--accent-solid);
+}
+
+@keyframes filterbar-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}

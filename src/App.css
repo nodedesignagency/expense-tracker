@@ -1,0 +1,59 @@
+/* On a phone the app fills the viewport; on a desktop it sits in a device frame. */
+.phone {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: #050505;
+}
+
+.phone__screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: var(--app-w);
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  isolation: isolate;
+}
+
+.phone__scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  animation: screen-in 260ms var(--ease);
+}
+
+.phone__scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.phone__spacer {
+  height: calc(var(--nav-h) + 34px);
+}
+
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (min-width: 480px) and (min-height: 760px) {
+  .phone {
+    padding: 24px;
+    background: radial-gradient(120% 90% at 50% 0%, #17171B 0%, #050505 62%);
+  }
+
+  .phone__screen {
+    height: min(852px, 100%);
+    border-radius: 46px;
+    box-shadow:
+      0 0 0 10px #0D0D10,
+      0 0 0 11px rgba(255, 255, 255, 0.08),
+      0 42px 90px rgba(0, 0, 0, 0.7);
+  }
+}

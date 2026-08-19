@@ -1,0 +1,153 @@
+.composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  padding-bottom: 4px;
+}
+
+.composer__toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.composer__toggle button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  gap: 8px;
+  height: 50px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+  transition: all var(--dur) var(--ease);
+}
+
+.composer__toggle button[data-active='true'][data-kind='debit'] {
+  background: rgba(255, 78, 99, 0.16);
+  color: #FF8B99;
+  box-shadow: inset 0 0 0 1px rgba(255, 78, 99, 0.4);
+}
+
+.composer__toggle button[data-active='true'][data-kind='credit'] {
+  background: rgba(63, 217, 127, 0.14);
+  color: #6FE7A3;
+  box-shadow: inset 0 0 0 1px rgba(63, 217, 127, 0.36);
+}
+
+.field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 8px;
+}
+
+.field__label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.field__input {
+  height: 52px;
+  padding: 0 16px;
+  border-radius: 16px;
+  border: none;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font-size: 16.5px;
+  font-weight: 500;
+  color: var(--text);
+  width: 100%;
+  appearance: none;
+}
+
+.field__input::placeholder {
+  color: var(--text-faint);
+}
+
+.field__amount {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 12px 18px;
+  border-radius: 18px;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.field__amount span {
+  color: var(--text-faint);
+}
+
+.field__amount input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  outline: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.field__amount input::placeholder {
+  color: var(--text-faint);
+}
+
+.chiprow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  padding: 9px 15px;
+  border-radius: var(--r-chip);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--text-dim);
+  transition: all var(--dur) var(--ease);
+}
+
+.chip[data-active='true'] {
+  background: #F2F2F5;
+  color: #0B0B0D;
+  box-shadow: none;
+}
+
+.composer__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.composer__error {
+  font-size: 14.5px;
+  color: #FF8B99;
+}
+
+.composer__submit {
+  width: 100%;
+  height: 58px;
+  border-radius: var(--r-chip);
+  background: linear-gradient(150deg, var(--accent-from), var(--accent-to));
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  box-shadow: 0 10px 26px var(--accent-glow);
+}

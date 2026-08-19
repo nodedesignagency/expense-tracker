@@ -1,0 +1,45 @@
+/* Design tokens — sampled from the reference mockup. */
+:root {
+  /* Surfaces */
+  --bg: #000000;
+  --surface-1: #0F0F10;
+  --surface-2: #161618;
+  --surface-3: #1E1E21;
+  --surface-raised: #2A2A2E;
+  --hairline: rgba(255, 255, 255, 0.09);
+  --hairline-strong: rgba(255, 255, 255, 0.16);
+
+  /* Text */
+  --text: #FFFFFF;
+  --text-dim: #9A9AA0;
+  --text-faint: #6C6C74;
+
+  /* Semantic money colours */
+  --credit: #3FD97F;
+  --debit: #FF4E63;
+
+  /* Brand accent (selected day, primary action) */
+  --accent-from: #FF97A8;
+  --accent-to: #FF2E52;
+  --accent-glow: rgba(255, 62, 90, 0.45);
+  --accent-solid: #FF476A;
+
+  /* Radii */
+  --r-card: 30px;
+  --r-tile: 26px;
+  --r-chip: 999px;
+
+  /* Layout */
+  --app-w: 393px;
+  --gutter: 20px;
+  --nav-h: 76px;
+
+  /* Type */
+  --font-rounded: ui-rounded, 'SF Pro Rounded', -apple-system-round, 'SFProRounded-Regular',
+    'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Display', system-ui,
+    sans-serif;
+
+  /* Motion */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur: 260ms;
+}
