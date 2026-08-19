@@ -52,12 +52,13 @@
    *          frost 91, splay 100 — approximated in CSS by a backdrop blur plus
    *          a specular rim running along the light axis.
    */
-  --glass-base: #161619;
+  --glass-base: transparent;
   --glass-base-raised: transparent;
   --glass-fill: linear-gradient(135deg, rgba(255, 255, 255, 0.016), rgba(255, 255, 255, 0.002));
   --glass-fill-raised: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.12));
-  /* Category chips carry the same stops at 70% fill opacity. */
-  --glass-fill-chip: linear-gradient(135deg, rgba(255, 255, 255, 0.056), rgba(255, 255, 255, 0.007));
+  /* Cards and chips carry the same stops at 70% fill opacity. */
+  --glass-fill-70: linear-gradient(135deg, rgba(255, 255, 255, 0.056), rgba(255, 255, 255, 0.007));
+  --glass-stroke-card: rgba(255, 255, 255, 0.08);
   --glass-stroke: rgba(255, 255, 255, 0.16);
   --glass-blur: 15.6px;
   /* Frost 134.74 on the nav's active state — a heavier blur than the rest. */
@@ -119,7 +120,7 @@
   --t-figure: 400 12px/normal var(--font-rounded);
 
   /* Type */
-  --font-rounded: 'SF Rounded', ui-rounded, 'Rounded Fallback', system-ui, sans-serif;
+  --font-rounded: 'SF Pro Rounded', ui-rounded, system-ui, sans-serif;
 
   /* Motion */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);

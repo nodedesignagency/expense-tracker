@@ -26,7 +26,7 @@ export function quipFor(totals: Totals): string {
 
 export function BalanceCard({ netCents, totals, monthLabel }: BalanceCardProps) {
   return (
-    <section className="balance glass" aria-label={`Net balance, ${monthLabel}`}>
+    <section className="balance glass glass--card" aria-label={`Net balance, ${monthLabel}`}>
       <div className="balance__body">
         <p className="balance__label">Net Balance</p>
         <p className="balance__amount tnum">{formatMoney(netCents)}</p>

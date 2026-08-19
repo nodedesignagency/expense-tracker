@@ -36,20 +36,9 @@ Use the brand key as the filename: `wise.svg`, `claude.svg`, `stripe.svg`,
 Square artwork, centred, with transparent background — the circle behind it
 comes from `bg`.
 
-## Pinning SF Pro Rounded
+## Type
 
-The app asks the system for SF Pro Rounded weight by weight (see
-`src/styles/fonts.css`) and falls back to a bundled rounded face when the system
-doesn't answer. Browsers vary in whether they expose SF's faces to CSS, so the
-only way to guarantee the exact type is to self-host the font:
-
-1. Put `sf-pro-rounded.woff2` in `public/fonts/`.
-2. In `src/styles/fonts.css`, add this as the final `src` entry of each
-   `SF Rounded` face:
-
-   ```css
-   url('/fonts/sf-pro-rounded.woff2') format('woff2')
-   ```
-
-Apple licenses SF Pro Rounded for use in your own interfaces but not for
-redistribution, so whether to bundle the file is your call for this project.
+SF Pro Rounded is self-hosted in `public/fonts/`, subsetted to Latin, one file
+per weight (400/500/600/700). Each face lists a `local()` source first, so a
+machine with the font installed uses its own copy and the bundled file is only
+fetched when it isn't.

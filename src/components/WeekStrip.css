@@ -51,6 +51,7 @@
   width: var(--size-day);
   height: var(--size-day);
   border-radius: 50%;
+  background-color: #1A1A1A;
   font: var(--t-day);
   color: var(--text);
   transition: transform 160ms var(--ease), background-color var(--dur) var(--ease),

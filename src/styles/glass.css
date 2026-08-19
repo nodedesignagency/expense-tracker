@@ -41,6 +41,15 @@
   pointer-events: none;
 }
 
+/*
+ * Card glass: the surface used by the balance and entry cards. Same stops as
+ * the base surface but at 70% fill opacity, with a 0.91 inside stroke at 8%.
+ */
+.glass--card {
+  background-image: var(--glass-fill-70);
+  box-shadow: inset 0 0 0 0.91px var(--glass-stroke-card);
+}
+
 /* Raised glass: the lit state — a brighter fill over a visible white stroke. */
 .glass--raised {
   background-color: var(--glass-base-raised);

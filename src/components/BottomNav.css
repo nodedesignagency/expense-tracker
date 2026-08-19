@@ -59,7 +59,6 @@
   backdrop-filter: blur(var(--glass-blur-strong));
   -webkit-backdrop-filter: blur(var(--glass-blur-strong));
   color: var(--text);
-  box-shadow: inset 0 0 0 1.48px var(--glass-stroke);
 }
 
 .nav__item[data-active='true']::before {
@@ -68,8 +67,14 @@
   inset: 0;
   z-index: -1;
   border-radius: inherit;
-  padding: 1.48px;
-  background: var(--glass-rim-raised);
+  padding: 1px;
+  background: linear-gradient(
+    148deg,
+    rgba(255, 255, 255, 0.22) 0%,
+    rgba(255, 255, 255, 0.05) 34%,
+    rgba(255, 255, 255, 0) 60%,
+    rgba(255, 255, 255, 0.12) 100%
+  );
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);

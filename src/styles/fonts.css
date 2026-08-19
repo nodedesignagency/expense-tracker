@@ -1,85 +1,50 @@
 /*
- * Type: SF Pro Rounded.
+ * Type: SF Pro Rounded, self-hosted.
  *
- * A plain `font-family: 'SF Pro Rounded'` is not enough on macOS: the weights
- * are separate faces, and the system's own rounded font is only reachable
- * through its internal names. So each weight is declared as its own @font-face
- * with a list of `local()` candidates — the installed SF Pro Rounded package
- * first, then the names macOS uses for the built-in rounded system font. A
- * face whose `local()` sources all miss is dropped, and matching falls through
- * to the bundled fallback family below.
- *
- * To pin it exactly: drop `sf-pro-rounded.woff2` into `public/fonts/` and add
- * `url('/fonts/sf-pro-rounded.woff2') format('woff2')` as the last src of each
- * face. That removes the guesswork entirely — see src/assets/README.md.
+ * Each weight is its own face: a `local()` source first, so a machine with the
+ * font installed uses its own copy, then the bundled woff2 as the guarantee.
+ * The files are subsetted to Latin — roughly 20 kB per weight.
  */
 @font-face {
-  font-family: 'SF Rounded';
+  font-family: 'SF Pro Rounded';
   font-style: normal;
   font-weight: 400;
   font-display: swap;
   src:
     local('SF Pro Rounded Regular'),
     local('SFProRounded-Regular'),
-    local('.SFNSRounded-Regular'),
-    local('.AppleSystemUIFontRounded-Regular');
+    url('/fonts/sf-pro-rounded-400.woff2') format('woff2');
 }
 
 @font-face {
-  font-family: 'SF Rounded';
+  font-family: 'SF Pro Rounded';
   font-style: normal;
   font-weight: 500;
   font-display: swap;
   src:
     local('SF Pro Rounded Medium'),
     local('SFProRounded-Medium'),
-    local('.SFNSRounded-Medium'),
-    local('.AppleSystemUIFontRounded-Medium');
+    url('/fonts/sf-pro-rounded-500.woff2') format('woff2');
 }
 
 @font-face {
-  font-family: 'SF Rounded';
+  font-family: 'SF Pro Rounded';
   font-style: normal;
   font-weight: 600;
   font-display: swap;
   src:
     local('SF Pro Rounded Semibold'),
     local('SFProRounded-Semibold'),
-    local('.SFNSRounded-Semibold'),
-    local('.AppleSystemUIFontRounded-Semibold');
+    url('/fonts/sf-pro-rounded-600.woff2') format('woff2');
 }
 
 @font-face {
-  font-family: 'SF Rounded';
+  font-family: 'SF Pro Rounded';
   font-style: normal;
   font-weight: 700;
   font-display: swap;
   src:
     local('SF Pro Rounded Bold'),
     local('SFProRounded-Bold'),
-    local('.SFNSRounded-Bold'),
-    local('.AppleSystemUIFontRounded-Bold');
-}
-
-/* Bundled fallback for anything without SF Pro Rounded. */
-@font-face {
-  font-family: 'Rounded Fallback';
-  font-style: normal;
-  font-weight: 400 900;
-  font-display: swap;
-  src: url('/fonts/nunito-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
-    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
-    U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: 'Rounded Fallback';
-  font-style: normal;
-  font-weight: 400 900;
-  font-display: swap;
-  src: url('/fonts/nunito-latin-ext.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
-    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
-    U+2113, U+2C60-2C7F, U+A720-A7FF;
+    url('/fonts/sf-pro-rounded-700.woff2') format('woff2');
 }
