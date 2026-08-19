@@ -1,18 +1,46 @@
+/* Spec: the strip is 345 wide and 46 tall — a 12/14 label directly over a
+   32 circle — sitting inside 24 side margins. */
 .weekstrip {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
-  padding: 16px 14px 2px;
+  gap: 0;
+  padding: 16px 24px 2px;
 }
 
 .weekstrip__day {
+  position: relative;
   display: grid;
   justify-items: center;
-  gap: 9px;
+  align-content: start;
+  gap: 3px;
+  height: 46px;
+}
+
+/*
+ * Separator between day columns: a 1 x 41 rule that fades out at both ends,
+ * carried at 10% on plus-lighter exactly as the vector in the spec does.
+ */
+.weekstrip__day:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -0.5px;
+  width: 1px;
+  height: 41px;
+  transform: translateY(-50%);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 1) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  opacity: 0.1;
+  mix-blend-mode: plus-lighter;
+  pointer-events: none;
 }
 
 .weekstrip__label {
-  font: var(--t-figure);
+  font: 400 12px/11px var(--font-rounded);
   color: var(--text-dim);
   letter-spacing: -0.01em;
 }

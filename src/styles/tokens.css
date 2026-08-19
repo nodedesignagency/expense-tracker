@@ -49,6 +49,8 @@
   --glass-base-raised: #26262B;
   --glass-fill: linear-gradient(135deg, rgba(255, 255, 255, 0.016), rgba(255, 255, 255, 0.002));
   --glass-fill-raised: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.12));
+  /* Category chips carry the same stops at 70% fill opacity. */
+  --glass-fill-chip: linear-gradient(135deg, rgba(255, 255, 255, 0.056), rgba(255, 255, 255, 0.007));
   --glass-stroke: rgba(255, 255, 255, 0.16);
   --glass-blur: 15.6px;
   --glass-rim: linear-gradient(
@@ -104,9 +106,9 @@
   --t-figure: 400 12px/1.35 var(--font-rounded);
 
   /* Type */
-  --font-rounded: ui-rounded, 'SF Pro Rounded', 'SFProRounded-Regular', -apple-system-round,
-    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Inter',
-    'Segoe UI Variable Display', system-ui, sans-serif;
+  --font-rounded: 'SF Pro Rounded', 'SFProRounded-Regular', 'SF Pro Rounded Regular',
+    ui-rounded, -apple-system-round, 'Nunito', 'Segoe UI Variable Display', system-ui,
+    sans-serif;
 
   /* Motion */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);

@@ -1,29 +1,33 @@
 /*
- * Type: SF Pro Rounded, then SF Pro.
+ * Type: SF Pro Rounded.
  *
- * Apple ships both with the OS but licenses neither for redistribution, so the
- * stack asks for them by system alias first (`ui-rounded`, `SF Pro Rounded`,
- * `-apple-system`) — an Apple device always lands on a real SF face. Inter is
- * self-hosted as the fallback for everyone else: it shares SF Pro's proportions
- * and flat terminals, which is what the reference comps show.
+ * The family name comes first in the stack, ahead of the `ui-rounded` generic.
+ * That ordering matters: browsers that map `ui-rounded` onto the plain system
+ * face would otherwise win and silently render non-rounded SF Pro. No plain-SF
+ * name appears in the stack at all, so the page can never quietly fall back to
+ * a non-rounded face — if SF Pro Rounded is missing it lands on Nunito, which
+ * is unmistakably rounded, making the substitution obvious rather than subtle.
+ *
+ * Apple does not license SF Pro Rounded for redistribution, so it is requested
+ * from the system rather than shipped; Nunito is self-hosted for everyone else.
  */
 @font-face {
-  font-family: 'Inter';
+  font-family: 'Nunito';
   font-style: normal;
-  font-weight: 400 800;
+  font-weight: 400 900;
   font-display: swap;
-  src: url('/fonts/inter-latin.woff2') format('woff2');
+  src: url('/fonts/nunito-latin.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
     U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
     U+FEFF, U+FFFD;
 }
 
 @font-face {
-  font-family: 'Inter';
+  font-family: 'Nunito';
   font-style: normal;
-  font-weight: 400 800;
+  font-weight: 400 900;
   font-display: swap;
-  src: url('/fonts/inter-latin-ext.woff2') format('woff2');
+  src: url('/fonts/nunito-latin-ext.woff2') format('woff2');
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
     U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
     U+2113, U+2C60-2C7F, U+A720-A7FF;
