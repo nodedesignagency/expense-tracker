@@ -7,7 +7,6 @@
 
 .settings__title {
   font: var(--t-title);
-  letter-spacing: -0.02em;
   padding: 6px 0 0;
 }
 
@@ -18,7 +17,6 @@
 
 .settings__label {
   font: var(--t-legend);
-  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-faint);
   padding-left: 4px;

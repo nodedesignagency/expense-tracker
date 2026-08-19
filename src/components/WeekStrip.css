@@ -12,7 +12,7 @@
   display: grid;
   justify-items: center;
   align-content: start;
-  gap: 3px;
+  gap: 0;
   height: 46px;
 }
 
@@ -40,9 +40,8 @@
 }
 
 .weekstrip__label {
-  font: 400 12px/11px var(--font-rounded);
+  font: 400 12px/normal var(--font-rounded);
   color: var(--text-dim);
-  letter-spacing: -0.01em;
 }
 
 /* Spec: 32 × 32. Past and present days are glass; future days are dashed. */
@@ -52,7 +51,7 @@
   width: var(--size-day);
   height: var(--size-day);
   border-radius: 50%;
-  font: var(--t-nav);
+  font: var(--t-day);
   color: var(--text);
   transition: transform 160ms var(--ease), background-color var(--dur) var(--ease),
     box-shadow var(--dur) var(--ease);

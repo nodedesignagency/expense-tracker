@@ -46,7 +46,6 @@
 
 .sheet__title {
   font: var(--t-title);
-  letter-spacing: -0.02em;
 }
 
 .sheet__close {

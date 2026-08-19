@@ -1,35 +1,31 @@
+/*
+ * One glass bar carries the whole nav: destinations on the left, the primary
+ * action on the right. It floats 24 above the bottom of the screen.
+ *
+ * Inactive destinations are bare 32×32 targets with real space around them, so
+ * each reads as its own control rather than a run of adjacent pills.
+ */
 .nav {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 16px;
+  right: 16px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px 16px calc(14px + env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.88) 38%, #000 100%);
-  pointer-events: none;
+  height: 48px;
+  padding: 4px;
+  border-radius: var(--r-chip);
 }
 
-.nav > * {
-  pointer-events: auto;
-}
-
-/*
- * Spec: the nav pill and the Add button are both 40 tall. Inactive
- * destinations are bare 32×32 icons with real space around them — each one
- * reads as its own target rather than a run of adjacent pills.
- */
-.nav__pill {
+.nav__group {
   display: flex;
   align-items: center;
   min-width: 0;
-  height: var(--h-nav);
   gap: 14px;
-  padding: 4px;
-  border-radius: var(--r-chip);
+  padding-left: 4px;
 }
 
 .nav__item {
@@ -44,7 +40,6 @@
   border-radius: var(--r-chip);
   color: var(--text-dim);
   font: var(--t-nav);
-  letter-spacing: -0.01em;
   transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
 
@@ -62,11 +57,12 @@
 }
 
 .nav__add {
-  display: flex;
-  align-items: center;
-  gap: 6px;
   position: relative;
   isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   height: var(--h-nav);
   flex: 0 0 auto;
   padding: 0 20px;
@@ -74,9 +70,12 @@
   background: linear-gradient(150deg, var(--accent-from), var(--accent-to));
   color: #fff;
   font: var(--t-nav);
-  letter-spacing: -0.01em;
   box-shadow: 0 8px 22px var(--accent-glow);
   transition: transform 140ms var(--ease);
+}
+
+.nav__add:active {
+  transform: scale(0.96);
 }
 
 /* The action button carries the same lit rim as the raised glass surfaces. */
@@ -103,8 +102,4 @@
     linear-gradient(#000 0 0);
   mask-composite: exclude;
   pointer-events: none;
-}
-
-.nav__add:active {
-  transform: scale(0.96);
 }

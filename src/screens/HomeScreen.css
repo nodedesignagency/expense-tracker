@@ -23,7 +23,6 @@
 .entrycount__text {
   font: var(--t-label);
   color: var(--text-dim);
-  letter-spacing: -0.01em;
   white-space: nowrap;
 }
 
@@ -33,7 +32,6 @@
 
 .daygroup__heading {
   font: var(--t-heading);
-  letter-spacing: -0.02em;
   padding: 2px 2px 12px;
 }
 

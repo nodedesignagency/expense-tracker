@@ -20,7 +20,6 @@
 
 .balance__label {
   font: var(--t-label);
-  letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--text-dim);
 }
@@ -28,7 +27,6 @@
 .balance__amount {
   margin-top: 4px;
   font: var(--t-display);
-  letter-spacing: -0.035em;
   white-space: nowrap;
 }
 
@@ -81,7 +79,6 @@
   background: var(--surface-raised);
   font: var(--t-figure);
   line-height: 1.35;
-  letter-spacing: -0.01em;
   color: #F1F1F4;
   text-wrap: balance;
 }

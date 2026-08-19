@@ -13,12 +13,10 @@
 
 .detail__name {
   font: var(--t-name);
-  letter-spacing: -0.015em;
 }
 
 .detail__amount {
   font: var(--t-display);
-  letter-spacing: -0.035em;
 }
 
 .detail__amount[data-direction='credit'] {

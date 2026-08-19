@@ -8,14 +8,14 @@ const TABS: { id: Tab; label: string; icon: typeof HomeIcon }[] = [
   { id: 'settings', label: 'Settings', icon: GearIcon },
 ]
 
-/** Floating nav: a pill of destinations on the left, the primary action right. */
+/** Floating nav bar: destinations on the left, the primary action on the right. */
 export function BottomNav() {
   const { tab } = useAppState()
   const dispatch = useDispatch()
 
   return (
-    <nav className="nav" aria-label="Primary">
-      <div className="nav__pill glass">
+    <nav className="nav glass" aria-label="Primary">
+      <div className="nav__group">
         {TABS.map(({ id, label, icon: Icon }) => {
           const active = tab === id
           return (

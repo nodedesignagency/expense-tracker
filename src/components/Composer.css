@@ -47,7 +47,6 @@
 
 .field__label {
   font: var(--t-legend);
-  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-faint);
 }
@@ -79,7 +78,6 @@
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--hairline);
   font: var(--t-display);
-  letter-spacing: -0.035em;
   color: var(--text);
 }
 
@@ -143,6 +141,5 @@
   background: linear-gradient(150deg, var(--accent-from), var(--accent-to));
   color: #fff;
   font: var(--t-nav);
-  letter-spacing: -0.01em;
   box-shadow: 0 10px 26px var(--accent-glow);
 }

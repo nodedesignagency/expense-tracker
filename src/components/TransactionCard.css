@@ -27,7 +27,6 @@
 
 .txn__name {
   font: var(--t-name);
-  letter-spacing: -0.015em;
   color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -53,7 +52,6 @@
 .txn__amount {
   font: var(--t-name);
   font-weight: 600;
-  letter-spacing: -0.015em;
 }
 
 .txn__amount[data-direction='credit'] {
