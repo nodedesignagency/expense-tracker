@@ -14,14 +14,14 @@ interface BalanceCardProps {
  * means something instead of being decoration.
  */
 export function quipFor(totals: Totals): string {
-  if (totals.count === 0) return 'Nothing logged yet. Add your first entry.'
+  if (totals.count === 0) return 'Nothing logged yet this month'
   const { creditCents, debitCents } = totals
-  if (creditCents === 0) return 'All spend, no income yet this month.'
+  if (creditCents === 0) return 'All spend and no income yet'
   const ratio = debitCents / creditCents
   if (ratio < 0.6) return 'Holy moly, you are cooking this month'
-  if (ratio < 1) return 'Steady month — you are still ahead'
+  if (ratio < 1) return 'Steady month, you are still ahead'
   if (ratio < 1.5) return 'Spending is outpacing income'
-  return 'Careful, this month is running hot'
+  return 'Careful, this month runs hot'
 }
 
 export function BalanceCard({ netCents, totals, monthLabel }: BalanceCardProps) {

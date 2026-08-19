@@ -7,7 +7,7 @@
   position: relative;
   margin: 14px var(--gutter) 0;
   padding: 18px;
-  min-height: 206px;
+  min-height: 190px;
   border-radius: var(--r-card);
   overflow: hidden;
 }
@@ -33,7 +33,7 @@
 .balance__legend {
   display: grid;
   gap: 8px;
-  margin-top: 18px;
+  margin-top: 20px;
   justify-items: start;
 }
 
@@ -73,7 +73,7 @@
   z-index: 3;
   top: 18px;
   right: 18px;
-  width: 124px;
+  width: 108px;
   padding: 9px 11px 10px;
   border-radius: 14px;
   background: var(--surface-raised);

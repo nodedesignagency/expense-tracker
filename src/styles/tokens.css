@@ -52,7 +52,7 @@
    *          frost 91, splay 100 — approximated in CSS by a backdrop blur plus
    *          a specular rim running along the light axis.
    */
-  --glass-base: #131316;
+  --glass-base: #161619;
   --glass-base-raised: transparent;
   --glass-fill: linear-gradient(135deg, rgba(255, 255, 255, 0.016), rgba(255, 255, 255, 0.002));
   --glass-fill-raised: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.12));
@@ -119,9 +119,7 @@
   --t-figure: 400 12px/normal var(--font-rounded);
 
   /* Type */
-  --font-rounded: 'SF Pro Rounded', 'SFProRounded-Regular', 'SF Pro Rounded Regular',
-    ui-rounded, -apple-system-round, 'Nunito', 'Segoe UI Variable Display', system-ui,
-    sans-serif;
+  --font-rounded: 'SF Rounded', ui-rounded, 'Rounded Fallback', system-ui, sans-serif;
 
   /* Motion */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);

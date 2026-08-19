@@ -1,18 +1,69 @@
 /*
  * Type: SF Pro Rounded.
  *
- * The family name comes first in the stack, ahead of the `ui-rounded` generic.
- * That ordering matters: browsers that map `ui-rounded` onto the plain system
- * face would otherwise win and silently render non-rounded SF Pro. No plain-SF
- * name appears in the stack at all, so the page can never quietly fall back to
- * a non-rounded face — if SF Pro Rounded is missing it lands on Nunito, which
- * is unmistakably rounded, making the substitution obvious rather than subtle.
+ * A plain `font-family: 'SF Pro Rounded'` is not enough on macOS: the weights
+ * are separate faces, and the system's own rounded font is only reachable
+ * through its internal names. So each weight is declared as its own @font-face
+ * with a list of `local()` candidates — the installed SF Pro Rounded package
+ * first, then the names macOS uses for the built-in rounded system font. A
+ * face whose `local()` sources all miss is dropped, and matching falls through
+ * to the bundled fallback family below.
  *
- * Apple does not license SF Pro Rounded for redistribution, so it is requested
- * from the system rather than shipped; Nunito is self-hosted for everyone else.
+ * To pin it exactly: drop `sf-pro-rounded.woff2` into `public/fonts/` and add
+ * `url('/fonts/sf-pro-rounded.woff2') format('woff2')` as the last src of each
+ * face. That removes the guesswork entirely — see src/assets/README.md.
  */
 @font-face {
-  font-family: 'Nunito';
+  font-family: 'SF Rounded';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    local('SF Pro Rounded Regular'),
+    local('SFProRounded-Regular'),
+    local('.SFNSRounded-Regular'),
+    local('.AppleSystemUIFontRounded-Regular');
+}
+
+@font-face {
+  font-family: 'SF Rounded';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src:
+    local('SF Pro Rounded Medium'),
+    local('SFProRounded-Medium'),
+    local('.SFNSRounded-Medium'),
+    local('.AppleSystemUIFontRounded-Medium');
+}
+
+@font-face {
+  font-family: 'SF Rounded';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src:
+    local('SF Pro Rounded Semibold'),
+    local('SFProRounded-Semibold'),
+    local('.SFNSRounded-Semibold'),
+    local('.AppleSystemUIFontRounded-Semibold');
+}
+
+@font-face {
+  font-family: 'SF Rounded';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src:
+    local('SF Pro Rounded Bold'),
+    local('SFProRounded-Bold'),
+    local('.SFNSRounded-Bold'),
+    local('.AppleSystemUIFontRounded-Bold');
+}
+
+/* Bundled fallback for anything without SF Pro Rounded. */
+@font-face {
+  font-family: 'Rounded Fallback';
   font-style: normal;
   font-weight: 400 900;
   font-display: swap;
@@ -23,7 +74,7 @@
 }
 
 @font-face {
-  font-family: 'Nunito';
+  font-family: 'Rounded Fallback';
   font-style: normal;
   font-weight: 400 900;
   font-display: swap;
