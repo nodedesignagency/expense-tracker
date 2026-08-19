@@ -71,7 +71,7 @@
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--hairline);
   font: var(--t-nav);
-  color: #FF8B99;
+  color: var(--debit);
 }
 
 .settings__foot {

@@ -27,15 +27,15 @@
 }
 
 .composer__toggle button[data-active='true'][data-kind='debit'] {
-  background: rgba(255, 78, 99, 0.16);
-  color: #FF8B99;
-  box-shadow: inset 0 0 0 1px rgba(255, 78, 99, 0.4);
+  background: var(--debit-wash);
+  color: var(--debit);
+  box-shadow: inset 0 0 0 1px var(--debit-edge);
 }
 
 .composer__toggle button[data-active='true'][data-kind='credit'] {
-  background: rgba(63, 217, 127, 0.14);
-  color: #6FE7A3;
-  box-shadow: inset 0 0 0 1px rgba(63, 217, 127, 0.36);
+  background: var(--credit-wash);
+  color: var(--credit);
+  box-shadow: inset 0 0 0 1px var(--credit-edge);
 }
 
 .field {
@@ -131,7 +131,7 @@
 
 .composer__error {
   font: var(--t-figure);
-  color: #FF8B99;
+  color: var(--debit);
 }
 
 .composer__submit {

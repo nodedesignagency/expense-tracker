@@ -15,8 +15,12 @@
   --text-faint: #6C6C74;
 
   /* Semantic money colours */
-  --credit: #3FD97F;
-  --debit: #FF4E63;
+  --credit: #25E063;
+  --debit: #FF6969;
+  --credit-wash: rgba(37, 224, 99, 0.14);
+  --credit-edge: rgba(37, 224, 99, 0.36);
+  --debit-wash: rgba(255, 105, 105, 0.14);
+  --debit-edge: rgba(255, 105, 105, 0.34);
 
   /* Brand accent (selected day, primary action) */
   --accent-from: #FF97A8;
