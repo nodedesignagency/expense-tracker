@@ -42,18 +42,43 @@
   border-radius: 47.38px;
   color: var(--text-dim);
   font: var(--t-nav);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+  transition: color var(--dur) var(--ease);
 }
 
+/*
+ * Active state, per the Figma panel: linear FFFFFF 25% -> 12% at 100% over the
+ * backdrop — no solid fill underneath — with a 1.48 inside stroke and the Glass
+ * effect (frost 134.74, so a heavier blur than the other glass surfaces).
+ */
 .nav__item[data-active='true'] {
+  position: relative;
+  isolation: isolate;
   width: auto;
   padding: 0 11.85px;
-  background-color: var(--glass-base-raised);
   background-image: var(--glass-fill-raised);
+  backdrop-filter: blur(var(--glass-blur-strong));
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong));
   color: var(--text);
   box-shadow: inset 0 0 0 1.48px var(--glass-stroke);
+}
+
+.nav__item[data-active='true']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1.48px;
+  background: var(--glass-rim-raised);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 .nav__item[data-active='true'] svg {
@@ -70,13 +95,7 @@
   height: 40px;
   flex: 0 0 auto;
   border-radius: 69.19px;
-  background: radial-gradient(
-    72% 122% at 56% 55%,
-    #FF1B43 0%,
-    #FF3A5D 24%,
-    #FF7891 60%,
-    #FFB8C6 100%
-  );
+  background: var(--accent-radial);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25), 0 8px 24px var(--accent-glow);
   color: #fff;
   font: var(--t-nav);

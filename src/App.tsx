@@ -25,6 +25,7 @@ function Shell() {
           <div className="phone__spacer" />
         </main>
 
+        <div className="phone__scrim" aria-hidden="true" />
         <BottomNav />
         <Composer />
         <DetailSheet />

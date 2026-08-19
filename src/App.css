@@ -31,6 +31,21 @@
   display: none;
 }
 
+/*
+ * Spec: a 163-tall scrim across the bottom, transparent to #040404 by 78%, so
+ * the nav stays legible over whatever is scrolling underneath it.
+ */
+.phone__scrim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 163px;
+  z-index: 15;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(4, 4, 4, 0) 0%, #040404 78%);
+}
+
 .phone__spacer {
   height: calc(var(--nav-h) + 34px);
 }
