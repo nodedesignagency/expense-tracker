@@ -1,16 +1,17 @@
-import type { ReactNode } from 'react'
-import type { StyleProp, ViewStyle } from 'react-native'
+import { useState, type ReactNode } from 'react'
+import { StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import { RIM_STOPS, RIM_WIDTH, lightAxis, type Gradient } from '../theme'
+import Svg, { Defs, LinearGradient as SvgGradient, Rect, Stop } from 'react-native-svg'
+import { RIM_DEG, RIM_STOPS, RIM_WIDTH, axisFor, type Fill, type Gradient } from '../theme'
 
 /** A rim over nothing: the surface stays whatever is behind it. */
-const TRANSPARENT: Gradient = ['transparent', 'transparent']
+const TRANSPARENT: Fill = { colors: ['transparent', 'transparent'], deg: RIM_DEG }
 
 interface GlassProps {
   /** The rim ramp — one of theme.rim. */
   rim: Gradient
   /** The surface under it — one of theme.fill. Omit for a rim over nothing. */
-  fill?: Gradient
+  fill?: Fill
   radius: number
   /**
    * Nominal size of the panel. Only the ratio matters: it keeps the light on
@@ -29,12 +30,20 @@ interface GlassProps {
 }
 
 /**
- * A pane of glass: a gradient ring with the surface sitting inside it.
+ * A pane of glass: a surface with a gradient rim traced around its edge.
  *
- * The web build masks a 1px band out of a gradient with mask-composite, which
- * React Native has no equivalent for. Nesting gets to the same place — the
- * outer gradient shows through as a RIM_WIDTH band around the inner one — and
- * costs one extra view rather than an offscreen mask pass.
+ * The web build masks a 1px band out of a gradient with mask-composite. React
+ * Native has no equivalent, and the obvious substitute — nesting a gradient
+ * inside a gradient, 1px of padding apart — does not survive the corners: a
+ * rounded rect inset by 1 is not the same curve as the outer one inset by 1,
+ * so the band pinches through each arc and reads as a broken edge rather than
+ * a continuous one. It also leans on two rounded rects anti-aliasing against
+ * each other, which Android does badly.
+ *
+ * Stroking the shape once solves both. The rim is a single SVG rounded rect
+ * with a gradient stroke, so it has the same width the whole way round, the
+ * corners are one continuous curve, and the anti-aliasing is the renderer's
+ * own. It needs the measured size, hence the onLayout.
  */
 export function Glass({
   rim,
@@ -48,31 +57,91 @@ export function Glass({
   accessibilityLabel,
   children,
 }: GlassProps) {
-  const axis = lightAxis(w, h)
+  const [size, setSize] = useState({ width: 0, height: 0 })
+  const surface = fill ?? TRANSPARENT
+  const fillAxis = axisFor(surface.deg, w, h)
+  const rimAxis = axisFor(RIM_DEG, w, h)
+
+  const onLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout
+    setSize((prev) =>
+      Math.abs(prev.width - width) < 0.5 && Math.abs(prev.height - height) < 0.5
+        ? prev
+        : { width, height },
+    )
+  }
+
   return (
-    <LinearGradient
-      colors={rim}
-      locations={RIM_STOPS}
-      start={axis.start}
-      end={axis.end}
-      style={[{ borderRadius: radius, padding: RIM_WIDTH }, style]}
+    <View
+      style={[{ borderRadius: radius, overflow: 'hidden' }, style]}
+      onLayout={onLayout}
       accessibilityLabel={accessibilityLabel}
     >
       <LinearGradient
-        colors={fill ?? TRANSPARENT}
-        start={axis.start}
-        end={axis.end}
-        style={[
-          {
-            borderRadius: Math.max(radius - RIM_WIDTH, 0),
-            overflow: 'hidden',
-          },
-          stretch ? { flex: 1 } : null,
-          innerStyle,
-        ]}
-      >
-        {children}
-      </LinearGradient>
-    </LinearGradient>
+        colors={surface.colors}
+        start={fillAxis.start}
+        end={fillAxis.end}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <View style={[stretch ? styles.fill : null, innerStyle]}>{children}</View>
+
+      {size.width > 0 ? (
+        <Rim {...size} radius={radius} rim={rim} axis={rimAxis} />
+      ) : null}
+    </View>
   )
 }
+
+interface RimProps {
+  width: number
+  height: number
+  radius: number
+  rim: Gradient
+  axis: ReturnType<typeof axisFor>
+}
+
+let seq = 0
+
+function Rim({ width, height, radius, rim, axis }: RimProps) {
+  /*
+   * Half a unit in from each edge, so the stroke sits wholly inside the shape
+   * rather than straddling the boundary and being clipped to half its width.
+   */
+  const half = RIM_WIDTH / 2
+  const id = `rim${(seq += 1)}`
+
+  return (
+    <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Defs>
+        <SvgGradient
+          id={id}
+          gradientUnits="userSpaceOnUse"
+          x1={axis.start.x * width}
+          y1={axis.start.y * height}
+          x2={axis.end.x * width}
+          y2={axis.end.y * height}
+        >
+          {rim.map((stopColor, i) => (
+            <Stop key={i} offset={RIM_STOPS[i] ?? i / (rim.length - 1)} stopColor={stopColor} />
+          ))}
+        </SvgGradient>
+      </Defs>
+      <Rect
+        x={half}
+        y={half}
+        width={Math.max(width - RIM_WIDTH, 0)}
+        height={Math.max(height - RIM_WIDTH, 0)}
+        rx={Math.max(radius - half, 0)}
+        ry={Math.max(radius - half, 0)}
+        fill="none"
+        stroke={`url(#${id})`}
+        strokeWidth={RIM_WIDTH}
+      />
+    </Svg>
+  )
+}
+
+const styles = StyleSheet.create({
+  fill: { flex: 1 },
+})

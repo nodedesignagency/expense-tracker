@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { formatTime } from '../lib/dates'
 import { formatMoney, formatSigned } from '../lib/money'
 import type { Transaction } from '../lib/types'
-import { color, fill, lightAxis, metric, radius, rim, type } from '../theme'
+import { axisFor, color, fill, metric, radius, rim, sp, type } from '../theme'
 import { Avatar } from './Avatar'
 import { Glass } from './Glass'
 
@@ -19,7 +19,7 @@ const CARD_H = 128
 export function TransactionCard({ transaction, onOpen }: Props) {
   const { name, brand, direction, amountCents, balanceCents, category, method, time } = transaction
   const railLabel = direction === 'debit' ? 'Debited by' : 'Credited by'
-  const chipAxis = lightAxis(48, 26)
+  const chipAxis = axisFor(fill.chip.deg, 48, 26)
 
   return (
     <Pressable accessibilityRole="button" onPress={() => onOpen?.(transaction.id)}>
@@ -35,7 +35,7 @@ export function TransactionCard({ transaction, onOpen }: Props) {
         >
           <View style={s.top}>
             <View style={s.who}>
-              <Avatar brand={brand} size={44} />
+              <Avatar brand={brand} size={sp(44)} />
               <View style={s.identity}>
                 <Text style={s.name} numberOfLines={1}>
                   {name}
@@ -69,7 +69,7 @@ export function TransactionCard({ transaction, onOpen }: Props) {
 
           <View style={s.meta}>
             <LinearGradient
-              colors={fill.chip}
+              colors={fill.chip.colors}
               start={chipAxis.start}
               end={chipAxis.end}
               style={s.chip}
@@ -85,13 +85,13 @@ export function TransactionCard({ transaction, onOpen }: Props) {
 }
 
 const s = StyleSheet.create({
-  inner: { padding: 18, gap: 10 },
+  inner: { padding: sp(18), gap: sp(10) },
   top: { flexDirection: 'row', alignItems: 'center', width: '100%' },
-  who: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1, minWidth: 0 },
-  identity: { gap: 8, alignItems: 'flex-start', flexShrink: 1, minWidth: 0 },
+  who: { flexDirection: 'row', alignItems: 'center', gap: sp(10), flexShrink: 1, minWidth: 0 },
+  identity: { gap: sp(8), alignItems: 'flex-start', flexShrink: 1, minWidth: 0 },
   name: { ...type.name, color: color.text },
   rail: { ...type.figure, color: color.textSoft },
-  figures: { flex: 1, gap: 8, alignItems: 'flex-end', justifyContent: 'center' },
+  figures: { flex: 1, gap: sp(8), alignItems: 'flex-end', justifyContent: 'center' },
   amount: { ...type.amount },
   balance: { ...type.figure, color: color.textSoft },
   rule: { width: '100%', height: 1 },
@@ -102,8 +102,8 @@ const s = StyleSheet.create({
     width: '100%',
   },
   chip: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingVertical: sp(6),
+    paddingHorizontal: sp(8),
     borderRadius: radius.chip,
     borderWidth: 1,
     borderColor: color.strokeChip,

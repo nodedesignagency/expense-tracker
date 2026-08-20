@@ -2,7 +2,7 @@ import type { ComponentType } from 'react'
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import { HOME_GLYPH_SRC } from '../assets/registry'
 import { useAppState, useDispatch, type Tab } from '../store'
-import { color, fill, metric, radius, rim, type } from '../theme'
+import { color, fill, metric, radius, rim, sp, type } from '../theme'
 import { AccentFill } from './Accent'
 import { Glass } from './Glass'
 import { ChartIcon, PlusIcon, SettingsIcon } from './Icons'
@@ -27,7 +27,7 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
   const dispatch = useDispatch()
 
   return (
-    <View style={[s.nav, { bottom: 24 + inset }]} pointerEvents="box-none">
+    <View style={[s.nav, { bottom: sp(24) + inset }]} pointerEvents="box-none">
       <View style={s.group}>
         {TABS.map(({ id, label, art, Icon }) => {
           const active = tab === id
@@ -37,7 +37,7 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
                 /* The 3D house is drawn oversized and spills past its box. */
                 <Image source={art} style={s.glyphArt} resizeMode="contain" />
               ) : Icon ? (
-                <Icon size={16} color={color.text} />
+                <Icon size={sp(16)} color={color.text} />
               ) : null}
             </View>
           )
@@ -53,7 +53,7 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
               {active ? (
                 <Glass
                   rim={rim.raised}
-                  fill={fill.raised}
+                  fill={fill.navRaised}
                   radius={metric.navH / 2}
                   w={96}
                   h={metric.navH}
@@ -79,9 +79,9 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
         onPress={() => dispatch({ type: 'openComposer' })}
         style={s.add}
       >
-        <AccentFill width={84} height={metric.navH} />
+        <AccentFill width={sp(84)} height={metric.navH} />
         <View style={s.addContent}>
-          <PlusIcon size={12} color={color.text} />
+          <PlusIcon size={sp(12)} color={color.text} />
           <Text style={s.addLabel}>Add</Text>
         </View>
       </Pressable>
@@ -98,10 +98,10 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: sp(12),
     zIndex: 20,
   },
-  group: { flexDirection: 'row', alignItems: 'center', gap: 5.923 },
+  group: { flexDirection: 'row', alignItems: 'center', gap: sp(5.923) },
   item: {
     width: metric.navH,
     height: metric.navH,
@@ -113,14 +113,14 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5.923,
-    paddingHorizontal: 11.845,
+    gap: sp(5.923),
+    paddingHorizontal: sp(11.845),
   },
   itemLabel: { ...type.nav, color: color.textBright },
-  glyph: { width: 16, height: 16, alignItems: 'center', justifyContent: 'center' },
-  glyphArt: { width: 44, height: 29 },
+  glyph: { width: sp(16), height: sp(16), alignItems: 'center', justifyContent: 'center' },
+  glyphArt: { width: sp(44), height: sp(29) },
   add: {
-    width: 84,
+    width: sp(84),
     height: metric.navH,
     borderRadius: radius.pill,
     borderWidth: 1,
@@ -129,13 +129,13 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: sp(4),
   },
   addContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: sp(4),
     zIndex: 1,
   },
-  addLabel: { ...type.nav, fontSize: 14, color: color.text },
+  addLabel: { ...type.nav, fontSize: sp(14), color: color.text },
 })

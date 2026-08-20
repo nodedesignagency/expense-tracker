@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { dayOfMonth, weekdayShort, weekOf } from '../lib/dates'
 import { useAppState, useDispatch, useToday } from '../store'
-import { color, fill, metric, rim, type } from '../theme'
+import { color, fill, metric, rim, sp, type } from '../theme'
 import { AccentFill } from './Accent'
 import { Glass } from './Glass'
 
@@ -97,7 +97,7 @@ const s = StyleSheet.create({
     marginTop: metric.rhythm,
     marginHorizontal: metric.gutter,
   },
-  day: { alignItems: 'center', gap: 8, width: 37 },
+  day: { alignItems: 'center', gap: sp(8), width: sp(37) },
   label: { ...type.weekday, color: color.text, textAlign: 'center' },
   circle: {
     width: metric.day,
@@ -109,7 +109,7 @@ const s = StyleSheet.create({
   },
   circleAccent: { borderWidth: 1, borderColor: color.strokeAccent },
   circleFuture: {
-    borderWidth: 1.143,
+    borderWidth: sp(1.143),
     borderColor: color.strokeDashed,
     borderStyle: 'dashed',
   },
@@ -117,5 +117,5 @@ const s = StyleSheet.create({
   centre: { alignItems: 'center', justifyContent: 'center' },
   /* The accent fill is absolute, so it paints over static siblings. */
   above: { zIndex: 1 },
-  rule: { width: 1, height: 41 },
+  rule: { width: 1, height: sp(41) },
 })

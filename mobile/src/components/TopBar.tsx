@@ -1,15 +1,15 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useAppState, useDispatch } from '../store'
 import type { Scope } from '../lib/types'
-import { color, fill, metric, radius, rim, type } from '../theme'
+import { color, fill, metric, radius, rim, sp, type } from '../theme'
 import { Glass } from './Glass'
 import { GridIcon, SearchIcon } from './Icons'
 
 const SCOPES: Scope[] = ['business', 'personal']
 
 /* Frame: View Toggle is 171 x 34, padding 4, two 79.5 halves with 4 between. */
-const TRACK_W = 171
-const HALF_W = (TRACK_W - 8 - 4) / 2
+const TRACK_W = sp(171)
+const HALF_W = (TRACK_W - sp(8) - sp(4)) / 2
 
 /** Scope switch on the left, three round utility actions on the right. */
 export function TopBar() {
@@ -30,15 +30,15 @@ export function TopBar() {
       >
         {/* The lit thumb slides between the halves. */}
         <View
-          style={[s.thumb, { left: scope === 'business' ? 3 : 3 + HALF_W + 4 }]}
+          style={[s.thumb, { left: scope === 'business' ? sp(3) : sp(3) + HALF_W + sp(4) }]}
           pointerEvents="none"
         >
           <Glass
             rim={rim.raised}
             fill={fill.raised}
-            radius={13}
+            radius={sp(13)}
             w={HALF_W}
-            h={26}
+            h={sp(26)}
             style={{ flex: 1 }}
             stretch
           />
@@ -52,7 +52,7 @@ export function TopBar() {
             style={[s.option, { width: HALF_W }]}
             onPress={() => dispatch({ type: 'setScope', scope: value })}
           >
-            <GridIcon size={14} color={color.text} />
+            <GridIcon size={sp(14)} color={color.text} />
             <Text style={s.optionText}>{value === 'business' ? 'Business' : 'Personal'}</Text>
           </Pressable>
         ))}
@@ -101,7 +101,7 @@ function RoundButton({ label, onPress, active, badge }: RoundButtonProps) {
             innerStyle={s.centre}
             stretch
           >
-            <SearchIcon size={20} color={color.text} />
+            <SearchIcon size={sp(20)} color={color.text} />
           </Glass>
           {badge ? (
             <View style={s.badge}>
@@ -119,46 +119,46 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: sp(10),
     paddingHorizontal: metric.gutter,
     paddingTop: metric.rhythm,
   },
   trackInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 3,
-    gap: 4,
+    padding: sp(3),
+    gap: sp(4),
   },
   thumb: {
     position: 'absolute',
-    top: 3,
-    bottom: 3,
+    top: sp(3),
+    bottom: sp(3),
     width: HALF_W,
   },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    height: 26,
+    gap: sp(4),
+    height: sp(26),
   },
   optionText: {
     ...type.chip,
     color: color.text,
   },
   centre: { alignItems: 'center', justifyContent: 'center' },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: sp(8) },
   badge: {
     position: 'absolute',
-    top: -3,
-    right: -3,
-    minWidth: 16,
-    height: 16,
-    paddingHorizontal: 4,
+    top: sp(-3),
+    right: sp(-3),
+    minWidth: sp(16),
+    height: sp(16),
+    paddingHorizontal: sp(4),
     borderRadius: radius.pill,
     backgroundColor: color.accentSolid,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { fontFamily: 'SFRounded-700', fontSize: 10.5, color: '#fff' },
+  badgeText: { fontFamily: 'SFRounded-700', fontSize: sp(10.5), color: '#fff' },
 })
