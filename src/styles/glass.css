@@ -41,36 +41,10 @@
   pointer-events: none;
 }
 
-/*
- * Card glass: the surface used by the balance and entry cards. Same stops as
- * the base surface but at 70% fill opacity, with a 0.91 inside stroke at 8%.
- */
+/* Card glass: fill FFFFFF 8% -> 1% at 70%, with a 0.91 inside stroke at 8%. */
 .glass--card {
   background-image: var(--glass-fill-70);
   box-shadow: inset 0 0 0 0.91px var(--glass-stroke-card);
-}
-
-/*
- * Card glass: fill FFFFFF 8% -> 1% at 70%, with a 0.91 inside stroke at 8%.
- * Corners are squircled where the browser supports it — the reference uses
- * Figma's corner smoothing, which reads rounder than a plain radius.
- */
-.glass--card {
-  background-image: var(--glass-fill-70);
-  box-shadow: inset 0 0 0 0.91px var(--glass-stroke-card);
-}
-
-/*
- * Cards only — a squircle on a circle or a pill just deforms it.
- * The rim pseudo-element has to take the same corner shape: it inherits the
- * radius but not the shape, so a squircled card with a round rim draws two
- * different curves at every corner.
- */
-@supports (corner-shape: squircle) {
-  .glass--card,
-  .glass--card::before {
-    corner-shape: squircle;
-  }
 }
 
 /* Raised glass: the lit state — a brighter fill over a visible white stroke. */

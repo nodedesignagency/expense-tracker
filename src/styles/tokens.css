@@ -42,7 +42,8 @@
 
   /* Layout */
   --app-w: 393px;
-  --gutter: 20px;
+  /* 393 - 2 x 24 = 345, the card width in the spec. */
+  --gutter: 24px;
   --nav-h: 64px;
 
   /*
