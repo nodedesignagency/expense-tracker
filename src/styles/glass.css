@@ -41,8 +41,9 @@
   pointer-events: none;
 }
 
-/* Card glass: fill FFFFFF 8% -> 1% at 70%, with a 0.91 inside stroke at 8%. */
+/* Card glass: the gradient carries the whole surface — no base underneath. */
 .glass--card {
+  background-color: transparent;
   background-image: var(--glass-fill-70);
   box-shadow: inset 0 0 0 0.91px var(--glass-stroke-card);
 }

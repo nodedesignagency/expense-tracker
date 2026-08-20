@@ -62,7 +62,9 @@
   --glass-fill: linear-gradient(135deg, rgba(255, 255, 255, 0.016), rgba(255, 255, 255, 0.002));
   --glass-fill-raised: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.12));
   /* Cards and chips carry the same stops at 70% fill opacity. */
-  --glass-fill-70: linear-gradient(135deg, rgba(255, 255, 255, 0.056), rgba(255, 255, 255, 0.007));
+  /* Figma's Glass lifts the whole panel, not just the lit corner, so the dark
+     end of the ramp sits well above transparent. */
+  --glass-fill-70: linear-gradient(135deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.035));
   --glass-stroke-card: rgba(255, 255, 255, 0.08);
   --glass-stroke: rgba(255, 255, 255, 0.16);
   --glass-blur: 15.6px;
