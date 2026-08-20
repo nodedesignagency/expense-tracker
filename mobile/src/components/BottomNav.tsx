@@ -1,20 +1,14 @@
-import { useEffect, useState, type ComponentType } from 'react'
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type ImageSourcePropType,
-  type LayoutChangeEvent,
-} from 'react-native'
+import { useEffect, type ComponentType } from 'react'
+import { Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native'
 import Animated, {
   interpolate,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated'
 import { useAppState, useDispatch, type Tab } from '../store'
-import { EASE_ENTER, EASE_MOVE, MOVE, PRESS, SWAP } from '../motion'
+import { EASE_ENTER, EASE_MOVE, MOVE, PRESS } from '../motion'
 import { color, fill, metric, radius, rim, sp, type } from '../theme'
 import { AccentFill } from './Accent'
 import { Glass } from './Glass'
@@ -36,46 +30,64 @@ const TABS: TabDef[] = [
   { id: 'settings', label: 'Settings', Icon: SettingsIcon, art: require('../../assets/nav/settings-3d.png') },
 ]
 
-/* Frame: the pill pads 11.845 and sets the glyph 5.923 from its label. */
-const PAD = sp(11.845)
+const ITEM = metric.navH
 const GAP = sp(5.923)
-const GLYPH = sp(20)
-/** Collapsed, the item is a circle with the glyph centred in it. */
-const TUCKED = (metric.navH - GLYPH) / 2
+/** Centre to centre, which is how far the pill travels per destination. */
+const STEP = ITEM + GAP
 
-/** Two floating groups: destinations pinned left, the primary action right. */
+/**
+ * Two floating groups: destinations pinned left, the primary action right.
+ *
+ * One pill, and it travels. Every destination is the same fixed-width circle,
+ * so nothing in the bar ever moves and the selection is a single shape sliding
+ * between them.
+ *
+ * The alternative — each destination carrying its own pill, opening and
+ * shutting — cannot be made coherent however well it is eased, because two
+ * shapes are changing at once and neither is the thing that moved. It also
+ * forces every neighbour sideways as the active one widens.
+ *
+ * That is what costs the labels. Holding a position fixed means reserving the
+ * label's width whether it is showing or not, and three reserved labels plus
+ * the Add button come to 354 against the 316 a 360pt screen has between its
+ * gutters. Icons alone need 209.
+ */
 export function BottomNav({ inset = 0 }: { inset?: number }) {
   const { tab } = useAppState()
   const dispatch = useDispatch()
-  const [labels, setLabels] = useState<Partial<Record<Tab, number>>>({})
 
-  const measure = (id: Tab) => (e: LayoutChangeEvent) => {
-    const { width } = e.nativeEvent.layout
-    setLabels((prev) => (prev[id] === width ? prev : { ...prev, [id]: width }))
-  }
+  const index = Math.max(0, TABS.findIndex((t) => t.id === tab))
+  const slide = useSharedValue(index)
+
+  useEffect(() => {
+    slide.set(withTiming(index, { duration: MOVE, easing: EASE_MOVE }))
+  }, [index, slide])
+
+  const travel = useAnimatedStyle(() => ({
+    transform: [{ translateX: slide.get() * STEP }],
+  }))
 
   return (
     <View style={[s.nav, { bottom: sp(24) + inset }]} pointerEvents="box-none">
-      {/*
-       * The pill has to know how wide its label is before it opens, or it can
-       * only snap. Measured once, off-screen, at natural size — inside the
-       * item the text would be squeezed by the very width being measured for.
-       */}
-      <View style={s.ruler} pointerEvents="none">
-        {TABS.map((def) => (
-          <Text key={def.id} style={s.itemLabel} numberOfLines={1} onLayout={measure(def.id)}>
-            {def.label}
-          </Text>
-        ))}
-      </View>
-
       <View style={s.group}>
-        {TABS.map((def) => (
+        <Animated.View style={[s.pill, travel]} pointerEvents="none">
+          <Glass
+            rim={rim.raised}
+            fill={fill.navRaised}
+            radius={ITEM / 2}
+            w={ITEM}
+            h={ITEM}
+            style={s.pillFill}
+            stretch
+          />
+        </Animated.View>
+
+        {TABS.map((def, i) => (
           <NavItem
             key={def.id}
             def={def}
-            active={tab === def.id}
-            labelWidth={labels[def.id] ?? 0}
+            index={i}
+            slide={slide}
             onPress={() => dispatch({ type: 'setTab', tab: def.id })}
           />
         ))}
@@ -100,91 +112,44 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
 
 interface NavItemProps {
   def: TabDef
-  active: boolean
-  labelWidth: number
+  index: number
+  slide: { get: () => number }
   onPress: () => void
 }
 
 /**
  * One destination.
  *
- * Two values rather than one. The pill's shape moves on screen and wants an
- * ease-in-out; the glyph enters and leaves and wants an ease-out. Sharing a
- * curve makes one of them wrong, and the swap was reading clunky because the
- * shape had the glyph's curve — most of a fifty-point width change landing in
- * the first few frames.
- *
- * The item's own width is never animated. Only the label's clip is, and the
- * row grows to fit it — one animated property instead of three kept in step,
- * and no chance of the padding and the width disagreeing mid-flight.
+ * Its glyph is not animated on its own clock — it reads how near the pill is.
+ * A tab a whole step away is fully idle, one the pill is sitting on is fully
+ * lit, and everything between follows the shape as it passes. That coupling is
+ * what makes the swap and the slide read as a single movement rather than two
+ * things that happen to start together.
  */
-function NavItem({ def, active, labelWidth, onPress }: NavItemProps) {
-  const move = useSharedValue(active ? 1 : 0)
-  const swap = useSharedValue(active ? 1 : 0)
+function NavItem({ def, index, slide, onPress }: NavItemProps) {
   const press = useSharedValue(0)
 
-  useEffect(() => {
-    const to = active ? 1 : 0
-    move.set(withTiming(to, { duration: MOVE, easing: EASE_MOVE }))
-    swap.set(withTiming(to, { duration: SWAP, easing: EASE_ENTER }))
-  }, [active, move, swap])
+  const swap = useDerivedValue(() => {
+    'worklet'
+    return 1 - Math.min(Math.abs(slide.get() - index), 1)
+  })
 
-  const shell = useAnimatedStyle(() => ({
-    paddingLeft: interpolate(move.get(), [0, 1], [TUCKED, PAD], 'clamp'),
-    paddingRight: interpolate(move.get(), [0, 1], [TUCKED, PAD], 'clamp'),
-    transform: [{ scale: interpolate(press.get(), [0, 1], [1, 0.97], 'clamp') }],
-  }))
-
-  const pill = useAnimatedStyle(() => ({ opacity: move.get() }))
-
-  /* The clip carries the gap, so it closes to nothing along with the label. */
-  const clip = useAnimatedStyle(() => ({
-    width: labelWidth ? interpolate(move.get(), [0, 1], [0, GAP + labelWidth], 'clamp') : 0,
-  }))
-
-  /* The label follows the glyph in rather than arriving with it. */
-  const label = useAnimatedStyle(() => ({
-    opacity: interpolate(swap.get(), [0.45, 1], [0, 1], 'clamp'),
+  const feedback = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(press.get(), [0, 1], [1, 0.94], 'clamp') }],
   }))
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ selected: active }}
+      accessibilityState={{ selected: index === Math.round(slide.get()) }}
       accessibilityLabel={def.label}
       onPress={onPress}
       onPressIn={() => press.set(withTiming(1, { duration: PRESS, easing: EASE_ENTER }))}
       onPressOut={() => press.set(withTiming(0, { duration: PRESS, easing: EASE_ENTER }))}
       hitSlop={8}
     >
-      <Animated.View style={[s.item, shell]}>
-        <Animated.View style={[StyleSheet.absoluteFill, pill]} pointerEvents="none">
-          <Glass
-            rim={rim.raised}
-            fill={fill.navRaised}
-            radius={metric.navH / 2}
-            w={96}
-            h={metric.navH}
-            style={s.pill}
-            stretch
-          />
-        </Animated.View>
-
+      <Animated.View style={[s.item, feedback]}>
         <NavGlyph swap={swap} Icon={def.Icon} art={def.art} />
-
-        {/*
-         * Only the label is clipped. The item cannot be, because the bloom
-         * behind the glyph is wider than the pill is tall and would be sliced
-         * flat top and bottom.
-         */}
-        <Animated.View style={[s.labelClip, clip]}>
-          <Animated.Text
-            style={[s.itemLabel, label, { marginLeft: GAP, width: labelWidth || undefined }]}
-            numberOfLines={1}
-          >
-            {def.label}
-          </Animated.Text>
-        </Animated.View>
       </Animated.View>
     </Pressable>
   )
@@ -202,18 +167,15 @@ const s = StyleSheet.create({
     gap: sp(12),
     zIndex: 20,
   },
-  ruler: { position: 'absolute', left: -9999, top: 0, flexDirection: 'row', opacity: 0 },
   group: { flexDirection: 'row', alignItems: 'center', gap: GAP },
+  pill: { position: 'absolute', left: 0, top: 0, width: ITEM, height: ITEM },
+  pillFill: { flex: 1 },
   item: {
-    minWidth: metric.navH,
-    height: metric.navH,
-    flexDirection: 'row',
+    width: ITEM,
+    height: ITEM,
     alignItems: 'center',
-    borderRadius: metric.navH / 2,
+    justifyContent: 'center',
   },
-  pill: { flex: 1 },
-  labelClip: { overflow: 'hidden', justifyContent: 'center', height: '100%' },
-  itemLabel: { ...type.nav, color: color.textBright },
   add: {
     width: sp(84),
     height: metric.navH,
