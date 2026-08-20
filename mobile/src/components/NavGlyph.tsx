@@ -1,26 +1,26 @@
-import { useEffect, useRef } from 'react'
 import { Animated, Image, StyleSheet, type ImageSourcePropType } from 'react-native'
 import { color, sp } from '../theme'
 
 /*
- * Measured off the reference recording, frame by frame: the swap is a straight
- * crossfade, about 200ms in each direction. The silhouette holds its height
- * the whole way through and there is no overshoot — the 3D artwork simply
- * reads wider than the outline, which is what makes it look like a pop. So no
- * spring, no scale. Adding one would be louder than the thing being copied.
+ * Sizes. The outline sits on a 16 grid but reads small against the pill, so it
+ * is drawn at 20.
+ *
+ * The 3D box is not the same number as the artwork inside it. These renders
+ * carry transparent margin — the current set fills 78-84% of its 64px canvas —
+ * so a box matched to the outline would land the visible art well under it.
+ * 27 puts roughly 23 of actual artwork on screen, a little over the outline,
+ * which is the relationship the reference has.
  */
-const DURATION = 200
+const FLAT = 20
+const DIMENSIONAL = 27
 
-/*
- * The 3D render is drawn larger than the flat glyph, as the reference does —
- * the outline sits on a 16 grid and the render spans nearer 23 of it — and it
- * is allowed to spill past the glyph box rather than being boxed in.
- */
-const FLAT = 16
-const DIMENSIONAL = 23
+/** How far the outline dims when idle — the frame's own value for a nav item. */
+const IDLE = 0.72
 
 interface NavGlyphProps {
-  active: boolean
+  /** 0 idle, 1 selected. Driven by the tab, so the glyph holds no state of
+   *  its own — it used to, and lost it every time the tab rebuilt. */
+  lit: Animated.Value
   /** The outline, shown when the tab is idle. */
   Icon: React.ComponentType<{ size?: number; color?: string }>
   /** The 3D render, shown when it is selected. */
@@ -28,20 +28,15 @@ interface NavGlyphProps {
 }
 
 /** One tab's icon: outline and 3D render, crossfading on selection. */
-export function NavGlyph({ active, Icon, art }: NavGlyphProps) {
-  const lit = useRef(new Animated.Value(active ? 1 : 0)).current
-
-  useEffect(() => {
-    Animated.timing(lit, {
-      toValue: active ? 1 : 0,
-      duration: DURATION,
-      useNativeDriver: true,
-    }).start()
-  }, [active, lit])
-
+export function NavGlyph({ lit, Icon, art }: NavGlyphProps) {
   return (
     <Animated.View style={styles.box}>
-      <Animated.View style={[styles.layer, { opacity: lit.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }]}>
+      <Animated.View
+        style={[
+          styles.layer,
+          { opacity: lit.interpolate({ inputRange: [0, 1], outputRange: [IDLE, 0] }) },
+        ]}
+      >
         <Icon size={sp(FLAT)} color={color.text} />
       </Animated.View>
 
@@ -64,8 +59,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   /*
-   * Both layers sit on the same centre and are free to overflow the box, so
-   * the larger render is not cropped to the outline's footprint.
+   * Both layers share a centre and may overflow the box, so the larger render
+   * is not cropped to the outline's footprint.
    */
   layer: {
     ...StyleSheet.absoluteFillObject,
