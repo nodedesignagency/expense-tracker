@@ -17,6 +17,9 @@ export const REFERENCE = {
 
 const PERSONAL_NET_CENTS = 1_248_000
 
+/** Generated entries that share the current day with the authored pair. */
+const TODAY_FILL = 3
+
 /** Two authored entries so the current day matches the design frame exactly. */
 const HERO_ROWS: Transaction[] = [
   {
@@ -102,10 +105,27 @@ function buildScope(scope: Scope): Transaction[] {
     // Business history stops the day before, so the current day is exactly the
     // two authored entries — the pair the design frame shows.
     endDate: isBusiness ? addDays(TODAY_ISO, -1) : TODAY_ISO,
-    count: isBusiness ? REFERENCE.entryCount - HERO_ROWS.length : 186,
+    count: isBusiness ? REFERENCE.entryCount - HERO_ROWS.length - TODAY_FILL : 186,
   })
 
-  const rows = sortChronological(isBusiness ? [...generated, ...HERO_ROWS] : generated)
+  /*
+   * A few more entries land on the current day, drawn before the authored pair
+   * so those two still lead the list the way the frame shows them.
+   */
+  const todayRows = isBusiness
+    ? generateTransactions({
+        scope,
+        seed: 5120260,
+        startDate: TODAY_ISO,
+        endDate: TODAY_ISO,
+        count: TODAY_FILL,
+        hours: [6, 8],
+      })
+    : []
+
+  const rows = sortChronological(
+    isBusiness ? [...generated, ...todayRows, ...HERO_ROWS] : generated,
+  )
 
   if (isBusiness) {
     calibrateMonth(rows, REFERENCE.month, {

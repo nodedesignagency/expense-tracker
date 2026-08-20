@@ -1,6 +1,6 @@
 import { useAppState, useDispatch } from '../store'
 import type { Scope } from '../lib/types'
-
+import { GridIcon, SearchIcon } from './Icons'
 import './TopBar.css'
 
 const SCOPES: Scope[] = ['business', 'personal']
@@ -23,7 +23,7 @@ export function TopBar() {
             data-active={scope === value}
             onClick={() => dispatch({ type: 'setScope', scope: value })}
           >
-            <img src="/icons/grid.svg" alt="" width={14} height={14} />
+            <GridIcon size={14} />
             <span>{value === 'business' ? 'Business' : 'Personal'}</span>
           </button>
         ))}
@@ -35,7 +35,7 @@ export function TopBar() {
           active={searchOpen}
           onClick={() => dispatch({ type: 'toggleSearch' })}
         >
-          <img src="/icons/search.svg" alt="" width={20} height={20} />
+          <SearchIcon size={20} />
         </RoundButton>
         <RoundButton
           label="Filter by category"
@@ -43,13 +43,13 @@ export function TopBar() {
           badge={categories.length || undefined}
           onClick={() => dispatch({ type: 'toggleFilter' })}
         >
-          <img src="/icons/search.svg" alt="" width={20} height={20} />
+          <SearchIcon size={20} />
         </RoundButton>
         <RoundButton
           label="Jump to today"
           onClick={() => dispatch({ type: 'selectDate', date: null })}
         >
-          <img src="/icons/search.svg" alt="" width={20} height={20} />
+          <SearchIcon size={20} />
         </RoundButton>
       </div>
     </div>

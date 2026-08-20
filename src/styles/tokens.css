@@ -91,19 +91,19 @@
   --glass-frost-strong: 22px;
   --glass-rim: linear-gradient(
     148deg,
-    rgba(255, 255, 255, 0.4) 0%,
-    rgba(255, 255, 255, 0.1) 24%,
-    rgba(255, 255, 255, 0.015) 50%,
-    rgba(255, 255, 255, 0.09) 74%,
-    rgba(255, 255, 255, 0.3) 100%
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(255, 255, 255, 0.045) 26%,
+    rgba(255, 255, 255, 0) 52%,
+    rgba(255, 255, 255, 0.035) 76%,
+    rgba(255, 255, 255, 0.12) 100%
   );
   --glass-rim-raised: linear-gradient(
     148deg,
-    rgba(255, 255, 255, 0.6) 0%,
-    rgba(255, 255, 255, 0.14) 26%,
-    rgba(255, 255, 255, 0.02) 52%,
-    rgba(255, 255, 255, 0.12) 76%,
-    rgba(255, 255, 255, 0.42) 100%
+    rgba(255, 255, 255, 0.26) 0%,
+    rgba(255, 255, 255, 0.07) 28%,
+    rgba(255, 255, 255, 0) 54%,
+    rgba(255, 255, 255, 0.055) 78%,
+    rgba(255, 255, 255, 0.18) 100%
   );
 
   /* The accent: a radial ramp from saturated core to pale rim. */
@@ -121,8 +121,8 @@
   /* Rules: white, transparent at both ends, carried on plus-lighter. */
   --rule-peak: rgba(255, 255, 255, 0.12);
   --rule-fade: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, var(--rule-peak) 50%, rgba(255, 255, 255, 0) 100%);
-  --rule-fade-in: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, var(--rule-peak) 100%);
-  --rule-fade-out: linear-gradient(90deg, var(--rule-peak) 0%, rgba(255, 255, 255, 0) 100%);
+  --rule-fade-in: var(--rule-fade);
+  --rule-fade-out: var(--rule-fade);
 
   /* Radii */
   --r-card: 32px;

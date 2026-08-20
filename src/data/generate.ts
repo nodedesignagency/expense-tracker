@@ -81,8 +81,8 @@ function drawAmountCents(party: Counterparty, rand: () => number): number {
   return Math.max(100, rounded * 100)
 }
 
-function drawTime(rand: () => number): string {
-  const hour = 7 + Math.floor(rand() * 14)
+function drawTime(rand: () => number, [from, to]: [number, number]): string {
+  const hour = from + Math.floor(rand() * Math.max(1, to - from))
   const minute = Math.floor(rand() * 12) * 5
   return `${`${hour}`.padStart(2, '0')}:${`${minute}`.padStart(2, '0')}`
 }
@@ -95,6 +95,8 @@ export interface GenerateOptions {
   /** Last day of history, inclusive. */
   endDate: string
   count: number
+  /** Clamps drawn times to this window, as 24h hours. Defaults to 7am–9pm. */
+  hours?: [number, number]
 }
 
 /**
@@ -107,11 +109,14 @@ export function generateTransactions({
   startDate,
   endDate,
   count,
+  hours = [7, 21],
 }: GenerateOptions): Transaction[] {
   const rand = lcg(seed)
   const book = scope === 'business' ? BUSINESS_BOOK : PERSONAL_BOOK
+  // A single-day window is span 0, not 1 — clamping up to 1 let entries land
+  // on the day after `endDate`.
   const span = Math.max(
-    1,
+    0,
     Math.round((Date.parse(endDate) - Date.parse(startDate)) / 86_400_000),
   )
 
@@ -132,7 +137,7 @@ export function generateTransactions({
       category: party.category,
       method: party.method,
       date: addDays(startDate, offset),
-      time: drawTime(rand),
+      time: drawTime(rand, hours),
     })
   }
 
