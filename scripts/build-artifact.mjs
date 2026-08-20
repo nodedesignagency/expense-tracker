@@ -23,14 +23,46 @@ if (!cssHref || !jsSrc) throw new Error('Could not find the built CSS/JS in dist
 const read = (assetPath) => readFile(resolve(DIST, assetPath.replace(/^\//, '')), 'utf8')
 
 let css = await read(cssHref)
-const js = await read(jsSrc)
+let js = await read(jsSrc)
 
-// Fonts become data URIs so the page needs no font host.
-for (const match of [...css.matchAll(/url\((\/fonts\/[^)]+\.woff2)\)/g)]) {
-  const [full, fontPath] = match
-  const bytes = await readFile(resolve(DIST, fontPath.replace(/^\//, '')))
-  css = css.replaceAll(full, `url(data:font/woff2;base64,${bytes.toString('base64')})`)
+const MIME = {
+  '.woff2': 'font/woff2',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
 }
+
+const dataUri = async (assetPath) => {
+  const bytes = await readFile(resolve(DIST, assetPath.replace(/^\//, '')))
+  const ext = assetPath.slice(assetPath.lastIndexOf('.')).toLowerCase()
+  return `data:${MIME[ext] ?? 'application/octet-stream'};base64,${bytes.toString('base64')}`
+}
+
+/*
+ * Every asset the page reaches for has to travel inside the file: the sandbox
+ * blocks external requests, so an un-inlined image renders as a broken icon.
+ * Fonts are referenced from the CSS; images are referenced from both the CSS
+ * and the JS bundle's string literals.
+ */
+const ASSET_REF = /["'(](\/(?:fonts|art|icons)\/[A-Za-z0-9._-]+)["')]/g
+
+const inlineAssets = async (source) => {
+  const seen = new Map()
+  for (const [, assetPath] of source.matchAll(ASSET_REF)) {
+    if (!seen.has(assetPath)) seen.set(assetPath, await dataUri(assetPath))
+  }
+  let out = source
+  for (const [assetPath, uri] of seen) out = out.replaceAll(assetPath, uri)
+  return { source: out, count: seen.size }
+}
+
+const cssInlined = await inlineAssets(css)
+css = cssInlined.source
+
+const jsInlined = await inlineAssets(js)
+js = jsInlined.source
 
 /** Keeps an inline <script> from being closed early by its own contents. */
 const escapeForInlineScript = (source) =>
@@ -50,4 +82,7 @@ ${escapeForInlineScript(js)}
 
 const target = resolve(DIST, 'artifact.html')
 await writeFile(target, out, 'utf8')
-console.log(`artifact.html  ${(Buffer.byteLength(out) / 1024).toFixed(0)} kB  ->  ${target}`)
+console.log(
+  `artifact.html  ${(Buffer.byteLength(out) / 1024).toFixed(0)} kB  ` +
+    `(${cssInlined.count + jsInlined.count} assets inlined)  ->  ${target}`,
+)

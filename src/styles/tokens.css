@@ -89,6 +89,17 @@
    */
   --glass-frost: 15.6px;
   --glass-frost-strong: 22px;
+  /*
+   * The lit edge is a pair of blurred inner shadows, not a drawn line: light
+   * from the upper left, a fainter bounce from the lower right. A masked 1px
+   * ring read as a second stroke sitting on top of the hairline.
+   */
+  --glass-light:
+    inset 1.5px 1.5px 3px rgba(255, 255, 255, 0.05),
+    inset -1.5px -1.5px 3px rgba(255, 255, 255, 0.028);
+  --glass-light-strong:
+    inset 1.5px 1.5px 4px rgba(255, 255, 255, 0.09),
+    inset -1.5px -1.5px 4px rgba(255, 255, 255, 0.05);
   --glass-rim: linear-gradient(
     148deg,
     rgba(255, 255, 255, 0.16) 0%,
