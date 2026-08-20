@@ -103,6 +103,26 @@ interface RimProps {
 
 let seq = 0
 
+/*
+ * SVG has no alpha in stop-color: it carries opacity in stop-opacity, as a
+ * separate attribute. A browser will take rgba() there anyway and apply the
+ * alpha, which is what react-native-web hands to the DOM — but Android's
+ * parser reads the channels and drops the fourth, so every stop paints at
+ * full strength. A 30% rim comes out solid white, and the panel reads as a
+ * hard outline instead of a lit edge.
+ */
+function splitAlpha(css: string): { color: string; opacity: number } {
+  const match = /^rgba?\(([^)]+)\)$/i.exec(css.trim())
+  if (!match) return { color: css, opacity: 1 }
+
+  const parts = match[1].split(',').map((part) => part.trim())
+  const alpha = parts.length > 3 ? Number(parts[3]) : 1
+  return {
+    color: `rgb(${parts.slice(0, 3).join(',')})`,
+    opacity: Number.isFinite(alpha) ? alpha : 1,
+  }
+}
+
 function Rim({ width, height, radius, rim, axis }: RimProps) {
   /*
    * Half a unit in from each edge, so the stroke sits wholly inside the shape
@@ -122,9 +142,17 @@ function Rim({ width, height, radius, rim, axis }: RimProps) {
           x2={axis.end.x * width}
           y2={axis.end.y * height}
         >
-          {rim.map((stopColor, i) => (
-            <Stop key={i} offset={RIM_STOPS[i] ?? i / (rim.length - 1)} stopColor={stopColor} />
-          ))}
+          {rim.map((css, i) => {
+            const { color, opacity } = splitAlpha(css)
+            return (
+              <Stop
+                key={i}
+                offset={RIM_STOPS[i] ?? i / (rim.length - 1)}
+                stopColor={color}
+                stopOpacity={opacity}
+              />
+            )
+          })}
         </SvgGradient>
       </Defs>
       <Rect
