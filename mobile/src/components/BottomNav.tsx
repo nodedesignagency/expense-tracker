@@ -14,7 +14,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 import { useAppState, useDispatch, type Tab } from '../store'
-import { EASE_OUT, PRESS, SWAP } from '../motion'
+import { EASE_ENTER, EASE_MOVE, MOVE, PRESS, SWAP } from '../motion'
 import { color, fill, metric, radius, rim, sp, type } from '../theme'
 import { AccentFill } from './Accent'
 import { Glass } from './Glass'
@@ -57,10 +57,9 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
   return (
     <View style={[s.nav, { bottom: sp(24) + inset }]} pointerEvents="box-none">
       {/*
-       * The pill has to know how wide it is going to be before it opens, or
-       * its width can only snap. The labels are measured once, off-screen, at
-       * their natural size — inside the item they would be squeezed by the
-       * very width being measured for.
+       * The pill has to know how wide its label is before it opens, or it can
+       * only snap. Measured once, off-screen, at natural size — inside the
+       * item the text would be squeezed by the very width being measured for.
        */}
       <View style={s.ruler} pointerEvents="none">
         {TABS.map((def) => (
@@ -109,39 +108,43 @@ interface NavItemProps {
 /**
  * One destination.
  *
- * The pill and the label are drawn over a container that never changes type,
- * rather than the item being one component when idle and another when
- * selected. That distinction is the whole animation: swapping the element at
- * this position rebuilds everything under it, and the crossfade gets handed a
- * fresh value already sitting at its target, with nothing left to play.
+ * Two values rather than one. The pill's shape moves on screen and wants an
+ * ease-in-out; the glyph enters and leaves and wants an ease-out. Sharing a
+ * curve makes one of them wrong, and the swap was reading clunky because the
+ * shape had the glyph's curve — most of a fifty-point width change landing in
+ * the first few frames.
  *
- * Width is the one layout property worth animating here. It normally re-runs
- * layout for the node and its siblings every frame, which is why transform and
- * opacity are the defaults — but a pill is small, there are three of them, and
- * scaleX would smear the corner radius that makes it a pill at all.
+ * The item's own width is never animated. Only the label's clip is, and the
+ * row grows to fit it — one animated property instead of three kept in step,
+ * and no chance of the padding and the width disagreeing mid-flight.
  */
 function NavItem({ def, active, labelWidth, onPress }: NavItemProps) {
-  const lit = useSharedValue(active ? 1 : 0)
+  const move = useSharedValue(active ? 1 : 0)
+  const swap = useSharedValue(active ? 1 : 0)
   const press = useSharedValue(0)
 
   useEffect(() => {
-    lit.set(withTiming(active ? 1 : 0, { duration: SWAP, easing: EASE_OUT }))
-  }, [active, lit])
-
-  const open = PAD * 2 + GLYPH + GAP + labelWidth
-  const ready = labelWidth > 0
+    const to = active ? 1 : 0
+    move.set(withTiming(to, { duration: MOVE, easing: EASE_MOVE }))
+    swap.set(withTiming(to, { duration: SWAP, easing: EASE_ENTER }))
+  }, [active, move, swap])
 
   const shell = useAnimatedStyle(() => ({
-    width: ready ? interpolate(lit.get(), [0, 1], [metric.navH, open], 'clamp') : metric.navH,
-    paddingLeft: interpolate(lit.get(), [0, 1], [TUCKED, PAD], 'clamp'),
+    paddingLeft: interpolate(move.get(), [0, 1], [TUCKED, PAD], 'clamp'),
+    paddingRight: interpolate(move.get(), [0, 1], [TUCKED, PAD], 'clamp'),
     transform: [{ scale: interpolate(press.get(), [0, 1], [1, 0.97], 'clamp') }],
   }))
 
-  const pill = useAnimatedStyle(() => ({ opacity: lit.get() }))
+  const pill = useAnimatedStyle(() => ({ opacity: move.get() }))
+
+  /* The clip carries the gap, so it closes to nothing along with the label. */
+  const clip = useAnimatedStyle(() => ({
+    width: labelWidth ? interpolate(move.get(), [0, 1], [0, GAP + labelWidth], 'clamp') : 0,
+  }))
 
   /* The label follows the glyph in rather than arriving with it. */
   const label = useAnimatedStyle(() => ({
-    opacity: interpolate(lit.get(), [0.4, 1], [0, 1], 'clamp'),
+    opacity: interpolate(swap.get(), [0.45, 1], [0, 1], 'clamp'),
   }))
 
   return (
@@ -150,8 +153,8 @@ function NavItem({ def, active, labelWidth, onPress }: NavItemProps) {
       accessibilityState={{ selected: active }}
       accessibilityLabel={def.label}
       onPress={onPress}
-      onPressIn={() => press.set(withTiming(1, { duration: PRESS, easing: EASE_OUT }))}
-      onPressOut={() => press.set(withTiming(0, { duration: PRESS, easing: EASE_OUT }))}
+      onPressIn={() => press.set(withTiming(1, { duration: PRESS, easing: EASE_ENTER }))}
+      onPressOut={() => press.set(withTiming(0, { duration: PRESS, easing: EASE_ENTER }))}
       hitSlop={8}
     >
       <Animated.View style={[s.item, shell]}>
@@ -167,11 +170,21 @@ function NavItem({ def, active, labelWidth, onPress }: NavItemProps) {
           />
         </Animated.View>
 
-        <NavGlyph lit={lit} Icon={def.Icon} art={def.art} />
+        <NavGlyph swap={swap} Icon={def.Icon} art={def.art} />
 
-        <Animated.Text style={[s.itemLabel, label]} numberOfLines={1}>
-          {def.label}
-        </Animated.Text>
+        {/*
+         * Only the label is clipped. The item cannot be, because the bloom
+         * behind the glyph is wider than the pill is tall and would be sliced
+         * flat top and bottom.
+         */}
+        <Animated.View style={[s.labelClip, clip]}>
+          <Animated.Text
+            style={[s.itemLabel, label, { marginLeft: GAP, width: labelWidth || undefined }]}
+            numberOfLines={1}
+          >
+            {def.label}
+          </Animated.Text>
+        </Animated.View>
       </Animated.View>
     </Pressable>
   )
@@ -192,15 +205,14 @@ const s = StyleSheet.create({
   ruler: { position: 'absolute', left: -9999, top: 0, flexDirection: 'row', opacity: 0 },
   group: { flexDirection: 'row', alignItems: 'center', gap: GAP },
   item: {
+    minWidth: metric.navH,
     height: metric.navH,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: GAP,
-    /* Clips the label while the pill is shut. */
-    overflow: 'hidden',
     borderRadius: metric.navH / 2,
   },
   pill: { flex: 1 },
+  labelClip: { overflow: 'hidden', justifyContent: 'center', height: '100%' },
   itemLabel: { ...type.nav, color: color.textBright },
   add: {
     width: sp(84),
