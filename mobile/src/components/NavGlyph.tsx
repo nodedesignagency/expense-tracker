@@ -5,8 +5,11 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated'
 import {
+  ARRIVAL,
   ARRIVE_FROM,
   GLOW_SPREAD,
+  POP_FROM,
+  POP_OVER,
   TILT,
   TILT_FROM,
   TILT_PERSPECTIVE,
@@ -61,11 +64,21 @@ export function NavGlyph({ swap, Icon, art }: NavGlyphProps) {
 
   const dimensional = useAnimatedStyle(() => {
     const t = interpolate(swap.get(), [0.2, 1], [0, 1], 'clamp')
+    /*
+     * Pop carries the scale past full size and back. Shaped along the swap
+     * rather than sprung, because the swap is itself a position — how near the
+     * pill is — and a spring would run on its own clock and drift out of step
+     * with the shape that is driving it.
+     */
+    const scale =
+      ARRIVAL === 'pop'
+        ? interpolate(t, [0, 0.55, 1], [POP_FROM, POP_OVER, 1])
+        : interpolate(t, [0, 1], [ARRIVE_FROM, 1])
     return {
       opacity: t,
       transform: [
         { perspective: TILT_PERSPECTIVE },
-        { scale: interpolate(t, [0, 1], [ARRIVE_FROM, 1]) },
+        { scale },
         { rotateY: TILT ? `${interpolate(t, [0, 1], [TILT_FROM, 0])}deg` : '0deg' },
       ],
     }

@@ -30,27 +30,33 @@ const TABS: TabDef[] = [
   { id: 'settings', label: 'Settings', Icon: SettingsIcon, art: require('../../assets/nav/settings-3d.png') },
 ]
 
-const ITEM = metric.navH
+/*
+ * The label stacks under the glyph rather than sitting beside it, and that is
+ * a measurement, not a preference. A travelling pill needs every destination
+ * at a fixed position, which means each one reserves its label's width whether
+ * it is showing or not. Beside the glyph, the three labels — 35.8, 46.8 and
+ * 49.3 at this size — plus the Add button come to 367 against the 316 a 360pt
+ * screen has between its gutters. Stacked, the same three need 274.
+ */
+const ITEM_W = sp(58)
+const ITEM_H = sp(56)
 const GAP = sp(5.923)
 /** Centre to centre, which is how far the pill travels per destination. */
-const STEP = ITEM + GAP
+const STEP = ITEM_W + GAP
+
+/** The whole bar, so the scroll view knows how much room to leave under it. */
+export const NAV_HEIGHT = ITEM_H
 
 /**
  * Two floating groups: destinations pinned left, the primary action right.
  *
- * One pill, and it travels. Every destination is the same fixed-width circle,
- * so nothing in the bar ever moves and the selection is a single shape sliding
+ * One pill, and it travels. Every destination is the same fixed box, so
+ * nothing in the bar ever moves and the selection is a single shape sliding
  * between them.
  *
  * The alternative — each destination carrying its own pill, opening and
  * shutting — cannot be made coherent however well it is eased, because two
- * shapes are changing at once and neither is the thing that moved. It also
- * forces every neighbour sideways as the active one widens.
- *
- * That is what costs the labels. Holding a position fixed means reserving the
- * label's width whether it is showing or not, and three reserved labels plus
- * the Add button come to 354 against the 316 a 360pt screen has between its
- * gutters. Icons alone need 209.
+ * shapes change at once and neither is the thing that moved.
  */
 export function BottomNav({ inset = 0 }: { inset?: number }) {
   const { tab } = useAppState()
@@ -74,9 +80,9 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
           <Glass
             rim={rim.raised}
             fill={fill.navRaised}
-            radius={ITEM / 2}
-            w={ITEM}
-            h={ITEM}
+            radius={sp(20)}
+            w={ITEM_W}
+            h={ITEM_H}
             style={s.pillFill}
             stretch
           />
@@ -118,13 +124,16 @@ interface NavItemProps {
 }
 
 /**
- * One destination.
+ * One destination: glyph above its name.
  *
- * Its glyph is not animated on its own clock — it reads how near the pill is.
- * A tab a whole step away is fully idle, one the pill is sitting on is fully
- * lit, and everything between follows the shape as it passes. That coupling is
- * what makes the swap and the slide read as a single movement rather than two
- * things that happen to start together.
+ * Neither is animated on its own clock — both read how near the pill is. A tab
+ * a whole step away is idle, one the pill sits on is lit, and everything
+ * between follows the shape as it passes. That coupling is what makes the swap
+ * and the slide read as a single movement rather than two things that happen
+ * to start together.
+ *
+ * The name holds its space at every state and only changes opacity, so the row
+ * cannot shift as the selection moves.
  */
 function NavItem({ def, index, slide, onPress }: NavItemProps) {
   const press = useSharedValue(0)
@@ -136,6 +145,11 @@ function NavItem({ def, index, slide, onPress }: NavItemProps) {
 
   const feedback = useAnimatedStyle(() => ({
     transform: [{ scale: interpolate(press.get(), [0, 1], [1, 0.94], 'clamp') }],
+  }))
+
+  /* The name comes up behind the glyph, once the pill is most of the way in. */
+  const label = useAnimatedStyle(() => ({
+    opacity: interpolate(swap.get(), [0.35, 1], [0, 1], 'clamp'),
   }))
 
   return (
@@ -150,6 +164,9 @@ function NavItem({ def, index, slide, onPress }: NavItemProps) {
     >
       <Animated.View style={[s.item, feedback]}>
         <NavGlyph swap={swap} Icon={def.Icon} art={def.art} />
+        <Animated.Text style={[s.itemLabel, label]} numberOfLines={1}>
+          {def.label}
+        </Animated.Text>
       </Animated.View>
     </Pressable>
   )
@@ -168,13 +185,20 @@ const s = StyleSheet.create({
     zIndex: 20,
   },
   group: { flexDirection: 'row', alignItems: 'center', gap: GAP },
-  pill: { position: 'absolute', left: 0, top: 0, width: ITEM, height: ITEM },
+  pill: { position: 'absolute', left: 0, top: 0, width: ITEM_W, height: ITEM_H },
   pillFill: { flex: 1 },
   item: {
-    width: ITEM,
-    height: ITEM,
+    width: ITEM_W,
+    height: ITEM_H,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: sp(4),
+  },
+  itemLabel: {
+    ...type.nav,
+    fontSize: sp(11),
+    color: color.textBright,
+    textAlign: 'center',
   },
   add: {
     width: sp(84),

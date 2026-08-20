@@ -46,6 +46,22 @@ export const PRESS = 120
 export const ARRIVE_FROM = 0.9
 
 /**
+ * How the render arrives. Both keep the crossfade and the bloom; they differ
+ * only in what the scale does, so the comparison is about one thing.
+ *
+ *   bloom  eases up to full size and stops. Quiet.
+ *   pop    overshoots and settles back, the way something with weight lands.
+ *
+ * Flip this line to try the other on device.
+ */
+export type Arrival = 'bloom' | 'pop'
+export const ARRIVAL: Arrival = 'bloom'
+
+/** Where the pop starts and how far past full size it goes. */
+export const POP_FROM = 0.84
+export const POP_OVER = 1.07
+
+/**
  * The bloom behind the selected glyph — the warm halo the reference throws
  * once the render lands. Its colour is the mean of the lit quarter of the
  * artwork, so it reads as light coming off the icon rather than a disc

@@ -6,7 +6,7 @@ import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context'
-import { BottomNav } from './src/components/BottomNav'
+import { BottomNav, NAV_HEIGHT } from './src/components/BottomNav'
 import { Composer } from './src/components/Composer'
 import { DetailSheet } from './src/components/DetailSheet'
 import { TopBar } from './src/components/TopBar'
@@ -14,7 +14,7 @@ import { HomeScreen } from './src/screens/HomeScreen'
 import { InsightsScreen } from './src/screens/InsightsScreen'
 import { SettingsScreen } from './src/screens/SettingsScreen'
 import { StoreProvider, useAppState } from './src/store'
-import { color, metric } from './src/theme'
+import { color } from './src/theme'
 
 /*
  * Expo Go runs a prebuilt binary, so the expo-font config plugin — which embeds
@@ -68,7 +68,7 @@ function Shell() {
 
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={{ paddingBottom: insets.bottom + metric.navH + 48 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + NAV_HEIGHT + 48 }}
         showsVerticalScrollIndicator={false}
       >
         {tab === 'home' ? <HomeScreen /> : null}
