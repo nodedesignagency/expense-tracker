@@ -1,9 +1,10 @@
+import type { ComponentType } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useAppState, useDispatch } from '../store'
 import type { Scope } from '../lib/types'
 import { color, fill, metric, radius, rim, sp, type } from '../theme'
 import { Glass } from './Glass'
-import { GridIcon, SearchIcon } from './Icons'
+import { CalendarIcon, FilterIcon, GridIcon, SearchIcon } from './Icons'
 
 const SCOPES: Scope[] = ['business', 'personal']
 
@@ -61,17 +62,20 @@ export function TopBar() {
       <View style={s.actions}>
         <RoundButton
           label="Search entries"
+          Icon={SearchIcon}
           active={searchOpen}
           onPress={() => dispatch({ type: 'toggleSearch' })}
         />
         <RoundButton
           label="Filter by category"
+          Icon={FilterIcon}
           active={filterOpen || categories.length > 0}
           badge={categories.length || undefined}
           onPress={() => dispatch({ type: 'toggleFilter' })}
         />
         <RoundButton
           label="Jump to today"
+          Icon={CalendarIcon}
           onPress={() => dispatch({ type: 'selectDate', date: null })}
         />
       </View>
@@ -81,12 +85,14 @@ export function TopBar() {
 
 interface RoundButtonProps {
   label: string
+  /** Each action carries its own glyph — search, filter, today. */
+  Icon: ComponentType<{ size?: number; color?: string }>
   onPress: () => void
   active?: boolean
   badge?: number
 }
 
-function RoundButton({ label, onPress, active, badge }: RoundButtonProps) {
+function RoundButton({ label, Icon, onPress, active, badge }: RoundButtonProps) {
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress}>
       {({ pressed }) => (
@@ -101,7 +107,7 @@ function RoundButton({ label, onPress, active, badge }: RoundButtonProps) {
             innerStyle={s.centre}
             stretch
           >
-            <SearchIcon size={sp(20)} color={color.text} />
+            <Icon size={sp(20)} color={color.text} />
           </Glass>
           {badge ? (
             <View style={s.badge}>

@@ -1,4 +1,4 @@
-import Svg, { Path } from 'react-native-svg'
+import Svg, { Path, Rect } from 'react-native-svg'
 
 /*
  * The frame's own vectors, generated from public/icons/*.svg by the port so
@@ -183,6 +183,50 @@ export function ArrowDownLeftIcon({ size = 18, color = '#25E063' }: IconProps) {
         d="M13.5 6.5 6.5 13.5M12.5 13.5h-6v-6"
         stroke={color}
         strokeWidth={1.7}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  )
+}
+
+/*
+ * The top bar's other two actions. These are the app's own glyphs rather than
+ * the frame's — recovered from the first build, where each round button had
+ * its own icon before a later pass replaced all three with the search one.
+ * Drawn on a 24 grid at 1.9 stroke, which is their original spec.
+ */
+export function FilterIcon({ size = 20, color = '#FFFFFF' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5 7h14M8 12h8M10.5 17h3"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  )
+}
+
+export function CalendarIcon({ size = 20, color = '#FFFFFF' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect
+        x={3.5}
+        y={5}
+        width={17}
+        height={15.5}
+        rx={4.5}
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M3.5 10h17M8.5 3.5v3M15.5 3.5v3"
+        stroke={color}
+        strokeWidth={1.9}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
