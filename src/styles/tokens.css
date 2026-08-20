@@ -77,6 +77,35 @@
   --blur-chip: 7.8px;
   --blur-nav: 11.549px;
 
+  /*
+   * Glass. Figma's Glass effect has no CSS equivalent and the code export drops
+   * it silently, so it is rebuilt here from the panel values: frost becomes the
+   * backdrop blur, and light -58 deg at 25% with splay 100 becomes a rim that
+   * brightens along that axis — bright at the top-left, softer at the
+   * bottom-right, near nothing on the other two corners.
+   *
+   *   standard  light -58/25, refraction 73, depth 100,    dispersion 79, frost 91
+   *   strong    light -58/25, refraction 73, depth 148.07, dispersion 79, frost 134.74
+   */
+  --glass-frost: 15.6px;
+  --glass-frost-strong: 22px;
+  --glass-rim: linear-gradient(
+    148deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0.1) 24%,
+    rgba(255, 255, 255, 0.015) 50%,
+    rgba(255, 255, 255, 0.09) 74%,
+    rgba(255, 255, 255, 0.3) 100%
+  );
+  --glass-rim-raised: linear-gradient(
+    148deg,
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0.14) 26%,
+    rgba(255, 255, 255, 0.02) 52%,
+    rgba(255, 255, 255, 0.12) 76%,
+    rgba(255, 255, 255, 0.42) 100%
+  );
+
   /* The accent: a radial ramp from saturated core to pale rim. */
   --accent-radial: radial-gradient(
     circle at 50% 50%,

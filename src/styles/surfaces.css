@@ -64,3 +64,53 @@
   pointer-events: none;
   z-index: -1;
 }
+
+/*
+ * Glass.
+ *
+ * The frame marks these surfaces with Figma's Glass effect, which the code
+ * export cannot represent — so it is rebuilt from the panel values: frost as a
+ * backdrop blur, and the -58 deg light axis as a 1px rim that brightens at the
+ * top-left and bottom-right. The rim sits on the padding box, inside any
+ * hairline border, so it reads as a lit edge rather than a second stroke.
+ */
+.glass {
+  position: relative;
+  isolation: isolate;
+  backdrop-filter: blur(var(--glass-frost)) saturate(125%);
+  -webkit-backdrop-filter: blur(var(--glass-frost)) saturate(125%);
+}
+
+.glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--glass-rim);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* The lit states carry a brighter rim and a heavier frost. */
+.glass--strong {
+  backdrop-filter: blur(var(--glass-frost-strong)) saturate(125%);
+  -webkit-backdrop-filter: blur(var(--glass-frost-strong)) saturate(125%);
+}
+
+.glass--strong::before {
+  background: var(--glass-rim-raised);
+}
+
+/* A dashed future day has no surface to light. */
+.glass[data-no-rim='true']::before {
+  content: none;
+}

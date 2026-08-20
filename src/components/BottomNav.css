@@ -80,8 +80,9 @@
   width: auto;
   color: var(--text-bright);
   background-image: var(--fill-nav-raised);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  /* Frost 134.74 on the lit destination, heavier than the inactive blur. */
+  backdrop-filter: blur(var(--glass-frost-strong)) saturate(125%);
+  -webkit-backdrop-filter: blur(var(--glass-frost-strong)) saturate(125%);
 }
 
 /* Add: 84 x 40, radial accent, 25% white edge. */

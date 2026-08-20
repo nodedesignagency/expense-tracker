@@ -42,6 +42,8 @@
 
 .weekstrip__day[data-future='true'] .weekstrip__circle {
   background-image: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border: 1.143px dashed var(--stroke-dashed);
 }
 

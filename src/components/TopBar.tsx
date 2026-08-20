@@ -12,8 +12,8 @@ export function TopBar() {
 
   return (
     <div className="topbar">
-      <div className="scope" role="tablist" aria-label="Ledger scope">
-        <span className="scope__thumb raised" data-scope={scope} aria-hidden="true" />
+      <div className="scope glass" role="tablist" aria-label="Ledger scope">
+        <span className="scope__thumb raised glass glass--strong" data-scope={scope} aria-hidden="true" />
         {SCOPES.map((value) => (
           <button
             key={value}
@@ -66,7 +66,7 @@ interface RoundButtonProps {
 
 function RoundButton({ label, onClick, active, badge, children }: RoundButtonProps) {
   return (
-    <button className="round-btn surface" data-active={active} onClick={onClick} aria-label={label}>
+    <button className="round-btn surface glass" data-active={active} onClick={onClick} aria-label={label}>
       {children}
       {badge ? <span className="round-btn__badge">{badge}</span> : null}
     </button>

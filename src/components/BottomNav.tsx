@@ -20,7 +20,7 @@ export function BottomNav() {
           return (
             <button
               key={id}
-              className={active ? 'nav__item raised' : 'nav__item'}
+              className={active ? 'nav__item raised glass glass--strong' : 'nav__item'}
               data-active={active}
               aria-current={active ? 'page' : undefined}
               onClick={() => dispatch({ type: 'setTab', tab: id })}
