@@ -75,6 +75,9 @@
  *   - each side holds a constant brightness, brightest on the left
  *   - there is no glow inside the edge; the surface behind it is flat
  *   - frost is the backdrop blur
+ *
+ * Three strengths, all the same shape: --soft for the small round controls,
+ * the default for cards, --strong for the lit states.
  */
 .glass {
   position: relative;
@@ -83,6 +86,12 @@
     var(--glass-edge-left);
   backdrop-filter: blur(var(--glass-frost)) saturate(125%);
   -webkit-backdrop-filter: blur(var(--glass-frost)) saturate(125%);
+}
+
+/* Day circles, the top actions and the toggle track sit a third as bright. */
+.glass--soft {
+  border-color: var(--glass-edge-top-soft) var(--glass-edge-right-soft)
+    var(--glass-edge-bottom-soft) var(--glass-edge-left-soft);
 }
 
 /* The lit states carry a brighter edge and a heavier frost. */
