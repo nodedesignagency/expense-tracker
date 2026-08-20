@@ -66,14 +66,17 @@ function Shell() {
       </ScrollView>
 
       {/*
-       * The scrim has to be solid by the time it reaches the nav. Landing late,
-       * as the frame's own gradient does, leaves the top of the nav sitting over
-       * a few percent of whatever entry has scrolled under it.
+       * The scrim has to be fully solid before it reaches the top of the nav,
+       * which floats 24 above the safe area and stands 40 tall — so 64 up from
+       * the bottom, plus the inset. The frame's own 163-tall gradient lands
+       * solid at roughly 68, which clears that by four points on a phone with
+       * no gesture bar and misses it entirely on one that has one, leaving an
+       * entry legible right behind the nav. Taller, and solid sooner.
        */}
       <LinearGradient
         colors={['rgba(4,4,4,0)', color.scrim, color.scrim]}
-        locations={[0, 0.58, 1]}
-        style={[s.scrim, { height: 163 + insets.bottom }]}
+        locations={[0, 0.5, 1]}
+        style={[s.scrim, { height: 200 + insets.bottom }]}
         pointerEvents="none"
       />
 
