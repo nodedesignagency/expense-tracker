@@ -1,4 +1,10 @@
-import { Animated, Image, StyleSheet, type ImageSourcePropType } from 'react-native'
+import { Image, StyleSheet, type ImageSourcePropType } from 'react-native'
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  type SharedValue,
+} from 'react-native-reanimated'
+import { ARRIVE_FROM } from '../motion'
 import { color, sp } from '../theme'
 
 /*
@@ -18,29 +24,43 @@ const DIMENSIONAL = 27
 const IDLE = 0.72
 
 interface NavGlyphProps {
-  /** 0 idle, 1 selected. Driven by the tab, so the glyph holds no state of
-   *  its own — it used to, and lost it every time the tab rebuilt. */
-  lit: Animated.Value
+  /** 0 idle, 1 selected. Owned by the tab, so the glyph holds no state itself. */
+  lit: SharedValue<number>
   /** The outline, shown when the tab is idle. */
   Icon: React.ComponentType<{ size?: number; color?: string }>
   /** The 3D render, shown when it is selected. */
   art: ImageSourcePropType
 }
 
-/** One tab's icon: outline and 3D render, crossfading on selection. */
+/**
+ * One tab's icon: outline and 3D render, crossfading on selection.
+ *
+ * Both layers are driven from a shared value on the UI thread, so the swap
+ * keeps running while JS is busy — which, on a tab switch, it always is: the
+ * screen behind is mounting at the same moment.
+ *
+ * The outline leaves faster than the render arrives. Held on the same curve
+ * they cross at half opacity each and the middle of the transition goes muddy,
+ * with two icons visibly stacked; letting the outline clear out first keeps
+ * one shape legible the whole way through.
+ */
 export function NavGlyph({ lit, Icon, art }: NavGlyphProps) {
+  const outline = useAnimatedStyle(() => ({
+    opacity: interpolate(lit.get(), [0, 0.55], [IDLE, 0], 'clamp'),
+  }))
+
+  const dimensional = useAnimatedStyle(() => ({
+    opacity: interpolate(lit.get(), [0.25, 1], [0, 1], 'clamp'),
+    transform: [{ scale: interpolate(lit.get(), [0.25, 1], [ARRIVE_FROM, 1], 'clamp') }],
+  }))
+
   return (
     <Animated.View style={styles.box}>
-      <Animated.View
-        style={[
-          styles.layer,
-          { opacity: lit.interpolate({ inputRange: [0, 1], outputRange: [IDLE, 0] }) },
-        ]}
-      >
+      <Animated.View style={[styles.layer, outline]}>
         <Icon size={sp(FLAT)} color={color.text} />
       </Animated.View>
 
-      <Animated.View style={[styles.layer, { opacity: lit }]}>
+      <Animated.View style={[styles.layer, dimensional]}>
         <Image
           source={art}
           style={{ width: sp(DIMENSIONAL), height: sp(DIMENSIONAL) }}
