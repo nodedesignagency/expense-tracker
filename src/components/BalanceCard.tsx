@@ -10,18 +10,16 @@ interface BalanceCardProps {
 }
 
 /**
- * Picks the mascot's line from how the month is actually going, so the quip
+ * Picks the mascot's line from where the account actually stands, so the quip
  * means something instead of being decoration.
  */
-export function quipFor(totals: Totals): string {
+export function quipFor(totals: Totals, netCents: number): string {
   if (totals.count === 0) return 'Nothing logged yet this month'
-  const { creditCents, debitCents } = totals
-  if (creditCents === 0) return 'All spend and no income yet'
-  const ratio = debitCents / creditCents
-  if (ratio < 0.6) return 'Holy moly, you are cooking this month'
-  if (ratio < 1) return 'Steady month, you are still ahead'
-  if (ratio < 1.5) return 'Spending is outpacing income'
-  return 'Careful, this month runs hot'
+  if (netCents <= 0) return 'You are under water this month'
+  if (netCents >= 5_000_000) return 'Holy moly, you are cooking this month'
+  if (netCents >= 1_000_000) return 'Steady month, you are well ahead'
+  if (totals.debitCents > totals.creditCents) return 'Spending is outpacing income'
+  return 'Keeping your head above water'
 }
 
 export function BalanceCard({ netCents, totals, monthLabel }: BalanceCardProps) {
@@ -43,7 +41,7 @@ export function BalanceCard({ netCents, totals, monthLabel }: BalanceCardProps) 
         </ul>
       </div>
 
-      <p className="balance__bubble">{quipFor(totals)}</p>
+      <p className="balance__bubble">{quipFor(totals, netCents)}</p>
 
       <div className="balance__mascot">
         <Mascot size={118} />

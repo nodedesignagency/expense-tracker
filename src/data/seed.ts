@@ -1,4 +1,4 @@
-import { compareIsoDesc } from '../lib/dates'
+import { addDays, compareIsoDesc } from '../lib/dates'
 import type { Scope, Transaction } from '../lib/types'
 import { generateTransactions, sortChronological, TODAY_ISO } from './generate'
 
@@ -20,7 +20,7 @@ const PERSONAL_NET_CENTS = 1_248_000
 /** Two authored entries so the current day matches the design frame exactly. */
 const HERO_ROWS: Transaction[] = [
   {
-    id: 'hero-jameson',
+    id: 'hero-1-jameson',
     name: 'J. Jonah Jameson',
     brand: 'wise',
     scope: 'business',
@@ -34,7 +34,7 @@ const HERO_ROWS: Transaction[] = [
     note: 'May retainer, paid out',
   },
   {
-    id: 'hero-claude',
+    id: 'hero-2-claude',
     name: 'Claude',
     brand: 'claude',
     scope: 'business',
@@ -99,7 +99,9 @@ function buildScope(scope: Scope): Transaction[] {
     scope,
     seed: isBusiness ? 20260512 : 990512,
     startDate: '2026-01-02',
-    endDate: TODAY_ISO,
+    // Business history stops the day before, so the current day is exactly the
+    // two authored entries — the pair the design frame shows.
+    endDate: isBusiness ? addDays(TODAY_ISO, -1) : TODAY_ISO,
     count: isBusiness ? REFERENCE.entryCount - HERO_ROWS.length : 186,
   })
 
