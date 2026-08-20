@@ -1,24 +1,25 @@
 import type { ComponentType } from 'react'
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
-import { HOME_GLYPH_SRC } from '../assets/registry'
+import { Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native'
 import { useAppState, useDispatch, type Tab } from '../store'
 import { color, fill, metric, radius, rim, sp, type } from '../theme'
 import { AccentFill } from './Accent'
 import { Glass } from './Glass'
-import { ChartIcon, PlusIcon, SettingsIcon } from './Icons'
+import { PlusIcon } from './Icons'
+import { NavGlyph } from './NavGlyph'
+import { HomeIcon, ReportIcon, SettingsIcon } from './NavIcons'
 
 interface TabDef {
   id: Tab
   label: string
-  /** The home destination uses the 3D glyph; the rest are inline vectors. */
-  art?: number
-  Icon?: ComponentType<{ size?: number; color?: string }>
+  /** Outline when idle, the 3D render when selected. */
+  Icon: ComponentType<{ size?: number; color?: string }>
+  art: ImageSourcePropType
 }
 
 const TABS: TabDef[] = [
-  { id: 'home', label: 'Home', art: HOME_GLYPH_SRC as number },
-  { id: 'insights', label: 'Insights', Icon: ChartIcon },
-  { id: 'settings', label: 'Settings', Icon: SettingsIcon },
+  { id: 'home', label: 'Home', Icon: HomeIcon, art: require('../../assets/nav/home-3d.png') },
+  { id: 'insights', label: 'Insights', Icon: ReportIcon, art: require('../../assets/nav/report-3d.png') },
+  { id: 'settings', label: 'Settings', Icon: SettingsIcon, art: require('../../assets/nav/settings-3d.png') },
 ]
 
 /** Two floating groups: destinations pinned left, the primary action right. */
@@ -31,16 +32,7 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
       <View style={s.group}>
         {TABS.map(({ id, label, art, Icon }) => {
           const active = tab === id
-          const glyph = (
-            <View style={s.glyph}>
-              {art ? (
-                /* The 3D house is drawn oversized and spills past its box. */
-                <Image source={art} style={s.glyphArt} resizeMode="contain" />
-              ) : Icon ? (
-                <Icon size={sp(16)} color={color.text} />
-              ) : null}
-            </View>
-          )
+          const glyph = <NavGlyph active={active} Icon={Icon} art={art} />
 
           return (
             <Pressable
@@ -117,8 +109,6 @@ const s = StyleSheet.create({
     paddingHorizontal: sp(11.845),
   },
   itemLabel: { ...type.nav, color: color.textBright },
-  glyph: { width: sp(16), height: sp(16), alignItems: 'center', justifyContent: 'center' },
-  glyphArt: { width: sp(44), height: sp(29) },
   add: {
     width: sp(84),
     height: metric.navH,

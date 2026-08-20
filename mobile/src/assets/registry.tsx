@@ -103,4 +103,3 @@ export const BRANDS: Record<BrandKey, BrandAsset> = {
 
 /** Artwork exported from the design frame. */
 export const MASCOT_SRC = require('../../assets/art/mascot.png') as ImageSourcePropType
-export const HOME_GLYPH_SRC = require('../../assets/art/home-icon.png') as ImageSourcePropType
