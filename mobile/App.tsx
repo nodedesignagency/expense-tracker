@@ -29,12 +29,23 @@ const FONTS = {
 }
 
 export default function App() {
-  const [fontsLoaded] = useFonts(FONTS)
+  const [fontsLoaded, fontError] = useFonts(FONTS)
+
+  /*
+   * Render on the error too. Waiting only on fontsLoaded means a font the
+   * platform rejects leaves the app on an empty screen for good, with nothing
+   * to say why — and Android is much stricter about what it will load than a
+   * browser is, so this is a real state and not a theoretical one. Better to
+   * come up in the fallback face and log it.
+   */
+  if (fontError) {
+    console.warn('Fonts failed to load; falling back to the system face.', fontError)
+  }
 
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      {fontsLoaded ? (
+      {fontsLoaded || fontError ? (
         <StoreProvider>
           <Shell />
         </StoreProvider>
