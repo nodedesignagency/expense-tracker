@@ -90,6 +90,90 @@
   --glass-frost: 15.6px;
   --glass-frost-strong: 22px;
   /*
+   * The lit edge, measured off the frame's own render: a 1px line held at a
+   * constant brightness per side — left is the lit one, then right, with top
+   * and bottom nearly dark — and no glow inside it. Four border colours give
+   * exactly that, and the browser blends them through the corners.
+   */
+  --glass-edge-width: 1px;
+  --glass-edge-top: rgba(255, 255, 255, 0.11);
+  --glass-edge-right: rgba(255, 255, 255, 0.185);
+  --glass-edge-bottom: rgba(255, 255, 255, 0.105);
+  --glass-edge-left: rgba(255, 255, 255, 0.286);
+  --glass-edge-top-raised: rgba(255, 255, 255, 0.18);
+  --glass-edge-right-raised: rgba(255, 255, 255, 0.28);
+  --glass-edge-bottom-raised: rgba(255, 255, 255, 0.16);
+  --glass-edge-left-raised: rgba(255, 255, 255, 0.38);
+
+  /* Strokes */
+  --stroke-card: rgba(255, 255, 255, 0.08);
+  --stroke-chip: rgba(255, 255, 255, 0.16);
+  --stroke-accent: rgba(255, 255, 255, 0.25);
+  --stroke-tooltip: rgba(255, 255, 255, 0.1);
+  --stroke-dashed: rgba(255, 255, 255, 0.15);
+
+  /* Blur */
+  --blur-chip: 7.8px;
+  --blur-nav: 11.549px;
+
+  /*
+   * Glass. Figma's Glass effect has no CSS equivalent and the code export drops
+   * it silently, so it is rebuilt here from the panel values: frost becomes the
+   * backdrop blur, and light -58 deg at 25% with splay 100 becomes a rim that
+   * brightens along that axis — bright at the top-left, softer at the
+   * bottom-right, near nothing on the other two corners.
+   *
+   *   standard  light -58/25, refraction 73, depth 100,    dispersion 79, frost 91
+   *   strong    light -58/25, refraction 73, depth 148.07, dispersion 79, frost 134.74
+   */
+  --glass-frost: 15.6px;
+  --glass-frost-strong: 22px;
+  /*
+   * The lit edge, measured off the frame's own render: a 1px line whose
+   * brightness varies by side — left 33%, right 25%, top 17%, bottom 16% —
+   * with no glow inside it at all. A conic gradient carries that around the
+   * shape and blends smoothly through the corners.
+   */
+  --glass-edge-width: 1px;
+  --glass-rim: conic-gradient(
+    rgba(255, 255, 255, 0.17) 0deg,
+    rgba(255, 255, 255, 0.25) 90deg,
+    rgba(255, 255, 255, 0.16) 180deg,
+    rgba(255, 255, 255, 0.33) 270deg,
+    rgba(255, 255, 255, 0.17) 360deg
+  );
+  --glass-rim-raised: conic-gradient(
+    rgba(255, 255, 255, 0.24) 0deg,
+    rgba(255, 255, 255, 0.34) 90deg,
+    rgba(255, 255, 255, 0.22) 180deg,
+    rgba(255, 255, 255, 0.44) 270deg,
+    rgba(255, 255, 255, 0.24) 360deg
+  );
+
+  /* Strokes */
+  --stroke-card: rgba(255, 255, 255, 0.08);
+  --stroke-chip: rgba(255, 255, 255, 0.16);
+  --stroke-accent: rgba(255, 255, 255, 0.25);
+  --stroke-tooltip: rgba(255, 255, 255, 0.1);
+  --stroke-dashed: rgba(255, 255, 255, 0.15);
+
+  /* Blur */
+  --blur-chip: 7.8px;
+  --blur-nav: 11.549px;
+
+  /*
+   * Glass. Figma's Glass effect has no CSS equivalent and the code export drops
+   * it silently, so it is rebuilt here from the panel values: frost becomes the
+   * backdrop blur, and light -58 deg at 25% with splay 100 becomes a rim that
+   * brightens along that axis — bright at the top-left, softer at the
+   * bottom-right, near nothing on the other two corners.
+   *
+   *   standard  light -58/25, refraction 73, depth 100,    dispersion 79, frost 91
+   *   strong    light -58/25, refraction 73, depth 148.07, dispersion 79, frost 134.74
+   */
+  --glass-frost: 15.6px;
+  --glass-frost-strong: 22px;
+  /*
    * The lit edge has two parts. A gradient ring traces the shape — including
    * the corners — carrying the light around it, and a blur softens that ring
    * so it reads as refraction rather than a stroke. Under it, a pair of wide

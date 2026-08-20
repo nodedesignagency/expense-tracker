@@ -30,7 +30,6 @@
   width: calc(50% - 6px);
   z-index: 1;
   border-radius: var(--r-chip);
-  border: 1px solid var(--stroke-chip);
   transition: transform var(--dur) var(--ease);
 }
 

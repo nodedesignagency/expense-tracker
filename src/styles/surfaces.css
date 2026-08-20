@@ -15,7 +15,6 @@
 /* Cards: the balance panel and each entry. */
 .card {
   background-image: var(--fill-card);
-  border: 0.913px solid var(--stroke-card);
   border-radius: var(--r-card);
 }
 
@@ -68,60 +67,28 @@
 /*
  * Glass.
  *
- * The frame marks these surfaces with Figma's Glass effect, which the code
- * export cannot represent — so it is rebuilt from the panel values.
+ * Figma's Glass effect has no CSS equivalent and the code export drops it, so
+ * this is rebuilt from pixels sampled off the frame's own render rather than
+ * from the effect's parameters:
  *
- *   frost      -> the backdrop blur
- *   light -58  -> a gradient ring carrying the light around the shape,
- *                 brightest at the top-left with a bounce at the bottom-right
- *   refraction -> a sub-pixel blur on that ring, so the edge reads as a soft
- *                 lit boundary rather than a drawn stroke
- *   depth      -> wide inner shadows lifting the surface behind the edge
+ *   - the edge is a hard 1px line, not a soft one
+ *   - each side holds a constant brightness, brightest on the left
+ *   - there is no glow inside the edge; the surface behind it is flat
+ *   - frost is the backdrop blur
  */
 .glass {
   position: relative;
-  isolation: isolate;
+  border: var(--glass-edge-width) solid;
+  border-color: var(--glass-edge-top) var(--glass-edge-right) var(--glass-edge-bottom)
+    var(--glass-edge-left);
   backdrop-filter: blur(var(--glass-frost)) saturate(125%);
   -webkit-backdrop-filter: blur(var(--glass-frost)) saturate(125%);
-  box-shadow: var(--glass-light);
-}
-
-.glass::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  padding: var(--glass-edge-width);
-  background: var(--glass-rim);
-  filter: blur(var(--glass-edge-blur));
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  pointer-events: none;
 }
 
 /* The lit states carry a brighter edge and a heavier frost. */
 .glass--strong {
+  border-color: var(--glass-edge-top-raised) var(--glass-edge-right-raised)
+    var(--glass-edge-bottom-raised) var(--glass-edge-left-raised);
   backdrop-filter: blur(var(--glass-frost-strong)) saturate(125%);
   -webkit-backdrop-filter: blur(var(--glass-frost-strong)) saturate(125%);
-  box-shadow: var(--glass-light-strong);
-}
-
-.glass--strong::before {
-  background: var(--glass-rim-raised);
-}
-
-/* A dashed future day has no surface to light. */
-.glass[data-no-rim='true'] {
-  box-shadow: none;
-}
-
-.glass[data-no-rim='true']::before {
-  content: none;
 }
