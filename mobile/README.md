@@ -1,14 +1,14 @@
 # Piggy — native app
 
-The expense tracker as a real React Native app, built with Expo SDK 56. This is
+The expense tracker as a real React Native app, built with Expo SDK 54. This is
 not the web build in a WebView: every screen is native views.
 
-The SDK is pinned to 56 on purpose. Expo Go in the App Store and Play Store
-only ships support for the current released SDK, so a project on a newer one is
-refused with "this project requires a newer version of Expo Go" — no amount of
-updating the app fixes that, because the store build is the newest there is.
-Newer SDKs exist only as sideloadable builds at
-https://github.com/expo/expo-go-releases until the stores catch up.
+The SDK is pinned to 54 on purpose, to match the Expo Go actually installed on
+the device this was built for. A modern Expo Go supports exactly one SDK, and
+refuses anything newer with "this project requires a newer version of Expo Go"
+— which no amount of updating the app fixes if the store build for that SDK
+has not shipped, or the device is not getting it. Pinning the project is the
+reliable half of that problem: check what Expo Go reports and match it here.
 
 ## Run it on your phone
 

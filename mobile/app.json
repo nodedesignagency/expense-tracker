@@ -34,8 +34,7 @@
             "./assets/fonts/geist-400.ttf"
           ]
         }
-      ],
-      "expo-status-bar"
+      ]
     ]
   }
 }
