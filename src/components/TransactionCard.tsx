@@ -15,27 +15,30 @@ export function TransactionCard({ transaction, onOpen }: Props) {
 
   return (
     <li>
-      <button className="txn glass glass--card" onClick={() => onOpen?.(transaction.id)}>
+      <button className="txn card card--entry" onClick={() => onOpen?.(transaction.id)}>
         <div className="txn__top">
-          <Avatar brand={brand} name={name} size={44} />
-          <div className="txn__identity">
-            <span className="txn__name">{name}</span>
-            <span className="txn__rail">
-              {railLabel} {method}
+          <span className="txn__who">
+            <Avatar brand={brand} name={name} size={44} />
+            <span className="txn__identity">
+              <span className="txn__name">{name}</span>
+              <span className="txn__rail">
+                {railLabel} {method}
+              </span>
             </span>
-          </div>
-          <div className="txn__figures">
+          </span>
+
+          <span className="txn__figures">
             <span className="txn__amount tnum" data-direction={direction}>
               {formatSigned(amountCents, direction)}
             </span>
             <span className="txn__balance tnum">Balance: {formatMoney(balanceCents)}</span>
-          </div>
+          </span>
         </div>
 
         <span className="txn__rule" aria-hidden="true" />
 
         <div className="txn__meta">
-          <span className="txn__chip">{category}</span>
+          <span className="txn__chip chip">{category}</span>
           <span className="txn__time">{formatTime(time)}</span>
         </div>
       </button>

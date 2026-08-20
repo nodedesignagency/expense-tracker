@@ -48,3 +48,12 @@
     local('SFProRounded-Bold'),
     url('/fonts/sf-pro-rounded-700.woff2') format('woff2');
 }
+
+/* Geist — the frame sets the weekday labels in it, and nothing else. */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/geist-400.woff2') format('woff2');
+}

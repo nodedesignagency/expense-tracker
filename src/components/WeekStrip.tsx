@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { Fragment, useMemo } from 'react'
 import { dayOfMonth, weekdayShort, weekOf } from '../lib/dates'
 import { useAppState, useDispatch, useToday } from '../store'
 import './WeekStrip.css'
@@ -16,12 +16,13 @@ export function WeekStrip() {
 
   return (
     <div className="weekstrip">
-      {days.map((iso) => {
+      {days.map((iso, index) => {
         const isSelected = iso === selectedDate
         const isFuture = iso > today
         return (
-          <button
-            key={iso}
+          <Fragment key={iso}>
+            {index > 0 ? <span className="weekstrip__rule" aria-hidden="true" /> : null}
+            <button
             className="weekstrip__day"
             data-selected={isSelected}
             data-future={isFuture}
@@ -30,8 +31,9 @@ export function WeekStrip() {
             onClick={() => dispatch({ type: 'selectDate', date: isSelected ? null : iso })}
           >
             <span className="weekstrip__label">{weekdayShort(iso)}</span>
-            <span className="weekstrip__circle glass tnum">{dayOfMonth(iso)}</span>
-          </button>
+            <span className="weekstrip__circle surface tnum">{dayOfMonth(iso)}</span>
+            </button>
+          </Fragment>
         )
       })}
     </div>

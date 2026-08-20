@@ -1,110 +1,113 @@
-/*
- * 18 padding on every side. The mascot and its speech bubble are taken out of
- * flow so the card's structure is just the figures column — the artwork can
- * then sit wherever it reads best without disturbing the text.
- */
+/* Frame: 345 x 189, padding 18, inner gap 16, legend gap 10. */
 .balance {
   position: relative;
-  margin: 14px var(--gutter) 0;
+  margin: var(--rhythm) var(--gutter) 0;
   padding: 18px;
-  min-height: 190px;
-  border-radius: var(--r-card);
+  height: 189px;
   overflow: hidden;
 }
 
 .balance__body {
   position: relative;
   z-index: 2;
-  max-width: 62%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.balance__head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
 }
 
 .balance__label {
   font: var(--t-label);
-  text-transform: uppercase;
   color: var(--text-dim);
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .balance__amount {
-  margin-top: 4px;
   font: var(--t-display);
+  color: var(--text);
   white-space: nowrap;
 }
 
 .balance__legend {
-  display: grid;
-  gap: 8px;
-  margin-top: 20px;
-  justify-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
 }
 
+/*
+ * The legend pills are square — a 2px coloured edge on the left, no radius.
+ */
 .balance__pill {
-  position: relative;
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 7px 13px 7px 12px;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.05);
-  font: var(--t-legend);
-  color: #E6E6EA;
+  padding: 6px 10px;
+  border-left: 2px solid;
+  background-image: var(--fill-chip);
+  backdrop-filter: blur(var(--blur-chip));
+  -webkit-backdrop-filter: blur(var(--blur-chip));
+  font: var(--t-chip);
+  letter-spacing: var(--tr-chip);
+  color: var(--text);
   white-space: nowrap;
 }
 
-.balance__bar {
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 3.5px;
-  border-radius: 999px;
+.balance__pill[data-kind='credit'] {
+  border-left-color: var(--credit);
 }
 
-.balance__pill[data-kind='credit'] .balance__bar {
-  background: var(--credit);
+.balance__pill[data-kind='debit'] {
+  border-left-color: var(--debit);
 }
 
-.balance__pill[data-kind='debit'] .balance__bar {
-  background: var(--debit);
-}
-
-/* ---- speech bubble ---- */
+/* Tooltip: 82 wide, 10/1.4 regular, on its own dark plate. */
 .balance__bubble {
   position: absolute;
   z-index: 3;
-  top: 18px;
-  right: 18px;
-  width: 108px;
-  padding: 9px 11px 10px;
-  border-radius: 14px;
-  background: var(--surface-raised);
-  font: var(--t-figure);
-  line-height: 1.35;
-  color: #F1F1F4;
-  text-wrap: balance;
+  left: 209px;
+  top: 26px;
+  width: 82px;
+  padding: 6px 8px;
+  border-radius: 12px;
+  background: #1E1E1D;
+  border: 1px solid var(--stroke-tooltip);
+  font: var(--t-tooltip);
+  letter-spacing: -0.001px;
+  color: var(--text);
 }
 
 .balance__bubble::after {
   content: '';
   position: absolute;
-  right: 22px;
-  bottom: -7px;
+  right: 8px;
+  bottom: -9px;
   width: 16px;
-  height: 9px;
-  background: var(--surface-raised);
-  clip-path: polygon(0 0, 100% 0, 42% 100%);
+  height: 10px;
+  background: #1E1E1D;
+  clip-path: polygon(13.5% 0, 86.5% 0, 50% 88%);
 }
 
-/* ---- mascot ---- */
+/* Mascot: 196 x 147, anchored where the frame places it. */
 .balance__mascot {
   position: absolute;
-  right: 4px;
-  bottom: 0;
+  left: 185px;
+  top: 51px;
+  width: 196px;
+  height: 147px;
   z-index: 1;
   pointer-events: none;
 }
 
-.balance__mascot svg,
 .balance__mascot img {
-  display: block;
-  filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.55));
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }

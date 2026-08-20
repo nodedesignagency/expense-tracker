@@ -4,7 +4,7 @@ import './StatusBar.css'
  * Cosmetic iOS-style status bar. The app renders inside a phone frame on
  * desktop, so the chrome is drawn rather than borrowed from the OS.
  */
-export function StatusBar({ time = '9:41', battery = 82 }: { time?: string; battery?: number }) {
+export function StatusBar({ time = '9:41', battery = 32 }: { time?: string; battery?: number }) {
   return (
     <div className="statusbar" aria-hidden="true">
       <div className="statusbar__time">

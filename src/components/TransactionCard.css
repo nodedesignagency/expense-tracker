@@ -1,57 +1,74 @@
+/* Frame: padding 18, gap 10, radius 32, 0.913 hairline. */
 .txn {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   width: 100%;
   padding: 18px;
-  border-radius: var(--r-tile);
   text-align: left;
-  transition: transform 160ms var(--ease), background-color var(--dur) var(--ease);
+  transition: transform 160ms var(--ease);
 }
 
 .txn:active {
-  transform: scale(0.985);
-  background-color: var(--surface-2);
+  transform: scale(0.99);
 }
 
 .txn__top {
   display: flex;
   align-items: center;
-  gap: 11px;
+  width: 100%;
+}
+
+.txn__who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .txn__identity {
-  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
   min-width: 0;
-  display: grid;
-  gap: 3px;
 }
 
 .txn__name {
   font: var(--t-name);
+  letter-spacing: var(--tr-name);
   color: var(--text);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 100%;
 }
 
 .txn__rail {
   font: var(--t-figure);
-  color: var(--text-dim);
+  letter-spacing: var(--tr-figure);
+  color: var(--text-soft);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 100%;
 }
 
 .txn__figures {
-  display: grid;
+  display: flex;
+  flex: 1 1 0;
   min-width: 0;
-  gap: 3px;
-  justify-items: end;
-  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+  justify-content: center;
 }
 
 .txn__amount {
-  font: var(--t-name);
-  font-weight: 600;
+  font: var(--t-amount);
+  letter-spacing: var(--tr-amount);
+  white-space: nowrap;
 }
 
 .txn__amount[data-direction='credit'] {
@@ -64,37 +81,37 @@
 
 .txn__balance {
   font: var(--t-figure);
-  color: var(--text-dim);
+  letter-spacing: var(--tr-figure);
+  color: var(--text-soft);
+  white-space: nowrap;
 }
 
-/* Spec rule: white gradient, transparent at both ends, solid at the centre. */
+/* The rule runs the full inner width on plus-lighter. */
 .txn__rule {
   display: block;
+  width: 100%;
   height: 1px;
-  margin: 10px 0 0;
   background: var(--rule-fade);
+  mix-blend-mode: plus-lighter;
 }
 
 .txn__meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 10px;
+  width: 100%;
 }
 
 .txn__chip {
-  padding: 6px 14px;
-  border-radius: 32px;
-  background-image: var(--glass-fill-70);
-  box-shadow: inset 0 0 0 1px var(--glass-stroke);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  font: var(--t-legend);
-  color: #EAEAEE;
+  padding: 6px 8px;
+  font: var(--t-chip);
+  letter-spacing: var(--tr-chip);
+  color: var(--text);
+  font-feature-settings: 'calt' 0, 'liga' 0;
 }
 
 .txn__time {
   font: var(--t-figure);
-  color: var(--text-dim);
-  padding-right: 4px;
+  letter-spacing: var(--tr-figure);
+  color: var(--text-soft);
 }

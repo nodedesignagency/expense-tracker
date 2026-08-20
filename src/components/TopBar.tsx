@@ -1,6 +1,6 @@
 import { useAppState, useDispatch } from '../store'
 import type { Scope } from '../lib/types'
-import { CalendarIcon, FilterIcon, GridIcon, SearchIcon } from './Icons'
+
 import './TopBar.css'
 
 const SCOPES: Scope[] = ['business', 'personal']
@@ -12,8 +12,8 @@ export function TopBar() {
 
   return (
     <div className="topbar">
-      <div className="scope glass" role="tablist" aria-label="Ledger scope">
-        <span className="scope__thumb glass glass--raised" data-scope={scope} aria-hidden="true" />
+      <div className="scope" role="tablist" aria-label="Ledger scope">
+        <span className="scope__thumb raised" data-scope={scope} aria-hidden="true" />
         {SCOPES.map((value) => (
           <button
             key={value}
@@ -23,7 +23,7 @@ export function TopBar() {
             data-active={scope === value}
             onClick={() => dispatch({ type: 'setScope', scope: value })}
           >
-            <GridIcon size={12} />
+            <img src="/icons/grid.svg" alt="" width={14} height={14} />
             <span>{value === 'business' ? 'Business' : 'Personal'}</span>
           </button>
         ))}
@@ -35,7 +35,7 @@ export function TopBar() {
           active={searchOpen}
           onClick={() => dispatch({ type: 'toggleSearch' })}
         >
-          <SearchIcon size={17} />
+          <img src="/icons/search.svg" alt="" width={20} height={20} />
         </RoundButton>
         <RoundButton
           label="Filter by category"
@@ -43,13 +43,13 @@ export function TopBar() {
           badge={categories.length || undefined}
           onClick={() => dispatch({ type: 'toggleFilter' })}
         >
-          <FilterIcon size={17} />
+          <img src="/icons/search.svg" alt="" width={20} height={20} />
         </RoundButton>
         <RoundButton
           label="Jump to today"
           onClick={() => dispatch({ type: 'selectDate', date: null })}
         >
-          <CalendarIcon size={16} />
+          <img src="/icons/search.svg" alt="" width={20} height={20} />
         </RoundButton>
       </div>
     </div>
@@ -66,7 +66,7 @@ interface RoundButtonProps {
 
 function RoundButton({ label, onClick, active, badge, children }: RoundButtonProps) {
   return (
-    <button className="round-btn glass" data-active={active} onClick={onClick} aria-label={label}>
+    <button className="round-btn surface" data-active={active} onClick={onClick} aria-label={label}>
       {children}
       {badge ? <span className="round-btn__badge">{badge}</span> : null}
     </button>

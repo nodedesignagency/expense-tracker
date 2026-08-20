@@ -1,0 +1,66 @@
+/*
+ * Surfaces.
+ *
+ * Every panel in the frame is the same recipe: a near-transparent white
+ * gradient over the page, plus a hairline border, plus a backdrop blur on the
+ * small controls. There is no specular rim — the light comes entirely from the
+ * gradient's own top-left end.
+ */
+
+/* Round controls: day circles and the top actions. */
+.surface {
+  background-image: var(--fill-surface);
+}
+
+/* Cards: the balance panel and each entry. */
+.card {
+  background-image: var(--fill-card);
+  border: 0.913px solid var(--stroke-card);
+  border-radius: var(--r-card);
+}
+
+.card--entry {
+  background-image: var(--fill-entry);
+}
+
+/* Chips: category tags and the toggle's inactive half. */
+.chip {
+  border-radius: var(--r-chip);
+  background-image: var(--fill-chip);
+  border: 1px solid var(--stroke-chip);
+  backdrop-filter: blur(var(--blur-chip));
+  -webkit-backdrop-filter: blur(var(--blur-chip));
+}
+
+/* The lit state: toggle thumb and the active nav destination. */
+.raised {
+  background-image: var(--fill-raised);
+  backdrop-filter: blur(var(--blur-chip));
+  -webkit-backdrop-filter: blur(var(--blur-chip));
+}
+
+/*
+ * The accent: a radial ramp with a noise plate over it on soft-light, exactly
+ * as the frame layers them.
+ */
+.accent {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background-image: var(--accent-radial);
+  border: 1px solid var(--stroke-accent);
+}
+
+.accent::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 260%;
+  height: 400%;
+  transform: translate(-50%, -50%);
+  background: url('/art/noise.png') center / cover;
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+  z-index: -1;
+}

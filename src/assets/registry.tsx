@@ -26,6 +26,7 @@ export interface BrandAsset {
 export const BRANDS: Record<BrandKey, BrandAsset> = {
   wise: {
     bg: '#9FE870',
+    src: '/art/brand-wise.png',
     mark: (
       <path
         d="M9.6 5.8 20 16 9.6 26.2v-7.1h6.9v-3.9H9.6V5.8Zm2.6 6.3h6.6l3.9-3.9h-10.5v3.9Zm0 7.8v3.9h10.9l-4-3.9h-6.9Z"
@@ -35,6 +36,7 @@ export const BRANDS: Record<BrandKey, BrandAsset> = {
   },
   claude: {
     bg: '#0B5FD0',
+    src: '/art/brand-claude.png',
     mark: (
       <g fill="#FFFFFF">
         <path d="M12.4 4.4h10.2c1 0 1.9.5 2.4 1.3l3.4 5.9a1.4 1.4 0 0 1-1.2 2.1H13.7L12.4 4.4Z" />
@@ -104,8 +106,5 @@ export const BRANDS: Record<BrandKey, BrandAsset> = {
   },
 }
 
-/**
- * Optional image overrides for the mascot and any other one-off art. Set
- * `MASCOT_SRC` to an imported image to replace the inline SVG mascot.
- */
-export const MASCOT_SRC: string | undefined = undefined
+/** Artwork exported from the design frame, served from `public/art`. */
+export const MASCOT_SRC = '/art/mascot.png'

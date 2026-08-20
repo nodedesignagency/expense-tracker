@@ -1,16 +1,11 @@
 /*
- * The nav is not a bar. Two independent groups float over the list, both 24
- * from the bottom: a row of destinations pinned left, the Add button pinned
- * right. Nothing draws a container behind either of them.
- *
- * Spec, per item: a 40-tall frame at radius 47.38, padding 11.85 x 8.88,
- * 5.92 gap. The active destination is the only one that paints its fill —
- * the rest are the same frame with fill and stroke switched off.
+ * Frame: two groups floating 24 from the bottom. Destinations pinned left,
+ * the Add button pinned right at 84 x 40. No container behind either.
  */
 .nav {
   position: absolute;
-  left: 24px;
-  right: 24px;
+  left: var(--gutter);
+  right: var(--gutter);
   bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   z-index: 20;
   display: flex;
@@ -27,84 +22,95 @@
 .nav__group {
   display: flex;
   align-items: center;
-  gap: 5.92px;
+  gap: 5.923px;
 }
 
 .nav__item {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5.92px;
-  width: 40px;
-  height: 40px;
+  gap: 5.923px;
+  width: var(--h-nav);
+  height: var(--h-nav);
   flex: 0 0 auto;
-  padding: 0;
-  border-radius: 47.38px;
-  color: var(--text-dim);
-  font: var(--t-nav);
-  transition: color var(--dur) var(--ease);
-}
-
-/*
- * Active state, per the Figma panel: linear FFFFFF 25% -> 12% at 100% over the
- * backdrop — no solid fill underneath — with a 1.48 inside stroke and the Glass
- * effect (frost 134.74, so a heavier blur than the other glass surfaces).
- */
-.nav__item[data-active='true'] {
-  position: relative;
-  isolation: isolate;
-  width: auto;
-  padding: 0 11.85px;
-  background-image: var(--glass-fill-raised);
-  backdrop-filter: blur(var(--glass-blur-strong));
-  -webkit-backdrop-filter: blur(var(--glass-blur-strong));
+  padding: 8.884px 11.845px;
+  border-radius: 47.381px;
   color: var(--text);
+  font: var(--t-nav);
+  backdrop-filter: blur(var(--blur-nav));
+  -webkit-backdrop-filter: blur(var(--blur-nav));
+  transition: opacity var(--dur) var(--ease);
 }
 
-.nav__item[data-active='true']::before {
-  content: '';
+.nav__item svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.nav__glyph {
+  position: relative;
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.nav__glyph img {
   position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(
-    148deg,
-    rgba(255, 255, 255, 0.22) 0%,
-    rgba(255, 255, 255, 0.05) 34%,
-    rgba(255, 255, 255, 0) 60%,
-    rgba(255, 255, 255, 0.12) 100%
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  pointer-events: none;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
 }
 
-.nav__item[data-active='true'] svg {
-  color: var(--accent-solid);
+/* The 3D house is drawn oversized and allowed to spill past its box. */
+.nav__glyph[data-art='true'] img {
+  width: 44px;
+  height: 29px;
 }
 
-/* Spec: 84 x 40, radius 69.19, radial fill, 25% white stroke. */
+.nav__item[data-active='false'] {
+  opacity: 0.72;
+}
+
+.nav__item[data-active='true'] {
+  width: auto;
+  color: var(--text-bright);
+  background-image: var(--fill-nav-raised);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Add: 84 x 40, radial accent, 25% white edge. */
 .nav__add {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
   width: 84px;
-  height: 40px;
+  height: var(--h-nav);
   flex: 0 0 auto;
-  border-radius: 69.19px;
-  background: var(--accent-radial);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25), 0 8px 24px var(--accent-glow);
-  color: #fff;
+  padding: 8.649px;
+  border-radius: var(--r-round);
+  color: var(--text-bright);
   font: var(--t-nav);
+  box-shadow: 0 8px 24px var(--accent-glow);
   transition: transform 140ms var(--ease);
+}
+
+.nav__add img {
+  width: 12px;
+  height: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.nav__add span {
+  position: relative;
+  z-index: 1;
 }
 
 .nav__add:active {

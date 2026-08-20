@@ -1,61 +1,39 @@
-/* Spec: the strip is 345 wide and 46 tall — a 12/14 label directly over a
-   32 circle — sitting inside 24 side margins. */
+/*
+ * Frame: a 345-wide row of seven 37-wide columns, justified apart, with a
+ * 1 x 41 rule sitting in each gap on plus-lighter.
+ */
 .weekstrip {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 0;
-  padding: 16px 24px 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: var(--rhythm) auto 0;
+  width: 345px;
 }
 
 .weekstrip__day {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  align-content: start;
-  gap: 0;
-  height: 46px;
-}
-
-/*
- * Separator between day columns: a 1 x 41 rule that fades out at both ends,
- * carried at 10% on plus-lighter exactly as the vector in the spec does.
- */
-.weekstrip__day:not(:last-child)::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  right: -0.5px;
-  width: 1px;
-  height: 41px;
-  transform: translateY(-50%);
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 1) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  opacity: 0.1;
-  mix-blend-mode: plus-lighter;
-  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 37px;
+  flex: 0 0 auto;
 }
 
 .weekstrip__label {
-  font: 400 12px/normal var(--font-rounded);
-  color: var(--text-dim);
+  font: var(--t-weekday);
+  color: var(--text);
+  text-align: center;
 }
 
-/* Spec: 32 × 32. Past and present days are glass; future days are dashed. */
 .weekstrip__circle {
   display: grid;
   place-items: center;
   width: var(--size-day);
   height: var(--size-day);
-  border-radius: 50%;
-  background-color: #1A1A1A;
+  border-radius: var(--r-round);
   font: var(--t-day);
   color: var(--text);
-  transition: transform 160ms var(--ease), background-color var(--dur) var(--ease),
-    box-shadow var(--dur) var(--ease);
+  transition: transform 160ms var(--ease);
 }
 
 .weekstrip__day:active .weekstrip__circle {
@@ -63,32 +41,27 @@
 }
 
 .weekstrip__day[data-future='true'] .weekstrip__circle {
-  background-color: transparent;
   background-image: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  color: var(--text-dim);
-  border: 1.5px dashed rgba(255, 255, 255, 0.2);
-}
-
-.weekstrip__day[data-future='true'] .weekstrip__circle::before {
-  content: none;
+  border: 1.143px dashed var(--stroke-dashed);
 }
 
 .weekstrip__day[data-selected='true'] .weekstrip__circle {
-  background-color: transparent;
   background-image: var(--accent-radial);
-  color: #fff;
-  border: none;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25), 0 6px 18px var(--accent-glow);
+  border: 1px solid var(--stroke-accent);
+  color: var(--text-bright);
 }
 
-.weekstrip__day[data-selected='true'] .weekstrip__circle::before {
+/* The separator rule between columns. */
+.weekstrip__rule {
+  width: 1px;
+  height: 41px;
+  flex: 0 0 auto;
   background: linear-gradient(
-    148deg,
-    rgba(255, 255, 255, 0.5) 0%,
-    rgba(255, 255, 255, 0.12) 30%,
-    rgba(255, 255, 255, 0) 55%,
-    rgba(255, 255, 255, 0.22) 100%
+    180deg,
+    rgba(255, 255, 255, 0) 0%,
+    var(--rule-peak) 50%,
+    rgba(255, 255, 255, 0) 100%
   );
+  mix-blend-mode: plus-lighter;
+  pointer-events: none;
 }

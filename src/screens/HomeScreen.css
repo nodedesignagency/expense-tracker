@@ -1,8 +1,8 @@
 .entrycount {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 22px var(--gutter) 4px;
+  gap: 0;
+  padding: var(--rhythm) var(--gutter) 0;
 }
 
 /* Each half carries one side of the rule gradient, so the pair reads as one
@@ -10,6 +10,7 @@
 .entrycount__rule {
   flex: 1 1 auto;
   height: 1px;
+  mix-blend-mode: plus-lighter;
 }
 
 .entrycount__rule[data-side='left'] {
@@ -27,18 +28,21 @@
 }
 
 .daygroup {
-  padding: 16px var(--gutter) 0;
+  padding: 0 var(--gutter);
 }
 
 .daygroup__heading {
-  font: var(--t-heading);
-  padding: 2px 2px 12px;
+  font: var(--t-title);
+  letter-spacing: var(--tr-title);
+  color: var(--text);
+  padding: var(--rhythm) 0 0;
 }
 
 .daygroup__list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
+  gap: var(--rhythm);
+  margin-top: var(--rhythm);
 }
 
 .empty {

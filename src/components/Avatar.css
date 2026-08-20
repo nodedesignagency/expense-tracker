@@ -1,12 +1,19 @@
+/* Frame: 44 square, fully rounded, artwork filling the circle. */
 .avatar {
-  display: grid;
-  place-items: center;
+  display: block;
   flex: 0 0 auto;
-  border-radius: 50%;
+  border-radius: 41px;
   overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .avatar img {
-  object-fit: contain;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar--glyph {
+  display: grid;
+  place-items: center;
 }

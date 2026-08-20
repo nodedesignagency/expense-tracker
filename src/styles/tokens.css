@@ -1,20 +1,23 @@
-/* Design tokens — sampled from the reference mockup. */
+/*
+ * Design tokens, transcribed from the Figma frame (Home, node 1:107).
+ * Where a value looks oddly precise — 0.913px strokes, 69.189px radii,
+ * 13.714px type — it is the design's own number, not a rounding artefact.
+ */
 :root {
-  /* Surfaces */
+  /* Ground */
   --bg: #0A0A0A;
-  --surface-1: #0F0F10;
-  --surface-2: #161618;
-  --surface-3: #1E1E21;
-  --surface-raised: #2A2A2E;
-  --hairline: rgba(255, 255, 255, 0.09);
-  --hairline-strong: rgba(255, 255, 255, 0.16);
+  --island: #131313;
+  --scrim: #040404;
 
   /* Text */
   --text: #FFFFFF;
-  --text-dim: #9A9AA0;
-  --text-faint: #6C6C74;
+  --text-bright: #F1F1F1;
+  /* Section labels: "NET BALANCE", "Showing 290 Entries" */
+  --text-dim: #838383;
+  /* Supporting figures: rail, balance, time */
+  --text-soft: rgba(255, 255, 255, 0.72);
 
-  /* Semantic money colours */
+  /* Money */
   --credit: #25E063;
   --debit: #FF6969;
   --credit-wash: rgba(37, 224, 99, 0.14);
@@ -22,112 +25,117 @@
   --debit-wash: rgba(255, 105, 105, 0.14);
   --debit-edge: rgba(255, 105, 105, 0.34);
 
-  /* Brand accent (selected day, primary action) */
-  --accent-from: #FF97A8;
-  --accent-to: #FF2E52;
-  --accent-glow: rgba(255, 62, 90, 0.45);
-  --accent-solid: #FF476A;
+  /*
+   * Surface fills. All share the same stop pair — white 5.6% to 0.7% — at the
+   * angle the frame uses for that element. The toggle track is the one
+   * exception, sitting a full step darker.
+   */
+  --fill-surface: linear-gradient(
+    104.19deg,
+    rgba(255, 255, 255, 0.056) 1.68%,
+    rgba(255, 255, 255, 0.007) 98.32%
+  );
+  --fill-card: linear-gradient(
+    114.77deg,
+    rgba(255, 255, 255, 0.056) 1.68%,
+    rgba(255, 255, 255, 0.007) 98.32%
+  );
+  --fill-entry: linear-gradient(
+    124.3deg,
+    rgba(255, 255, 255, 0.056) 1.68%,
+    rgba(255, 255, 255, 0.007) 98.32%
+  );
+  --fill-chip: linear-gradient(
+    115.02deg,
+    rgba(255, 255, 255, 0.056) 1.68%,
+    rgba(255, 255, 255, 0.007) 98.32%
+  );
+  --fill-track: linear-gradient(
+    141.81deg,
+    rgba(255, 255, 255, 0.016) 1.68%,
+    rgba(255, 255, 255, 0.002) 98.32%
+  );
+  --fill-raised: linear-gradient(
+    102.83deg,
+    rgba(255, 255, 255, 0.25) 0.21%,
+    rgba(255, 255, 255, 0.12) 99.79%
+  );
+  --fill-nav-raised: linear-gradient(
+    99deg,
+    rgba(255, 255, 255, 0.25) 0.21%,
+    rgba(255, 255, 255, 0.12) 99.79%
+  );
+
+  /* Strokes */
+  --stroke-card: rgba(255, 255, 255, 0.08);
+  --stroke-chip: rgba(255, 255, 255, 0.16);
+  --stroke-accent: rgba(255, 255, 255, 0.25);
+  --stroke-tooltip: rgba(255, 255, 255, 0.1);
+  --stroke-dashed: rgba(255, 255, 255, 0.15);
+
+  /* Blur */
+  --blur-chip: 7.8px;
+  --blur-nav: 11.549px;
+
+  /* The accent: a radial ramp from saturated core to pale rim. */
   --accent-radial: radial-gradient(
-    72% 122% at 56% 55%,
-    #FF1B43 0%,
-    #FF3A5D 24%,
-    #FF7891 60%,
-    #FFB8C6 100%
+    circle at 50% 50%,
+    #FF363B 0%,
+    #FF5458 25%,
+    #FE7276 50%,
+    #FE9193 75%,
+    #FDAFB1 100%
   );
+  --accent-solid: #FF5458;
+  --accent-glow: rgba(255, 62, 90, 0.4);
 
-  /* Radii */
-  --r-card: 32px;
-  --r-tile: 32px;
-  --r-chip: 999px;
-
-  /* Layout */
-  --app-w: 393px;
-  /* 393 - 2 x 24 = 345, the card width in the spec. */
-  --gutter: 24px;
-  --nav-h: 64px;
-
-  /*
-   * Glass system — values transcribed from the Figma spec.
-   *
-   * Surface  fill: linear FFFFFF 8% -> FFFFFF 1%, fill opacity 20%
-   * Raised   fill: linear FFFFFF 25% -> FFFFFF 12%, fill opacity 100%
-   * Stroke   FFFFFF 16%, 1px inside
-   * Blur     15.6
-   * Glass    light -58 deg at 25%, refraction 73, depth 100, dispersion 79,
-   *          frost 91, splay 100 — approximated in CSS by a backdrop blur plus
-   *          a specular rim running along the light axis.
-   */
-  --glass-base: transparent;
-  --glass-base-raised: transparent;
-  --glass-fill: linear-gradient(135deg, rgba(255, 255, 255, 0.016), rgba(255, 255, 255, 0.002));
-  --glass-fill-raised: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.12));
-  /* Cards and chips carry the same stops at 70% fill opacity. */
-  /* Figma's Glass lifts the whole panel, not just the lit corner, so the dark
-     end of the ramp sits well above transparent. */
-  --glass-fill-70: linear-gradient(135deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.035));
-  --glass-stroke-card: rgba(255, 255, 255, 0.08);
-  --glass-stroke: rgba(255, 255, 255, 0.16);
-  --glass-blur: 15.6px;
-  /* Frost 134.74 on the nav's active state — a heavier blur than the rest. */
-  --glass-blur-strong: 22px;
-  --glass-rim: linear-gradient(
-    148deg,
-    rgba(255, 255, 255, 0.4) 0%,
-    rgba(255, 255, 255, 0.1) 24%,
-    rgba(255, 255, 255, 0.015) 50%,
-    rgba(255, 255, 255, 0.09) 74%,
-    rgba(255, 255, 255, 0.3) 100%
-  );
-  --glass-rim-raised: linear-gradient(
-    148deg,
-    rgba(255, 255, 255, 0.55) 0%,
-    rgba(255, 255, 255, 0.18) 26%,
-    rgba(255, 255, 255, 0.06) 52%,
-    rgba(255, 255, 255, 0.16) 76%,
-    rgba(255, 255, 255, 0.42) 100%
-  );
-
-  /*
-   * Hairline rules. Spec gradient is FFFFFF 0% / 100% / 0% across the line, so
-   * a rule fades in from nothing, peaks at its centre and fades out again.
-   * Half-rules (either side of the entry count) carry one half of that ramp.
-   */
-  --rule-peak: rgba(255, 255, 255, 0.16);
+  /* Rules: white, transparent at both ends, carried on plus-lighter. */
+  --rule-peak: rgba(255, 255, 255, 0.12);
   --rule-fade: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, var(--rule-peak) 50%, rgba(255, 255, 255, 0) 100%);
   --rule-fade-in: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, var(--rule-peak) 100%);
   --rule-fade-out: linear-gradient(90deg, var(--rule-peak) 0%, rgba(255, 255, 255, 0) 100%);
 
-  /* Control metrics — fixed heights from the spec */
+  /* Radii */
+  --r-card: 32px;
+  --r-chip: 32px;
+  --r-round: 69.189px;
+  --r-pill: 999px;
+
+  /* Metrics */
+  --app-w: 393px;
+  --gutter: 24px;
+  --rhythm: 20px;
+  --h-status: 60px;
   --h-control: 34px;
-  --h-control-inner: 26px;
   --h-nav: 40px;
   --size-day: 32px;
+  --nav-h: 64px;
 
   /*
-   * Type scale from the spec. Weights: 400 regular, 500 medium, 600 semibold.
-   * Line height is Auto and tracking is 0% throughout, exactly as the Figma
-   * text panels read — no hand-tuned letter-spacing anywhere in the app.
-   *   40/600  net balance
-   *   18/500  day heading
-   *   16/500  counterparty name
-   *   15/500  nav labels
-   *   14/500  calendar day numbers
-   *   14/400  section labels ("NET BALANCE", "Showing 290 Entries")
-   *   12/500  legend pills
-   *   12/400  supporting figures ("Balance: $20,000")
+   * Type. SF Pro Rounded throughout, except the weekday labels, which the
+   * frame sets in Geist. Tracking is part of the spec — roughly -1% on medium
+   * text and -2% on the smaller regular text.
    */
+  --font-rounded: 'SF Pro Rounded', ui-rounded, system-ui, sans-serif;
+  --font-label: 'Geist', 'SF Pro Rounded', ui-rounded, system-ui, sans-serif;
+
   --t-display: 600 40px/normal var(--font-rounded);
-  --t-title: 600 18px/normal var(--font-rounded);
-  --t-heading: 500 18px/normal var(--font-rounded);
+  --t-title: 500 18px/normal var(--font-rounded);
   --t-name: 500 16px/normal var(--font-rounded);
   --t-nav: 500 15px/normal var(--font-rounded);
-  --t-day: 500 14px/normal var(--font-rounded);
+  --t-day: 500 13.714px/normal var(--font-rounded);
   --t-label: 400 14px/normal var(--font-rounded);
-  --t-legend: 500 12px/normal var(--font-rounded);
+  --t-chip: 500 12px/normal var(--font-rounded);
+  --t-amount: 600 14px/normal var(--font-rounded);
   --t-figure: 400 12px/normal var(--font-rounded);
+  --t-tooltip: 400 10px/1.4 var(--font-rounded);
+  --t-weekday: 400 9px/normal var(--font-label);
 
-  /* Type */
-  --font-rounded: 'SF Pro Rounded', ui-rounded, system-ui, sans-serif;
+  --tr-title: -0.36px;
+  --tr-name: -0.16px;
+  --tr-chip: -0.12px;
+  --tr-amount: -0.28px;
+  --tr-figure: -0.24px;
 
   /* Motion */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
