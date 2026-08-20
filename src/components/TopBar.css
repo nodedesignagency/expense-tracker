@@ -76,9 +76,9 @@
   height: var(--h-control);
   border-radius: 73.514px;
   transition: transform 140ms var(--ease);
-  /* These catch more light on the lit side than the day circles do: the
-     frame's render puts their left edge at 18.4% against the circles' 11.4%. */
-  border-left-color: rgba(255, 255, 255, 0.184);
+  /* These catch more light than the day circles do — the frame's render puts
+     their lit edge at 18.4% against the circles' 11.4% — but less than a card. */
+  --glass-rim: var(--glass-rim-btn);
 }
 
 .round-btn img {

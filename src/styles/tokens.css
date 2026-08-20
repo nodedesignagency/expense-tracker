@@ -81,47 +81,79 @@
    * Glass.
    *
    * Figma's Glass effect has no CSS equivalent and the code export drops it, so
-   * the edge is rebuilt from the frame's own render rather than from the
-   * effect's parameters. Sampling the balance card's border against the page
-   * (#0A0A0A) gives a hard 1px line whose brightness is constant along each
-   * side and steps at the corners:
+   * the edge is rebuilt here. The panel reads:
    *
-   *   left 30.2%   right 22.4%   top 15.1%   bottom 13.1%
+   *   standard  light -58/25 splay 100, refraction 73, depth 100,    dispersion 79, frost 91
+   *   strong    light -58/25 splay 100, refraction 73, depth 148.07, dispersion 79, frost 134.74
    *
-   * Inside that line the surface is flat — 3.3% white, no glow, no bevel — so
-   * four border colours reproduce it exactly, and the browser blends them
-   * through the corner arcs the way the render does (the top-left arc measures
-   * 21%, halfway between its two sides).
+   * The part that matters is that this is a *light*, not a stroke. It arrives
+   * from the upper left and falls off around the shape, so the corners on that
+   * axis carry almost all of it and the long sides carry very little. Giving
+   * each side its own constant brightness — which is what sampling a 1x export
+   * suggests — turns that into two bright vertical bars and reads as a drawn
+   * box, which is exactly what glass does not look like.
    *
-   * The small round controls carry the same edge at roughly a third of the
-   * strength (day circle: left 11.4%, top 6.1%), and the lit states carry it
-   * at well over double (toggle thumb: left 37.1%, top 33.5%). Those are the
-   * --soft and --raised sets below.
+   * So the rim is one gradient running down the light's axis, applied as a ring
+   * around the whole shape: bright at the top-left corner, nearly gone across
+   * the middle of the sides, and picking up again at the bottom-right where the
+   * far wall of the glass bounces it back. Sampling the frame's balance card
+   * puts the peak near 31% and the mid-edge near 5%, and this ramp holds that.
    *
-   *   standard  light -58/25, refraction 73, depth 100,    dispersion 79, frost 91
-   *   strong    light -58/25, refraction 73, depth 148.07, dispersion 79, frost 134.74
+   * Refraction is the pair of inset shadows: a few px of lift just inside the
+   * ring, so the edge has thickness rather than being a line. Frost is the
+   * backdrop blur.
    */
   --glass-frost: 15.6px;
   --glass-frost-strong: 22px;
   --glass-edge-width: 1px;
 
   /* Cards: the balance panel and each entry. */
-  --glass-edge-top: rgba(255, 255, 255, 0.145);
-  --glass-edge-right: rgba(255, 255, 255, 0.226);
-  --glass-edge-bottom: rgba(255, 255, 255, 0.131);
-  --glass-edge-left: rgba(255, 255, 255, 0.306);
+  --glass-rim: linear-gradient(
+    148deg,
+    rgba(255, 255, 255, 0.3) 0%,
+    rgba(255, 255, 255, 0.15) 22%,
+    rgba(255, 255, 255, 0.06) 47%,
+    rgba(255, 255, 255, 0.1) 72%,
+    rgba(255, 255, 255, 0.2) 100%
+  );
 
-  /* Round controls and the toggle track, a third as bright. */
-  --glass-edge-top-soft: rgba(255, 255, 255, 0.058);
-  --glass-edge-right-soft: rgba(255, 255, 255, 0.075);
-  --glass-edge-bottom-soft: rgba(255, 255, 255, 0.05);
-  --glass-edge-left-soft: rgba(255, 255, 255, 0.115);
+  /* Day circles and the toggle track, well under half as lit. */
+  --glass-rim-soft: linear-gradient(
+    148deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.06) 22%,
+    rgba(255, 255, 255, 0.02) 47%,
+    rgba(255, 255, 255, 0.04) 72%,
+    rgba(255, 255, 255, 0.1) 100%
+  );
+
+  /* The top actions sit between the two. */
+  --glass-rim-btn: linear-gradient(
+    148deg,
+    rgba(255, 255, 255, 0.24) 0%,
+    rgba(255, 255, 255, 0.1) 22%,
+    rgba(255, 255, 255, 0.03) 47%,
+    rgba(255, 255, 255, 0.07) 72%,
+    rgba(255, 255, 255, 0.16) 100%
+  );
 
   /* The lit states: toggle thumb and the active nav destination. */
-  --glass-edge-top-raised: rgba(255, 255, 255, 0.335);
-  --glass-edge-right-raised: rgba(255, 255, 255, 0.3);
-  --glass-edge-bottom-raised: rgba(255, 255, 255, 0.28);
-  --glass-edge-left-raised: rgba(255, 255, 255, 0.371);
+  --glass-rim-raised: linear-gradient(
+    148deg,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0.26) 22%,
+    rgba(255, 255, 255, 0.14) 47%,
+    rgba(255, 255, 255, 0.2) 72%,
+    rgba(255, 255, 255, 0.36) 100%
+  );
+
+  /* Refraction: the lift just inside the ring that gives the edge thickness. */
+  --glass-light:
+    inset 1.5px 1.5px 4px rgba(255, 255, 255, 0.05),
+    inset -1.5px -1.5px 4px rgba(255, 255, 255, 0.025);
+  --glass-light-strong:
+    inset 1.5px 1.5px 5px rgba(255, 255, 255, 0.09),
+    inset -1.5px -1.5px 5px rgba(255, 255, 255, 0.05);
 
   /* The accent: a radial ramp from saturated core to pale rim. */
   --accent-radial: radial-gradient(

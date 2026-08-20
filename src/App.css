@@ -43,7 +43,14 @@
   height: 163px;
   z-index: 15;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(4, 4, 4, 0) 0%, #040404 78%);
+  /*
+   * The scrim has to be solid by the time it reaches the nav, which starts
+   * 64px off the bottom — 61% down this box. Landing at 78%, as the frame's
+   * own gradient does, leaves the top of the nav sitting over a few percent of
+   * whatever entry has scrolled under it, and a white entry name still reads
+   * through that.
+   */
+  background: linear-gradient(180deg, rgba(4, 4, 4, 0) 0%, #040404 58%);
 }
 
 .phone__spacer {

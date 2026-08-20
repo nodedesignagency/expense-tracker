@@ -67,37 +67,62 @@
 /*
  * Glass.
  *
- * Figma's Glass effect has no CSS equivalent and the code export drops it, so
- * this is rebuilt from pixels sampled off the frame's own render rather than
- * from the effect's parameters:
+ * The edge is a light falling across the shape, not a stroke, so it is drawn
+ * as a ring carrying one gradient around the whole perimeter — corners and
+ * sides alike — rather than as four borders with their own brightnesses. Four
+ * borders step hard at every corner and hold the long sides at a constant
+ * value, which reads as a drawn box; a ring lets the light peak at the
+ * top-left, fall away across the middle of each side, and come back at the
+ * bottom-right.
  *
- *   - the edge is a hard 1px line, not a soft one
- *   - each side holds a constant brightness, brightest on the left
- *   - there is no glow inside the edge; the surface behind it is flat
- *   - frost is the backdrop blur
+ * The ring is a gradient clipped to a --glass-edge-width band by masking the
+ * content box out of the padding box, and the inset shadows underneath give
+ * the edge its thickness. It carries no border of its own: several of these
+ * panels clip their contents (the balance card holds the mascot, the toggle
+ * track holds its thumb), and `overflow: hidden` clips to the padding box, so
+ * a ring sitting out in a border would be shaved off on exactly those
+ * elements. With no border the two boxes coincide and the ring always lands.
  *
  * Three strengths, all the same shape: --soft for the small round controls,
- * the default for cards, --strong for the lit states.
+ * the default for cards, --strong for the lit states. An element can also
+ * override --glass-rim directly, which is how the top actions sit between two
+ * of them and how the dashed and accented day circles opt out.
  */
 .glass {
   position: relative;
-  border: var(--glass-edge-width) solid;
-  border-color: var(--glass-edge-top) var(--glass-edge-right) var(--glass-edge-bottom)
-    var(--glass-edge-left);
+  box-shadow: var(--glass-light);
   backdrop-filter: blur(var(--glass-frost)) saturate(125%);
   -webkit-backdrop-filter: blur(var(--glass-frost)) saturate(125%);
 }
 
-/* Day circles, the top actions and the toggle track sit a third as bright. */
+.glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: var(--glass-edge-width);
+  background: var(--glass-rim);
+  /* Punch the middle out of the gradient, leaving only the edge band. */
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Day circles and the toggle track. */
 .glass--soft {
-  border-color: var(--glass-edge-top-soft) var(--glass-edge-right-soft)
-    var(--glass-edge-bottom-soft) var(--glass-edge-left-soft);
+  --glass-rim: var(--glass-rim-soft);
 }
 
 /* The lit states carry a brighter edge and a heavier frost. */
 .glass--strong {
-  border-color: var(--glass-edge-top-raised) var(--glass-edge-right-raised)
-    var(--glass-edge-bottom-raised) var(--glass-edge-left-raised);
+  --glass-rim: var(--glass-rim-raised);
+  box-shadow: var(--glass-light-strong);
   backdrop-filter: blur(var(--glass-frost-strong)) saturate(125%);
   -webkit-backdrop-filter: blur(var(--glass-frost-strong)) saturate(125%);
 }
