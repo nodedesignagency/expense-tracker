@@ -14,7 +14,7 @@ import {
   TILT_FROM,
   TILT_PERSPECTIVE,
 } from '../motion'
-import { color, sp } from '../theme'
+import { color } from '../theme'
 import { NavGlow } from './NavGlow'
 
 /*
@@ -22,6 +22,10 @@ import { NavGlow } from './NavGlow'
  * 11:30 — and now that the destination is the frame's own 40 tall instead of
  * 56, 16 is what it takes. The earlier 20 was an upsize against a pill half
  * again as deep, and there is no longer one to sit against.
+ *
+ * Not run through sp(). A glyph is not bound by the width of the screen, and
+ * scaled to 91.6% with everything else it came out at 14.7 inside a pill that
+ * was itself drawn short — see the note on what scales in BottomNav.
  *
  * The 3D box is not the same number as the artwork inside it. These renders
  * carry transparent margin — the current set fills 78-84% of its 64px canvas —
@@ -98,17 +102,17 @@ export function NavGlyph({ swap, Icon, art }: NavGlyphProps) {
   return (
     <Animated.View style={styles.box}>
       <Animated.View style={[styles.bloom, bloom]} pointerEvents="none">
-        <NavGlow size={sp(FLAT) * GLOW_SPREAD} />
+        <NavGlow size={FLAT * GLOW_SPREAD} />
       </Animated.View>
 
       <Animated.View style={[styles.layer, outline]}>
-        <Icon size={sp(FLAT)} color={color.text} />
+        <Icon size={FLAT} color={color.text} />
       </Animated.View>
 
       <Animated.View style={[styles.layer, dimensional]}>
         <Image
           source={art}
-          style={{ width: sp(DIMENSIONAL), height: sp(DIMENSIONAL) }}
+          style={{ width: DIMENSIONAL, height: DIMENSIONAL }}
           resizeMode="contain"
         />
       </Animated.View>
@@ -116,12 +120,12 @@ export function NavGlyph({ swap, Icon, art }: NavGlyphProps) {
   )
 }
 
-const GLOW_BOX = sp(FLAT) * GLOW_SPREAD
+const GLOW_BOX = FLAT * GLOW_SPREAD
 
 const styles = StyleSheet.create({
   box: {
-    width: sp(FLAT),
-    height: sp(FLAT),
+    width: FLAT,
+    height: FLAT,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -138,8 +142,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: GLOW_BOX,
     height: GLOW_BOX,
-    left: (sp(FLAT) - GLOW_BOX) / 2,
-    top: (sp(FLAT) - GLOW_BOX) / 2,
+    left: (FLAT - GLOW_BOX) / 2,
+    top: (FLAT - GLOW_BOX) / 2,
     alignItems: 'center',
     justifyContent: 'center',
   },

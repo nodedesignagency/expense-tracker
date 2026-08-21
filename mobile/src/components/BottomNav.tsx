@@ -17,6 +17,7 @@ import {
   RIM_DEG,
   RIM_STOPS,
   RIM_WIDTH,
+  SCALE,
   axisFor,
   capTrim,
   color,
@@ -37,43 +38,73 @@ interface TabDef {
   id: Tab
   label: string
   /**
-   * The frame's own width for this destination. Each one hugs its own name —
-   * 20 of padding, the label, 20 again — so no two are alike.
+   * How wide the name actually is at 12pt medium, read out of the font file we
+   * ship. The destination hugs it, so this is the figure that sets the box.
    */
-  width: number
+  nameW: number
   /** Outline when idle, the 3D render when selected. */
   Icon: ComponentType<{ size?: number; color?: string }>
   art: ImageSourcePropType
 }
 
 const TABS: TabDef[] = [
-  { id: 'home', label: 'Home', width: 72, Icon: HomeIcon, art: require('../../assets/nav/home-3d.png') },
-  { id: 'insights', label: 'Insights', width: 81, Icon: ReportIcon, art: require('../../assets/nav/report-3d.png') },
-  { id: 'settings', label: 'Settings', width: 84, Icon: SettingsIcon, art: require('../../assets/nav/settings-3d.png') },
+  { id: 'home', label: 'Home', nameW: 31.301, Icon: HomeIcon, art: require('../../assets/nav/home-3d.png') },
+  { id: 'insights', label: 'Insights', nameW: 40.898, Icon: ReportIcon, art: require('../../assets/nav/report-3d.png') },
+  { id: 'settings', label: 'Settings', nameW: 43.037, Icon: SettingsIcon, art: require('../../assets/nav/settings-3d.png') },
 ]
 
 /*
- * The bar, transcribed from Frame 2147239311 — node 11:19.
+ * The bar, transcribed from Frame 2147239311 — node 11:19 — and a note on
+ * which of its numbers scale, because they do not all get to.
  *
- * Every destination is 40 tall and as wide as its own name: 20 of padding, the
- * label, 20 again. At 12pt medium the three names measure 31.3, 40.9 and 43.0,
- * which is the 72, 81 and 84 the frame reports. They sit flush against each
- * other — the row is given no gap at all — so the group is 237 across and the
- * pill's three positions are 0, 72 and 153.
+ * A width has no choice. The gutters are the frame's 24 and the screen is 360,
+ * so a 345 card is drawn at 316 and everything laid out across it follows.
+ * That is what sp() is for.
  *
- * Inside a destination the glyph sits above the name with 6 between them. The
- * frame quotes 6 of vertical padding as well, but the height is fixed at 40
- * and the stack is centred, so what it actually lands on is 5 and 5.
+ * A height is bound by nothing. Neither is a type size, nor the space between
+ * a glyph and the name under it. Put through sp() with everything else they
+ * came out at 91.6% — a 40 pill drawn 36.6, 12pt type set at 11, a 16 glyph at
+ * 14.7 — and the bar read small and cramped against a design that is neither.
+ * So every vertical measurement here, and every type size, is the frame's own
+ * number, unscaled.
+ *
+ * The horizontal padding is the one figure that cannot be. At the frame's 20 a
+ * side the three destinations come to 237; 237 plus an 84 button plus two 24
+ * gutters is 369 on a screen that has 360, so it does not fit with any gap at
+ * all, let alone the frame's. So the padding takes whatever is left once
+ * everything that cannot move has been paid for — 20 where there is room for
+ * 20, and 17.59 on this phone.
  *
  * Note what this replaces: three identical 58-wide boxes, 56 tall, each
  * reserving room for a name it only showed when selected. The frame shows all
  * three names at all times, which is what lets each box be its own width.
  */
-const ITEM_H = sp(40)
-const STACK_GAP = sp(6)
-const WIDTHS = TABS.map((t) => sp(t.width))
+const ITEM_H = 40
+const STACK_GAP = 6
+const LABEL = 12
+const ADD_LABEL = 15
+const PLUS = 12
+const ADD_GAP = 4
+
+/** The gap the frame leaves between the destinations and the button. */
+const GROUP_GAP = sp(18.84)
+
+/** Add's contents: the plus, the gap, and "Add" at 15pt medium. */
+const ADD_CONTENT = PLUS + ADD_GAP + 26.851
+
+/*
+ * Everything across the bar that is not padding, and so cannot give: the three
+ * names, the button's contents, both gutters, and the gap between the groups.
+ * What is left is shared by four boxes with two sides each.
+ */
+const IMMOVABLE =
+  TABS.reduce((w, t) => w + t.nameW, 0) + ADD_CONTENT + metric.gutter * 2 + GROUP_GAP
+const PAD_H = Math.min(20, (metric.appW * SCALE - IMMOVABLE) / 8)
+
+const WIDTHS = TABS.map((t) => PAD_H * 2 + t.nameW)
 const OFFSETS = WIDTHS.map((_, i) => WIDTHS.slice(0, i).reduce((a, b) => a + b, 0))
 const GROUP_W = WIDTHS.reduce((a, b) => a + b, 0)
+const ADD_W = PAD_H * 2 + ADD_CONTENT
 
 /** What the pill interpolates over: one entry per destination. */
 const TRACK = TABS.map((_, i) => i)
@@ -126,9 +157,9 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
         onPress={() => dispatch({ type: 'openComposer' })}
         style={s.add}
       >
-        <AccentFill width={sp(84)} height={ITEM_H} />
+        <AccentFill width={ADD_W} height={ITEM_H} />
         <View style={s.addContent}>
-          <PlusIcon size={sp(12)} color={color.text} />
+          <PlusIcon size={PLUS} color={color.text} />
           <Text style={s.addLabel}>Add</Text>
         </View>
       </Pressable>
@@ -272,7 +303,7 @@ function NavItem({ def, index, slide, onPress }: NavItemProps) {
       onPressOut={() => press.set(withTiming(0, { duration: PRESS, easing: EASE_ENTER }))}
       hitSlop={8}
     >
-      <Animated.View style={[s.item, { width: sp(def.width) }, feedback]}>
+      <Animated.View style={[s.item, { width: WIDTHS[index] }, feedback]}>
         <NavGlyph swap={swap} Icon={def.Icon} art={def.art} />
         <Text style={s.itemLabel} numberOfLines={1}>
           {def.label}
@@ -323,13 +354,13 @@ const s = StyleSheet.create({
   },
   itemLabel: {
     ...type.nav,
-    fontSize: sp(12),
-    ...capTrim(sp(12)),
+    fontSize: LABEL,
+    ...capTrim(LABEL),
     color: color.textBright,
     textAlign: 'center',
   },
   add: {
-    width: sp(84),
+    width: ADD_W,
     height: ITEM_H,
     borderRadius: radius.pill,
     borderWidth: RIM_WIDTH,
@@ -342,8 +373,8 @@ const s = StyleSheet.create({
   addContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: sp(4),
+    gap: ADD_GAP,
     zIndex: 1,
   },
-  addLabel: { ...type.nav, ...capTrim(sp(15)), color: color.textBright },
+  addLabel: { ...type.nav, fontSize: ADD_LABEL, ...capTrim(ADD_LABEL), color: color.textBright },
 })
