@@ -65,7 +65,8 @@ export const metric = {
   appW: FRAME_W,
   gutter: sp(24),
   rhythm: sp(20),
-  control: sp(34),
+  /* 34 in the frame; lifted for the same reason the bar was. */
+  control: sp(38),
   navH: sp(40),
   day: sp(32),
 } as const
