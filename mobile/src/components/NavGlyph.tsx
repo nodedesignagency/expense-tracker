@@ -18,17 +18,19 @@ import { color, sp } from '../theme'
 import { NavGlow } from './NavGlow'
 
 /*
- * Sizes. The outline sits on a 16 grid but reads small against the pill, so it
- * is drawn at 20.
+ * Sizes. The frame draws every nav glyph in a 16 box — nodes 11:23, 11:27 and
+ * 11:30 — and now that the destination is the frame's own 40 tall instead of
+ * 56, 16 is what it takes. The earlier 20 was an upsize against a pill half
+ * again as deep, and there is no longer one to sit against.
  *
  * The 3D box is not the same number as the artwork inside it. These renders
  * carry transparent margin — the current set fills 78-84% of its 64px canvas —
  * so a box matched to the outline would land the visible art well under it.
- * 27 puts roughly 23 of actual artwork on screen, a little over the outline,
- * which is the relationship the reference has.
+ * What settled that was 27 against a 20 outline; held to the same ratio at 16
+ * it is 21.6, which puts roughly 18 of actual artwork against a 16 outline.
  */
-const FLAT = 20
-const DIMENSIONAL = 27
+const FLAT = 16
+const DIMENSIONAL = 21.6
 
 /** How far the outline dims when idle — the frame's own value for a nav item. */
 const IDLE = 0.72

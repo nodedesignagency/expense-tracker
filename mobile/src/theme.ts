@@ -124,7 +124,7 @@ export const fill: Record<'surface' | 'card' | 'entry' | 'chip' | 'track' | 'rai
   chip: { colors: ['rgba(255,255,255,0.056)', 'rgba(255,255,255,0.007)'], deg: 115.02 },
   track: { colors: ['rgba(255,255,255,0.016)', 'rgba(255,255,255,0.002)'], deg: 141.81 },
   raised: { colors: ['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.12)'], deg: 102.83 },
-  navRaised: { colors: ['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.12)'], deg: 99 },
+  navRaised: { colors: ['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.12)'], deg: 97.591 },
 }
 
 /**
@@ -162,6 +162,35 @@ export const font = {
   r700: 'SFRounded-700',
   label: 'Geist-400',
 } as const
+
+/*
+ * SF Pro Rounded Medium, read out of the file we ship rather than assumed:
+ * 2048 units per em, cap 1443, ascender 1950, descender 494.
+ */
+const CAP = 1443 / 2048
+const ASCENDER = 1950 / 2048
+const DESCENDER = 494 / 2048
+
+/**
+ * Figma measures a text layer by its cap box; React Native lays out the whole
+ * line box, ascender and descender included. So a stack that Figma reports as
+ * 16 + 6 + 8 is 16 + 6 + 14.3 here, and everything sits high with too much air
+ * under the glyph above it.
+ *
+ * These margins take back exactly the difference, which puts the cap where the
+ * frame draws it. Android also adds padding of its own beyond the font's
+ * metrics unless it is told not to — the one place this would otherwise come
+ * apart on the device and not in the browser.
+ *
+ * Pass the size already scaled: capTrim(sp(12)), not sp(capTrim(12)).
+ */
+export function capTrim(fontSize: number) {
+  return {
+    marginTop: -(ASCENDER - CAP) * fontSize,
+    marginBottom: -DESCENDER * fontSize,
+    includeFontPadding: false,
+  } as const
+}
 
 /*
  * Type. SF Pro Rounded throughout, except the weekday labels, which the frame

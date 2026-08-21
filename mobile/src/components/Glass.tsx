@@ -111,7 +111,7 @@ let seq = 0
  * full strength. A 30% rim comes out solid white, and the panel reads as a
  * hard outline instead of a lit edge.
  */
-function splitAlpha(css: string): { color: string; opacity: number } {
+export function splitAlpha(css: string): { color: string; opacity: number } {
   const match = /^rgba?\(([^)]+)\)$/i.exec(css.trim())
   if (!match) return { color: css, opacity: 1 }
 
