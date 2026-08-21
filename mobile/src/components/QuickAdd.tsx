@@ -23,28 +23,39 @@ import { ArrowLeftDownIcon, ArrowRightUpIcon } from './Icons'
  * up already set to the one that was picked.
  *
  * Transcribed from the Credit and Debit frames, nodes 21:106 and 21:100. Both
- * are the same 100 wide — they do not hug their names the way a nav
- * destination does, so the pair squares off on the right and the two labels
- * start on the same line. Sizes are the frame's, unscaled, for the reason set
- * out in BottomNav: a height is not bound by the width of the screen.
+ * are one width — they do not hug their names the way a nav destination does,
+ * so the pair squares off on the right and the two labels start on the same
+ * line. Sizes are the frame's, unscaled, for the reason set out in BottomNav:
+ * a height is not bound by the width of the screen.
+ *
+ * Carrying the same 1.3 the bar does, and for the same reason: the frame's 40
+ * is under what either platform asks of a touch target, and these are the two
+ * controls a wrong tap costs the most on. The type is held back to 16 rather
+ * than taken to the full 19.5, which keeps them the weight of the bar below.
+ *
+ * The width is not 100 lifted. With the label held back the content no longer
+ * fills a lifted box, so it is measured out instead: the padding, the chip,
+ * the gap, the longer of the two names, and the frame's own 10.67 of air on
+ * the right, all lifted. That comes to 120.
  */
-const PILL_W = 100
-const PILL_H = 40
-/** The frame says 42.667, which on a box 40 deep is as round as it goes. */
+const LIFT = 1.3
+const PILL_W = 120
+const PILL_H = 40 * LIFT
+/** The frame says 42.667, which on a box this deep is as round as it goes. */
 const PILL_R = PILL_H / 2
-const PILL_PAD_L = 3.333
-const PILL_GAP = 6
+const PILL_PAD_L = 3.333 * LIFT
+const PILL_GAP = 6 * LIFT
 /** Flat and opaque, not glass: the chip inside is what carries the light. */
 const PILL_BG = '#262626'
 
-const CHIP_W = 40
-const CHIP_H = 33.333
+const CHIP_W = 40 * LIFT
+const CHIP_H = 33.333 * LIFT
 /** 60 in the frame, so again the full round. */
 const CHIP_R = CHIP_H / 2
-const GLYPH = 20
+const GLYPH = 20 * LIFT
 
-const LABEL = 15
-const STACK_GAP = 12
+const LABEL = 16
+const STACK_GAP = 12 * LIFT
 
 interface Tint {
   /** The chip's flat wash. */
@@ -79,6 +90,10 @@ const TINT: Record<Direction, Tint> = {
  * svg takes the props and hands them straight to the DOM, where the browser
  * drops them and falls back to a default radius — the chip came out flooded
  * rather than rimmed. A matrix is SVG 1.1, and both targets read it the same.
+ *
+ * It is quoted in the frame's own 40 by 33.333, so the chip's viewBox carries
+ * it up to the lifted size rather than the numbers being multiplied through.
+ * The lift is the same on both axes, so nothing is stretched.
  */
 const GLOW = {
   /** A unit circle at the origin, put where it belongs by the transform. */
@@ -88,6 +103,9 @@ const GLOW = {
   transform: 'matrix(0.033325, 2.1166, -2.54, 0.03999, 19.667, 12.167)',
   from: 0.81158,
   opacity: 0.6,
+  /** The space the transform above is written in. */
+  boxW: 40,
+  boxH: 33.333,
 }
 
 interface Choice {
@@ -96,13 +114,10 @@ interface Choice {
   Icon: typeof ArrowRightUpIcon
 }
 
-/*
- * Debit above credit, which is the order the composer's own toggle uses. Money
- * out is the entry people make most, and it is the one nearest the thumb.
- */
+/* Credit above debit, so debit — the entry made most — is nearest the thumb. */
 const CHOICES: Choice[] = [
-  { direction: 'debit', label: 'Debit', Icon: ArrowRightUpIcon },
   { direction: 'credit', label: 'Credit', Icon: ArrowLeftDownIcon },
+  { direction: 'debit', label: 'Debit', Icon: ArrowRightUpIcon },
 ]
 
 /**
@@ -222,7 +237,13 @@ function Chip({ choice }: { choice: Choice }) {
 
   return (
     <View style={[s.chip, { backgroundColor: tint.base }]}>
-      <Svg width={CHIP_W} height={CHIP_H} style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Svg
+        width={CHIP_W}
+        height={CHIP_H}
+        viewBox={`0 0 ${GLOW.boxW} ${GLOW.boxH}`}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      >
         <Defs>
           <RadialGradient
             id={id}
@@ -239,8 +260,8 @@ function Chip({ choice }: { choice: Choice }) {
         <Rect
           x={0}
           y={0}
-          width={CHIP_W}
-          height={CHIP_H}
+          width={GLOW.boxW}
+          height={GLOW.boxH}
           fill={`url(#${id})`}
           opacity={GLOW.opacity}
         />

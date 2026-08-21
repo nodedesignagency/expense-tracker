@@ -48,9 +48,9 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  { id: 'home', label: 'Home', nameW: 31.301, Icon: HomeIcon, art: require('../../assets/nav/home-3d.png') },
-  { id: 'insights', label: 'Insights', nameW: 40.898, Icon: ReportIcon, art: require('../../assets/nav/report-3d.png') },
-  { id: 'settings', label: 'Settings', nameW: 43.037, Icon: SettingsIcon, art: require('../../assets/nav/settings-3d.png') },
+  { id: 'home', label: 'Home', nameW: 33.909, Icon: HomeIcon, art: require('../../assets/nav/home-3d.png') },
+  { id: 'insights', label: 'Insights', nameW: 44.307, Icon: ReportIcon, art: require('../../assets/nav/report-3d.png') },
+  { id: 'settings', label: 'Settings', nameW: 46.624, Icon: SettingsIcon, art: require('../../assets/nav/settings-3d.png') },
 ]
 
 /*
@@ -73,24 +73,36 @@ const TABS: TabDef[] = [
  * gutters is 369 on a screen that has 360, so it does not fit with any gap at
  * all, let alone the frame's. So the padding takes whatever is left once
  * everything that cannot move has been paid for — 20 where there is room for
- * 20, and 17.59 on this phone.
+ * 20, and about 15.6 on this phone.
+ *
+ * And the frame's 40 is not enough. On a 393 phone that renders at exactly the
+ * height it was drawn and it still read small, and it is still awkward to hit:
+ * 40 is under the 44 both platforms ask of a touch target. So the bar is
+ * lifted to 52 and everything in it goes up by the same 1.3 — except the type,
+ * which moves 12 to 13 and 15 to 16 rather than to 15.6 and 19.5, because the
+ * full lift would have eaten the width the names need.
  *
  * Note what this replaces: three identical 58-wide boxes, 56 tall, each
  * reserving room for a name it only showed when selected. The frame shows all
  * three names at all times, which is what lets each box be its own width.
  */
-const ITEM_H = 40
-const STACK_GAP = 6
-const LABEL = 12
-const ADD_LABEL = 15
-const PLUS = 12
-const ADD_GAP = 4
+const ITEM_H = 52
+/** How much bigger than the frame everything in the bar is drawn. */
+const LIFT = ITEM_H / 40
+const STACK_GAP = 6 * LIFT
+const LABEL = 13
+const ADD_LABEL = 16
+const PLUS = 12 * LIFT
+const ADD_GAP = 4 * LIFT
 
 /** The gap the frame leaves between the destinations and the button. */
 const GROUP_GAP = sp(18.84)
 
-/** Add's contents: the plus, the gap, and "Add" at 15pt medium. */
-const ADD_CONTENT = PLUS + ADD_GAP + 26.851
+/** "Add" at 16pt medium, measured; the name collapses to nothing on open. */
+const ADD_NAME_W = 28.641
+
+/** Add's contents: the plus, the gap, and the name. */
+const ADD_CONTENT = PLUS + ADD_GAP + ADD_NAME_W
 
 /*
  * Everything across the bar that is not padding, and so cannot give: the three
@@ -118,9 +130,6 @@ export const NAV_HEIGHT = ITEM_H
 
 /** How far the bar floats above the safe area — the chooser stacks off this. */
 export const NAV_BOTTOM = sp(24)
-
-/** "Add" at 15pt medium, measured; the label collapses to nothing on open. */
-const ADD_NAME_W = 26.851
 
 /**
  * Two floating groups: destinations pinned left, the primary action right.
@@ -194,8 +203,14 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
         onPress={() => dispatch({ type: 'toggleQuickAdd' })}
         style={[s.add, addBox]}
       >
+        {/*
+          * Cut to the inside of the border, not the outside. absoluteFill
+          * measures from the padding box, so a ramp sized to the full width
+          * had its right and bottom edges clipped away by the very border it
+          * sits under, and the button lost its corner.
+          */}
         <Animated.View style={[StyleSheet.absoluteFill, addAccent]} pointerEvents="none">
-          <AccentFill width={ADD_W} height={ITEM_H} />
+          <AccentFill width={ADD_W - RIM_WIDTH * 2} height={ITEM_H - RIM_WIDTH * 2} />
         </Animated.View>
 
         <Animated.View style={[StyleSheet.absoluteFill, addNeutral]} pointerEvents="none">
@@ -436,8 +451,24 @@ const s = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1,
   },
-  /* The name's room, which is what closes the button down to a circle. */
-  addNameClip: { overflow: 'hidden' },
-  addName: { width: ADD_GAP + ADD_NAME_W, paddingLeft: ADD_GAP, justifyContent: 'center' },
+  /*
+   * The name's room, which is what closes the button down to a circle.
+   *
+   * The name itself is taken out of flow rather than given a box cut to its
+   * own measured advance. A box sized to the exact advance has nothing spare,
+   * and the platform is entitled to set the same string a fraction wider than
+   * the font file says — which took the last stroke off the "d". Out of flow
+   * it keeps whatever width it actually needs, and the clip above is the only
+   * thing deciding how much of it shows.
+   */
+  addNameClip: { overflow: 'hidden', alignSelf: 'stretch' },
+  addName: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    paddingLeft: ADD_GAP,
+    justifyContent: 'center',
+  },
   addLabel: { ...type.nav, fontSize: ADD_LABEL, ...capTrim(ADD_LABEL), color: color.textBright },
 })

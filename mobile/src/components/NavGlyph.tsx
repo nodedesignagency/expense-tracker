@@ -27,14 +27,17 @@ import { NavGlow } from './NavGlow'
  * scaled to 91.6% with everything else it came out at 14.7 inside a pill that
  * was itself drawn short — see the note on what scales in BottomNav.
  *
+ * Both carry that note's 1.3 as well, since the pill they sit in does: 16 and
+ * 21.6 become 20.8 and 28.08, which is the same pair against a taller bar.
+ *
  * The 3D box is not the same number as the artwork inside it. These renders
  * carry transparent margin — the current set fills 78-84% of its 64px canvas —
  * so a box matched to the outline would land the visible art well under it.
  * What settled that was 27 against a 20 outline; held to the same ratio at 16
  * it is 21.6, which puts roughly 18 of actual artwork against a 16 outline.
  */
-const FLAT = 16
-const DIMENSIONAL = 21.6
+const FLAT = 20.8
+const DIMENSIONAL = 28.08
 
 /** How far the outline dims when idle — the frame's own value for a nav item. */
 const IDLE = 0.72

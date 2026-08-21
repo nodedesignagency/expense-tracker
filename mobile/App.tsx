@@ -80,11 +80,12 @@ function Shell() {
 
       {/*
        * The scrim has to be fully solid before it reaches the top of the nav,
-       * which floats 24 above the safe area and stands 40 tall — so 64 up from
-       * the bottom, plus the inset. The frame's own 163-tall gradient lands
-       * solid at roughly 68, which clears that by four points on a phone with
-       * no gesture bar and misses it entirely on one that has one, leaving an
-       * entry legible right behind the nav. Taller, and solid sooner.
+       * which floats 24 above the safe area and now stands 52 tall — so 76 up
+       * from the bottom, plus the inset. The frame's own 163-tall gradient
+       * lands solid at roughly 68, which does not reach that on any phone,
+       * leaving an entry legible right behind the nav. So: taller, and solid
+       * sooner. At 200 it is opaque by 100, which clears the bar on a phone
+       * with no gesture bar and by more on one that has one.
        */}
       <LinearGradient
         colors={['rgba(4,4,4,0)', color.scrim, color.scrim]}
