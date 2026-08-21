@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
+  Dimensions,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -8,9 +9,18 @@ import {
   StyleSheet,
   Text,
   View,
+  type LayoutChangeEvent,
 } from 'react-native'
+import Animated, {
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { color, radius, type } from '../theme'
+import { EASE_ENTER, SHEET } from '../motion'
+import { color, radius, sp, type } from '../theme'
 
 interface SheetProps {
   open: boolean
@@ -20,27 +30,84 @@ interface SheetProps {
   children?: ReactNode
 }
 
+/** How far the panel floats off the three edges it sits against. */
+const FLOAT = sp(6)
+
+/*
+ * How tall it may get, in points rather than as a share of the parent. As a
+ * percentage it resolved against the box the keyboard avoider makes, which is
+ * neither the screen nor the panel's own content — the panel came out capped
+ * short and then sat at the top of what was left, a hundred points clear of
+ * the bottom it was meant to be against. Read once at module load, the way the
+ * scale is: the app is locked to portrait.
+ */
+const MAX_H = Dimensions.get('window').height * 0.86
+
 /**
- * Bottom sheet: a scrim you can tap to dismiss, over a panel pinned to the
- * bottom of the screen. The web build animated a translated div; here it is a
- * native Modal, which brings the platform's own dismissal behaviour with it.
+ * A sheet that comes up from the bottom, and floats: it clears the two sides
+ * and the bottom of the screen rather than sitting flush into the corner, so
+ * all four of its corners round and the ground shows around it.
+ *
+ * The Modal's own `animationType="slide"` is not used. It moves the whole
+ * modal, scrim included, so the dimming arrives travelling upward with the
+ * panel instead of coming up in place — which is what made this read as a
+ * screen being pushed on rather than a sheet being raised. Here the scrim
+ * fades where it is and the panel is the only thing that moves.
+ *
+ * That means holding the Modal mounted past the close, or the exit is never
+ * seen: `visible` follows a flag that is only dropped once the panel has
+ * finished travelling back down.
  */
 export function Sheet({ open, title, onClose, footer, children }: SheetProps) {
   const insets = useSafeAreaInsets()
+  const [mounted, setMounted] = useState(open)
+  /* The panel's own height, so it starts exactly its own height below. */
+  const [height, setHeight] = useState(0)
+  const t = useSharedValue(0)
+
+  useEffect(() => {
+    if (open) setMounted(true)
+    t.set(
+      withTiming(open ? 1 : 0, { duration: SHEET, easing: EASE_ENTER }, (done) => {
+        'worklet'
+        if (done && !open) runOnJS(setMounted)(false)
+      }),
+    )
+  }, [open, t])
+
+  const scrim = useAnimatedStyle(() => ({ opacity: t.get() }))
+
+  const panel = useAnimatedStyle(() => ({
+    /* Until it has been measured, a screenful is far enough to be off-stage. */
+    transform: [{ translateY: interpolate(t.get(), [0, 1], [height || 900, 0]) }],
+  }))
+
+  const onLayout = (e: LayoutChangeEvent) => {
+    const next = e.nativeEvent.layout.height
+    setHeight((prev) => (Math.abs(prev - next) < 1 ? prev : next))
+  }
 
   return (
     <Modal
-      visible={open}
+      visible={mounted}
       transparent
-      animationType="slide"
+      animationType="none"
       onRequestClose={onClose}
       statusBarTranslucent
     >
       <View style={s.root}>
-        <Pressable style={s.scrim} onPress={onClose} accessibilityLabel="Close" />
+        <Animated.View style={[s.scrim, scrim]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
+        </Animated.View>
 
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={[s.panel, { paddingBottom: insets.bottom + 16 }]}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={s.avoider}
+        >
+          <Animated.View
+            style={[s.panel, { marginBottom: insets.bottom + FLOAT }, panel]}
+            onLayout={onLayout}
+          >
             <View style={s.grabber} />
 
             <View style={s.head}>
@@ -60,7 +127,7 @@ export function Sheet({ open, title, onClose, footer, children }: SheetProps) {
             </ScrollView>
 
             {footer ? <View style={s.footer}>{footer}</View> : null}
-          </View>
+          </Animated.View>
         </KeyboardAvoidingView>
       </View>
     </Modal>
@@ -69,23 +136,21 @@ export function Sheet({ open, title, onClose, footer, children }: SheetProps) {
 
 const s = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
-  scrim: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-  },
+  /* Hugs the panel: no flex, so it cannot stretch and strand it at the top. */
+  avoider: { justifyContent: 'flex-end' },
+  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
   panel: {
     backgroundColor: color.island,
-    borderTopLeftRadius: radius.card,
-    borderTopRightRadius: radius.card,
-    borderTopWidth: 1,
+    /* Floating, so every corner rounds and the border goes all the way round. */
+    marginHorizontal: FLOAT,
+    borderRadius: radius.card,
+    borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
     paddingHorizontal: 20,
     paddingTop: 10,
-    maxHeight: '88%',
+    paddingBottom: 16,
+    maxHeight: MAX_H,
+    overflow: 'hidden',
   },
   grabber: {
     alignSelf: 'center',

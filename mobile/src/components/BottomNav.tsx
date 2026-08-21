@@ -194,9 +194,26 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
     opacity: interpolate(menu.get(), [0, 0.45], [1, 0], 'clamp'),
   }))
 
+  /*
+   * With the chooser up, the destinations go under it along with everything
+   * else. They were the one thing staying lit, on the reasoning that the bar
+   * should keep working — but a scrim over the whole screen bar one strip
+   * reads as the strip having been missed, not as it having been spared. Only
+   * the button that was tapped stays out of it.
+   *
+   * Dimmed rather than covered: the chooser sits below the bar so the button
+   * can stay above the scrim, which leaves nothing to draw over these.
+   */
+  const destinations = useAnimatedStyle(() => ({
+    opacity: interpolate(menu.get(), [0, 1], [1, 0.22]),
+  }))
+
   return (
     <View style={[s.nav, { bottom: sp(24) + inset }]} pointerEvents="box-none">
-      <View style={s.group}>
+      <Animated.View
+        style={[s.group, destinations]}
+        pointerEvents={quickAddOpen ? 'none' : 'auto'}
+      >
         <NavPill slide={slide} />
 
         {TABS.map((def, i) => (
@@ -208,13 +225,14 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
             onPress={() => dispatch({ type: 'setTab', tab: def.id })}
           />
         ))}
-      </View>
+      </Animated.View>
 
       {/*
-        * Add: 84 x 40, the accent ramp, a 25% white edge, its name at 15 — and
-        * on a tap it becomes the close for the chooser it opens. The accent
-        * goes out as the glass comes up, rather than the button being swapped
-        * for a different one, so there is nothing to appear or disappear.
+        * Add: the accent ramp, a 25% white edge, its name at 16 — and on a tap
+        * it becomes the close for the chooser it opens. The accent goes out as
+        * the glass comes up, rather than the button being swapped for a
+        * different one, so there is nothing to appear or disappear. It is also
+        * the only part of the bar the chooser does not put under its scrim.
         */}
       <AnimatedPressable
         accessibilityRole="button"

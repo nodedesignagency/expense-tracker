@@ -39,6 +39,13 @@ export const SWAP = 260
 export const PRESS = 120
 
 /**
+ * A sheet coming up from the bottom. Longer than the chooser: it is a whole
+ * panel travelling its own height, and taken at the chooser's pace it arrives
+ * as a slam.
+ */
+export const SHEET = 320
+
+/**
  * The Add button's chooser, opening and shutting. Shorter than the pill's
  * travel: that one is a thing moving across the bar and wants to be followed,
  * this one is a menu answering a tap and wants to be there.
