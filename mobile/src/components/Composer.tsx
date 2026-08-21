@@ -1,17 +1,29 @@
 import { useEffect, useState } from 'react'
-import { Dimensions, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import {
+  Dimensions,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
+import { BlurView } from 'expo-blur'
 import { TODAY_ISO } from '../data/seed'
 import { addDays, formatDateHeading } from '../lib/dates'
 import { parseAmountToCents } from '../lib/money'
 import type { BrandKey, Category, Direction, Method } from '../lib/types'
-import { createTransaction, useAppState, useDispatch } from '../store'
+import { createTransaction, useAppState, useCategories, useDispatch } from '../store'
 import { capTrim, color, font, radius, sp, type } from '../theme'
-import { ArrowLeftDownIcon, ArrowRightUpIcon, BackspaceIcon } from './Icons'
+import { AccentFill } from './Accent'
+import {
+  ArrowLeftDownIcon,
+  ArrowRightUpIcon,
+  BackspaceIcon,
+  CheckIcon,
+  PlusIcon,
+} from './Icons'
 import { Sheet } from './Sheet'
-
-const CATEGORIES: Category[] = [
-  'Salary', 'Client', 'Tools', 'Software', 'Travel', 'Food', 'Rent', 'Health', 'Shopping', 'Transfer',
-]
 
 const METHODS: Method[] = ['Wise', 'Credit Card', 'Bank Transfer', 'Apple Pay', 'PayPal', 'Cash']
 
@@ -77,6 +89,7 @@ function dayLabel(iso: string): string {
  */
 export function Composer() {
   const { composerOpen, composerDirection, scope, transactions } = useAppState()
+  const categories = useCategories()
   const dispatch = useDispatch()
 
   const [direction, setDirection] = useState<Direction>('debit')
@@ -88,6 +101,10 @@ export function Composer() {
   const [picker, setPicker] = useState<Picker>(null)
   const [naming, setNaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /* Where each chip starts, so its menu can hang off the chip and not the row. */
+  const [anchor, setAnchor] = useState<Record<string, number>>({})
+  const [coining, setCoining] = useState(false)
+  const [draft, setDraft] = useState('')
 
   /*
    * The chooser has already asked which side this is, so the sheet opens on
@@ -100,6 +117,8 @@ export function Composer() {
     setName('')
     setPicker(null)
     setNaming(false)
+    setCoining(false)
+    setDraft('')
     setError(null)
   }, [composerOpen, composerDirection])
 
@@ -121,8 +140,21 @@ export function Composer() {
     })
   }
 
-  const open = (next: Exclude<Picker, null>) =>
+  const open = (next: Exclude<Picker, null>) => {
+    setCoining(false)
+    setDraft('')
     setPicker((prev) => (prev === next ? null : next))
+  }
+
+  const coin = () => {
+    const named = draft.trim()
+    if (!named) return
+    dispatch({ type: 'addCategory', category: named })
+    setCategory(named)
+    setCoining(false)
+    setDraft('')
+    setPicker(null)
+  }
 
   const submit = () => {
     const amountCents = parseAmountToCents(amount)
@@ -157,6 +189,8 @@ export function Composer() {
       onClose={close}
       footer={
         <Pressable accessibilityRole="button" style={s.submit} onPress={submit}>
+          {/* The same ramp and edge the bar's Add carries, at this width. */}
+          <AccentFill width={INNER_W} height={SUBMIT_H} overhang={1} />
           <Text style={s.submitText}>
             {`Add to ${scope === 'business' ? 'Business' : 'Personal'}`}
           </Text>
@@ -205,15 +239,30 @@ export function Composer() {
       />
 
       <View style={s.chips}>
-        <Stat label={category} on={picker === 'category'} onPress={() => open('category')} />
-        <Stat label={method} on={picker === 'method'} onPress={() => open('method')} />
-        <Stat label={dayLabel(date)} on={picker === 'date'} onPress={() => open('date')} />
+        <Stat
+          label={category}
+          on={picker === 'category'}
+          onPress={() => open('category')}
+          onAnchor={(x) => setAnchor((a) => ({ ...a, category: x }))}
+        />
+        <Stat
+          label={method}
+          on={picker === 'method'}
+          onPress={() => open('method')}
+          onAnchor={(x) => setAnchor((a) => ({ ...a, method: x }))}
+        />
+        <Stat
+          label={dayLabel(date)}
+          on={picker === 'date'}
+          onPress={() => open('date')}
+          onAnchor={(x) => setAnchor((a) => ({ ...a, date: x }))}
+        />
       </View>
 
       {error ? <Text style={s.error}>{error}</Text> : null}
 
       <View style={s.drawer}>
-        {picker === null && !naming ? (
+        {!naming ? (
           <View style={s.pad}>
             {KEYS.map((k) => (
               <Pressable
@@ -233,38 +282,110 @@ export function Composer() {
           </View>
         ) : null}
 
-        {picker === 'category' ? (
-          <List
-            options={CATEGORIES}
-            value={category}
-            onPick={(v) => {
-              setCategory(v)
-              setPicker(null)
-            }}
-          />
-        ) : null}
+        {/*
+          * The menu hangs off the chip that opened it and lies over the pad,
+          * rather than a second run of chips appearing under the first. Two
+          * rows of the same shape read as one list that grew, and there is
+          * nothing in that to say which of them the new ones belong to.
+          */}
+        {picker ? (
+          <>
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => setPicker(null)}
+              accessibilityLabel="Dismiss"
+            />
+            <View
+              style={[
+                s.menu,
+                { left: Math.min(anchor[picker] ?? 0, INNER_W - MENU_W) },
+              ]}
+            >
+              <BlurView
+                intensity={40}
+                tint="dark"
+                experimentalBlurMethod="dimezisBlurView"
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={s.menuWash} pointerEvents="none" />
 
-        {picker === 'method' ? (
-          <List
-            options={METHODS}
-            value={method}
-            onPick={(v) => {
-              setMethod(v)
-              setPicker(null)
-            }}
-          />
-        ) : null}
+              <ScrollView
+                style={s.menuScroll}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                {picker === 'category'
+                  ? categories.map((option) => (
+                      <Row
+                        key={option}
+                        label={option}
+                        on={option === category}
+                        onPress={() => {
+                          setCategory(option)
+                          setPicker(null)
+                        }}
+                      />
+                    ))
+                  : null}
 
-        {picker === 'date' ? (
-          <List
-            options={DATES}
-            value={date}
-            format={dayLabel}
-            onPick={(v) => {
-              setDate(v)
-              setPicker(null)
-            }}
-          />
+                {picker === 'method'
+                  ? METHODS.map((option) => (
+                      <Row
+                        key={option}
+                        label={option}
+                        on={option === method}
+                        onPress={() => {
+                          setMethod(option)
+                          setPicker(null)
+                        }}
+                      />
+                    ))
+                  : null}
+
+                {picker === 'date'
+                  ? DATES.map((option) => (
+                      <Row
+                        key={option}
+                        label={dayLabel(option)}
+                        on={option === date}
+                        onPress={() => {
+                          setDate(option)
+                          setPicker(null)
+                        }}
+                      />
+                    ))
+                  : null}
+
+                {picker === 'category' ? (
+                  <View style={s.menuRule}>
+                    {coining ? (
+                      <TextInput
+                        style={s.coin}
+                        placeholder="Name it"
+                        placeholderTextColor={color.textDim}
+                        value={draft}
+                        onChangeText={setDraft}
+                        onSubmitEditing={coin}
+                        onBlur={coin}
+                        returnKeyType="done"
+                        autoFocus
+                        accessibilityLabel="New category name"
+                      />
+                    ) : (
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => setCoining(true)}
+                        style={s.row}
+                      >
+                        <Text style={[s.rowText, { color: color.textSoft }]}>New category</Text>
+                        <PlusIcon size={sp(14)} color={color.textSoft} />
+                      </Pressable>
+                    )}
+                  </View>
+                ) : null}
+              </ScrollView>
+            </View>
+          </>
         ) : null}
       </View>
     </Sheet>
@@ -272,12 +393,23 @@ export function Composer() {
 }
 
 /** A chip stating what one of the details currently is. */
-function Stat({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+function Stat({
+  label,
+  on,
+  onPress,
+  onAnchor,
+}: {
+  label: string
+  on: boolean
+  onPress: () => void
+  onAnchor: (x: number) => void
+}) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ expanded: on }}
       onPress={onPress}
+      onLayout={(e) => onAnchor(e.nativeEvent.layout.x)}
       style={[s.stat, on ? s.statOpen : null]}
     >
       <Text style={s.statText} numberOfLines={1}>
@@ -287,57 +419,41 @@ function Stat({ label, on, onPress }: { label: string; on: boolean; onPress: () 
   )
 }
 
-/** One chip's list, in the pad's place so the sheet keeps its height. */
-function List<T extends string>({
-  options,
-  value,
-  onPick,
-  format,
-}: {
-  options: readonly T[]
-  value: T
-  onPick: (value: T) => void
-  format?: (value: T) => string
-}) {
+/** One line of a menu: what it is, and a mark if it is the one in force. */
+function Row({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   return (
-    <View style={s.list}>
-      {options.map((option) => {
-        const on = option === value
-        return (
-          <Pressable
-            key={option}
-            accessibilityRole="button"
-            accessibilityState={{ selected: on }}
-            onPress={() => onPick(option)}
-            style={[s.stat, on ? s.statOn : null]}
-          >
-            <Text style={[s.statText, on ? { color: color.bg } : null]}>
-              {format ? format(option) : option}
-            </Text>
-          </Pressable>
-        )
-      })}
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: on }}
+      onPress={onPress}
+      style={s.row}
+    >
+      <Text style={s.rowText} numberOfLines={1}>
+        {label}
+      </Text>
+      {on ? <CheckIcon size={sp(16)} color={color.text} /> : null}
+    </Pressable>
   )
 }
 
 /*
- * Three to a row, measured rather than given as a third each: a percentage
- * width knows nothing about the gaps between the keys, so three thirds plus
- * two gaps is wider than the row and the third key wraps to a line of its own.
+ * Three keys to a row, measured rather than given as a third each: a
+ * percentage width knows nothing about the gaps between them, so three thirds
+ * plus two gaps is wider than the row and the third key wraps to its own line.
  *
  * What is left of the screen: the sheet floats six clear of either side, draws
  * a one-unit border, and pads twenty inside that. Every one of those has to
  * come off — budgeting for all but the border was enough on its own to wrap
- * the pad into six rows of two.
- *
- * Then rounded down, because three of these plus two gaps landing a hundredth
- * of a point over the row wraps it just as completely as being a point over.
+ * the pad into six rows of two. Then rounded down, because landing a hundredth
+ * of a point over the row wraps it as completely as being a point over.
  */
 const KEY_H = sp(52)
 const KEY_GAP = sp(8)
 const INNER_W = Dimensions.get('window').width - sp(6) * 2 - 2 - 20 * 2
 const KEY_W = Math.floor(((INNER_W - KEY_GAP * 2) / 3) * 100) / 100
+const DRAWER_H = KEY_H * 4 + KEY_GAP * 3
+const MENU_W = sp(196)
+const SUBMIT_H = sp(54)
 
 const s = StyleSheet.create({
   segment: {
@@ -345,7 +461,7 @@ const s = StyleSheet.create({
     padding: sp(3),
     gap: sp(3),
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   segmentOption: {
     flex: 1,
@@ -356,7 +472,7 @@ const s = StyleSheet.create({
     height: sp(38),
     borderRadius: radius.pill,
   },
-  segmentOn: { backgroundColor: 'rgba(255,255,255,0.10)' },
+  segmentOn: { backgroundColor: 'rgba(255,255,255,0.14)' },
   segmentText: { ...type.chip, ...capTrim(sp(14)), color: color.text },
 
   /* The amount, which is the screen. */
@@ -375,8 +491,8 @@ const s = StyleSheet.create({
     height: sp(48),
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
     paddingHorizontal: sp(18),
     ...type.name,
     color: color.text,
@@ -404,8 +520,8 @@ const s = StyleSheet.create({
   statOn: { backgroundColor: color.text, borderColor: color.text },
   statText: { ...type.chip, ...capTrim(sp(14)), color: color.text },
 
-  /* The pad and the lists share this, so swapping one for the other is still. */
-  drawer: { minHeight: KEY_H * 4 + KEY_GAP * 3, paddingTop: sp(14) },
+  /* Holds the pad, and is what the menus lie over rather than displace. */
+  drawer: { minHeight: DRAWER_H, paddingTop: sp(14) },
   pad: { flexDirection: 'row', flexWrap: 'wrap', gap: KEY_GAP },
   key: {
     width: KEY_W,
@@ -414,22 +530,59 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     /* Rounded, not a pill: at the chip radius a 52-tall key is a lozenge. */
     borderRadius: sp(18),
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.07)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   keyText: { fontFamily: font.r500, fontSize: sp(24), color: color.text },
 
-  list: { flexDirection: 'row', flexWrap: 'wrap', gap: sp(8) },
+  /*
+   * The menu. It hangs off the left edge of the chip that opened it and lies
+   * over the pad, so nothing below it moves and there is never a doubt about
+   * which control the list belongs to.
+   */
+  menu: {
+    position: 'absolute',
+    top: sp(6),
+    width: MENU_W,
+    maxHeight: DRAWER_H - sp(8),
+    borderRadius: sp(18),
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    overflow: 'hidden',
+    zIndex: 3,
+  },
+  /* Over the blur, or what is behind reads through at its own brightness. */
+  menuWash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(40,35,35,0.88)' },
+  menuScroll: { paddingVertical: sp(6) },
+  /* Coining a category is a different kind of act, so it sits below a line. */
+  menuRule: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.10)', marginTop: sp(6) },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: sp(10),
+    height: sp(42),
+    paddingHorizontal: sp(14),
+  },
+  rowText: { ...type.chip, ...capTrim(sp(14)), color: color.text, flexShrink: 1 },
+  coin: {
+    height: sp(42),
+    paddingHorizontal: sp(14),
+    ...type.chip,
+    color: color.text,
+  },
 
   error: { ...type.chip, color: color.debit, paddingTop: sp(12) },
 
   submit: {
-    height: sp(54),
+    height: SUBMIT_H,
     borderRadius: radius.pill,
-    backgroundColor: color.accentSolid,
+    borderWidth: 1,
+    borderColor: color.strokeAccent,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  submitText: { ...type.name, ...capTrim(sp(16)), color: color.text },
+  submitText: { ...type.name, ...capTrim(sp(16)), color: color.text, zIndex: 1 },
 })

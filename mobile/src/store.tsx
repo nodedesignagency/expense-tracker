@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { buildSeedLedger, TODAY_ISO } from './data/seed'
 import { compareIsoDesc } from './lib/dates'
 import { netBalanceCents } from './lib/selectors'
-import type { Category, Direction, Scope, Transaction } from './lib/types'
+import { BUILTIN_CATEGORIES, type Category, type Direction, type Scope, type Transaction } from './lib/types'
 
 export type Tab = 'home' | 'insights' | 'settings'
 
@@ -26,6 +26,8 @@ export interface AppState {
   searchOpen: boolean
   filterOpen: boolean
   categories: Category[]
+  /** Categories the user has made, on top of the ones that ship. */
+  customCategories: string[]
   tab: Tab
   /** The Add button's credit-or-debit chooser. */
   quickAddOpen: boolean
@@ -48,6 +50,7 @@ export type Action =
   | { type: 'toggleSearch'; open?: boolean }
   | { type: 'toggleFilter'; open?: boolean }
   | { type: 'toggleCategory'; category: Category }
+  | { type: 'addCategory'; category: string }
   | { type: 'clearFilters' }
   | { type: 'setTab'; tab: Tab }
   | { type: 'toggleQuickAdd'; open?: boolean }
@@ -65,6 +68,8 @@ export interface PersistedState {
   added: Transaction[]
   deletedIds: string[]
   scope: Scope
+  /** Added in the same shape; absent in anything written before they existed. */
+  customCategories?: string[]
 }
 
 function sortNewestFirst(rows: Transaction[]): Transaction[] {
@@ -90,6 +95,7 @@ export function initialState(): AppState {
     searchOpen: false,
     filterOpen: false,
     categories: [],
+    customCategories: [],
     tab: 'home',
     quickAddOpen: false,
     composerOpen: false,
@@ -105,6 +111,7 @@ function applyPersisted(state: AppState, persisted: PersistedState): AppState {
     ...state,
     transactions: sortNewestFirst([...seeded, ...(persisted.added ?? [])]),
     scope: persisted.scope ?? state.scope,
+    customCategories: persisted.customCategories ?? state.customCategories,
   }
 }
 
@@ -142,6 +149,12 @@ export function reducer(state: AppState, action: Action): AppState {
           ? state.categories.filter((c) => c !== action.category)
           : [...state.categories, action.category],
       }
+    }
+    case 'addCategory': {
+      const name = action.category.trim()
+      const known = [...BUILTIN_CATEGORIES, ...state.customCategories]
+      if (!name || known.some((c) => c.toLowerCase() === name.toLowerCase())) return state
+      return { ...state, customCategories: [...state.customCategories, name] }
     }
     case 'clearFilters':
       return { ...state, categories: [], query: '', searchOpen: false, filterOpen: false }
@@ -233,11 +246,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       added: state.transactions.filter((row) => !seedIds.has(row.id)),
       deletedIds: [...seedIds].filter((id) => !liveIds.has(id)),
       scope: state.scope,
+      customCategories: state.customCategories,
     }
     void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload)).catch(() => {
       /* quota or disabled store — the app still works for this session */
     })
-  }, [state.transactions, state.scope])
+  }, [state.transactions, state.scope, state.customCategories])
 
   return (
     <StateContext.Provider value={state}>
@@ -261,6 +275,12 @@ export function useDispatch(): Dispatch<Action> {
 /** The app is pinned to the seeded "today" so the demo ledger stays coherent. */
 export function useToday(): string {
   return TODAY_ISO
+}
+
+/** Everything that ships, then everything the user has made, in that order. */
+export function useCategories(): Category[] {
+  const { customCategories } = useAppState()
+  return useMemo(() => [...BUILTIN_CATEGORIES, ...customCategories], [customCategories])
 }
 
 export function useVisibleLedger(): Transaction[] {

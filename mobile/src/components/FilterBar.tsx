@@ -1,16 +1,13 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import type { Category } from '../lib/types'
-import { useAppState, useDispatch } from '../store'
+import { useAppState, useCategories, useDispatch } from '../store'
 import { color, metric, radius, type } from '../theme'
 import { SearchIcon } from './Icons'
-
-const CATEGORIES: Category[] = [
-  'Salary', 'Client', 'Tools', 'Software', 'Travel', 'Food', 'Rent', 'Health', 'Shopping', 'Transfer',
-]
 
 /** Search field and category chips, revealed by the top bar's round buttons. */
 export function FilterBar() {
   const { searchOpen, filterOpen, query, categories } = useAppState()
+  const all = useCategories()
   const dispatch = useDispatch()
 
   if (!searchOpen && !filterOpen) return null
@@ -43,7 +40,7 @@ export function FilterBar() {
 
       {filterOpen ? (
         <View style={s.chips}>
-          {CATEGORIES.map((category) => {
+          {all.map((category) => {
             const active = categories.includes(category)
             return (
               <Pressable

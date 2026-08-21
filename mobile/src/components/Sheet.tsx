@@ -18,6 +18,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated'
+import { BlurView } from 'expo-blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { EASE_ENTER, SHEET } from '../motion'
 import { color, radius, sp, type } from '../theme'
@@ -108,6 +109,24 @@ export function Sheet({ open, title, onClose, footer, children }: SheetProps) {
             style={[s.panel, { marginBottom: insets.bottom + FLOAT }, panel]}
             onLayout={onLayout}
           >
+            {/*
+              * The ledger goes soft behind the panel rather than being hidden
+              * by it. Android's blur is Expo's experimental one and has to be
+              * asked for by name; it also will not take a border radius of its
+              * own, which is why the panel clips.
+              *
+              * A wash goes over the top: blur alone leaves whatever was behind
+              * showing through at its own brightness, and the balance figure
+              * is bright enough to read through the sheet sitting on it.
+              */}
+            <BlurView
+              intensity={48}
+              tint="dark"
+              experimentalBlurMethod="dimezisBlurView"
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={s.wash} pointerEvents="none" />
+
             <View style={s.grabber} />
 
             <View style={s.head}>
@@ -140,7 +159,8 @@ const s = StyleSheet.create({
   avoider: { justifyContent: 'flex-end' },
   scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
   panel: {
-    backgroundColor: color.island,
+    /* Transparent: the blur and the wash under everything are the surface. */
+    backgroundColor: 'transparent',
     /* Floating, so every corner rounds and the border goes all the way round. */
     marginHorizontal: FLOAT,
     borderRadius: radius.card,
@@ -152,6 +172,11 @@ const s = StyleSheet.create({
     maxHeight: MAX_H,
     overflow: 'hidden',
   },
+  /*
+   * Warm rather than neutral. A flat black wash over a blur reads as a screen
+   * gone dim; a touch of warmth in it reads as a pane with something behind.
+   */
+  wash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(30,26,26,0.62)' },
   grabber: {
     alignSelf: 'center',
     width: 40,

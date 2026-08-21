@@ -2,17 +2,26 @@ export type Scope = 'business' | 'personal'
 
 export type Direction = 'credit' | 'debit'
 
-export type Category =
-  | 'Salary'
-  | 'Tools'
-  | 'Client'
-  | 'Travel'
-  | 'Food'
-  | 'Rent'
-  | 'Software'
-  | 'Health'
-  | 'Shopping'
-  | 'Transfer'
+/*
+ * The ones that ship. A category is not closed any more — the composer can
+ * make one — so the union is widened with `string & {}`, which still offers
+ * these for completion while accepting whatever the user types.
+ */
+export const BUILTIN_CATEGORIES = [
+  'Salary',
+  'Client',
+  'Tools',
+  'Software',
+  'Travel',
+  'Food',
+  'Rent',
+  'Health',
+  'Shopping',
+  'Transfer',
+] as const
+
+export type BuiltinCategory = (typeof BUILTIN_CATEGORIES)[number]
+export type Category = BuiltinCategory | (string & {})
 
 /** Payment rail the entry moved over — shown as "Debited by {method}". */
 export type Method = 'Wise' | 'Credit Card' | 'Bank Transfer' | 'Apple Pay' | 'PayPal' | 'Cash'
