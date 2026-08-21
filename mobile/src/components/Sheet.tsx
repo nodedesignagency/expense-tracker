@@ -19,9 +19,21 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 import { BlurView } from 'expo-blur'
+import Svg, { Defs, LinearGradient as SvgGradient, Rect, Stop } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { EASE_ENTER, SHEET } from '../motion'
-import { color, radius, sp, type } from '../theme'
+import {
+  RIM_STOPS,
+  RIM_WIDTH,
+  axisFor,
+  color,
+  radius,
+  rim,
+  sp,
+  type,
+  RIM_DEG,
+} from '../theme'
+import { splitAlpha } from './Glass'
 
 interface SheetProps {
   open: boolean
@@ -29,6 +41,12 @@ interface SheetProps {
   onClose: () => void
   footer?: ReactNode
   children?: ReactNode
+  /**
+   * Drawn over the panel and outside its scroller, for anything that has to
+   * cover the sheet rather than sit in it — the calendar, which inside the
+   * scroller would be clipped by it and would push the form around.
+   */
+  overlay?: ReactNode
 }
 
 /** How far the panel floats off the three edges it sits against. */
@@ -43,6 +61,9 @@ const FLOAT = sp(6)
  * scale is: the app is locked to portrait.
  */
 const MAX_H = Dimensions.get('window').height * 0.86
+
+/** What the panel spans once the float has been taken off both sides. */
+const PANEL_W = Dimensions.get('window').width - FLOAT * 2
 
 /**
  * A sheet that comes up from the bottom, and floats: it clears the two sides
@@ -59,7 +80,7 @@ const MAX_H = Dimensions.get('window').height * 0.86
  * seen: `visible` follows a flag that is only dropped once the panel has
  * finished travelling back down.
  */
-export function Sheet({ open, title, onClose, footer, children }: SheetProps) {
+export function Sheet({ open, title, onClose, footer, children, overlay }: SheetProps) {
   const insets = useSafeAreaInsets()
   const [mounted, setMounted] = useState(open)
   /* The panel's own height, so it starts exactly its own height below. */
@@ -120,12 +141,13 @@ export function Sheet({ open, title, onClose, footer, children }: SheetProps) {
               * is bright enough to read through the sheet sitting on it.
               */}
             <BlurView
-              intensity={48}
+              intensity={62}
               tint="dark"
               experimentalBlurMethod="dimezisBlurView"
               style={StyleSheet.absoluteFill}
             />
             <View style={s.wash} pointerEvents="none" />
+            {height > 0 ? <LiquidRim height={height} /> : null}
 
             <View style={s.grabber} />
 
@@ -146,10 +168,72 @@ export function Sheet({ open, title, onClose, footer, children }: SheetProps) {
             </ScrollView>
 
             {footer ? <View style={s.footer}>{footer}</View> : null}
+
+            {overlay}
           </Animated.View>
         </KeyboardAvoidingView>
       </View>
     </Modal>
+  )
+}
+
+/**
+ * The edge, carrying colour.
+ *
+ * Same construction as every other rim in the app — one gradient traced round
+ * a stroked rounded rect, so the light is continuous and the corners are one
+ * curve rather than two shapes meeting. The only difference is that the ramp
+ * has hue in it, which is what makes an edge read as a pane catching light
+ * rather than as a line drawn round a box.
+ *
+ * Alpha goes in stop-opacity, never inside stop-color: Android reads the three
+ * channels there and drops the fourth, and the whole rim paints solid.
+ */
+function LiquidRim({ height }: { height: number }) {
+  const half = RIM_WIDTH / 2
+  const axis = axisFor(RIM_DEG, PANEL_W, height)
+
+  return (
+    <Svg
+      width={PANEL_W}
+      height={height}
+      style={StyleSheet.absoluteFill}
+      pointerEvents="none"
+    >
+      <Defs>
+        <SvgGradient
+          id="sheetRim"
+          gradientUnits="userSpaceOnUse"
+          x1={axis.start.x * PANEL_W}
+          y1={axis.start.y * height}
+          x2={axis.end.x * PANEL_W}
+          y2={axis.end.y * height}
+        >
+          {rim.liquid.map((css, i) => {
+            const stop = splitAlpha(css)
+            return (
+              <Stop
+                key={i}
+                offset={RIM_STOPS[i] ?? i / (rim.liquid.length - 1)}
+                stopColor={stop.color}
+                stopOpacity={stop.opacity}
+              />
+            )
+          })}
+        </SvgGradient>
+      </Defs>
+      <Rect
+        x={half}
+        y={half}
+        width={PANEL_W - RIM_WIDTH}
+        height={Math.max(height - RIM_WIDTH, 0)}
+        rx={radius.sheet - half}
+        ry={radius.sheet - half}
+        fill="none"
+        stroke="url(#sheetRim)"
+        strokeWidth={RIM_WIDTH}
+      />
+    </Svg>
   )
 }
 
@@ -163,9 +247,7 @@ const s = StyleSheet.create({
     backgroundColor: 'transparent',
     /* Floating, so every corner rounds and the border goes all the way round. */
     marginHorizontal: FLOAT,
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: radius.sheet,
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 16,

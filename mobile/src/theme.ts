@@ -55,6 +55,10 @@ export const color = {
 
 export const radius = {
   card: sp(32),
+  /* The sheets, which are rounder than a card so they read as a pane. */
+  sheet: sp(40),
+  /* Keys and the menus: rounded, but nowhere near a pill. */
+  soft: sp(22),
   chip: sp(32),
   round: sp(69.189),
   /* A pill is "however round it goes", not a measurement — it does not scale. */
@@ -91,7 +95,23 @@ export type Gradient = readonly [string, string, ...string[]]
 /* A hairline stays a hairline: it is a rendering unit, not a measurement. */
 export const RIM_WIDTH = 1
 
-export const rim: Record<'card' | 'soft' | 'button' | 'raised', Gradient> = {
+export const rim: Record<'card' | 'soft' | 'button' | 'raised' | 'liquid', Gradient> = {
+  /*
+   * The sheets' edge. Same light travelling the same way round as every other
+   * rim, but carrying colour: the app's own pinks warming the two corners the
+   * light enters and leaves by, and near-white where it crosses the middle.
+   *
+   * The reference for this catches green and teal. Those would be a second
+   * identity beside the accent rather than a highlight on it, so the hue is
+   * the one the app already has and only the trick is borrowed.
+   */
+  liquid: [
+    'rgba(255,196,198,0.88)',
+    'rgba(255,255,255,0.52)',
+    'rgba(255,150,160,0.26)',
+    'rgba(255,255,255,0.42)',
+    'rgba(255,182,186,0.74)',
+  ],
   card: ['rgba(255,255,255,0.30)', 'rgba(255,255,255,0.15)', 'rgba(255,255,255,0.06)', 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0.20)'],
   /** Day circles and the toggle track, well under half as lit. */
   soft: ['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.06)', 'rgba(255,255,255,0.02)', 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.10)'],

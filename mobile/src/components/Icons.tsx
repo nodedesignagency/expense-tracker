@@ -304,3 +304,38 @@ export function BackspaceIcon({ size = 24, color = '#FFFFFF' }: IconProps) {
     </Svg>
   )
 }
+
+/** Category. A luggage-tag, which is what a category is. */
+export function TagIcon({ size = 16, color = '#FFFFFF' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <Path
+        d="M10.6 2.5H16a1.5 1.5 0 0 1 1.5 1.5v5.4a2 2 0 0 1-.59 1.42l-6.1 6.09a1.6 1.6 0 0 1-2.26 0l-4.96-4.96a1.6 1.6 0 0 1 0-2.26l6.09-6.1a2 2 0 0 1 1.42-.59Z"
+        stroke={color}
+        strokeWidth={1.4}
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M13.6 6.4h.01"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+    </Svg>
+  )
+}
+
+/** How it was paid. */
+export function CardIcon({ size = 16, color = '#FFFFFF' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <Path
+        d="M3 6.5A2.5 2.5 0 0 1 5.5 4h9A2.5 2.5 0 0 1 17 6.5v7a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 3 13.5v-7Z"
+        stroke={color}
+        strokeWidth={1.4}
+      />
+      <Path d="M3 8.4h14" stroke={color} strokeWidth={1.4} />
+      <Path d="M6.2 12.6h3" stroke={color} strokeWidth={1.4} strokeLinecap="round" />
+    </Svg>
+  )
+}

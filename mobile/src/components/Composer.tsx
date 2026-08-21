@@ -13,22 +13,23 @@ import { TODAY_ISO } from '../data/seed'
 import { addDays, formatDateHeading } from '../lib/dates'
 import { parseAmountToCents } from '../lib/money'
 import type { BrandKey, Category, Direction, Method } from '../lib/types'
-import { createTransaction, useAppState, useCategories, useDispatch } from '../store'
+import { createTransaction, useAppState, useCategories, useDispatch, useVisibleLedger } from '../store'
 import { capTrim, color, font, radius, sp, type } from '../theme'
 import { AccentFill } from './Accent'
+import { Calendar } from './Calendar'
 import {
   ArrowLeftDownIcon,
   ArrowRightUpIcon,
   BackspaceIcon,
+  CalendarIcon,
+  CardIcon,
   CheckIcon,
   PlusIcon,
+  TagIcon,
 } from './Icons'
 import { Sheet } from './Sheet'
 
 const METHODS: Method[] = ['Wise', 'Credit Card', 'Bank Transfer', 'Apple Pay', 'PayPal', 'Cash']
-
-/** The last week, which is as far back as an entry is usually being caught up. */
-const DATES = [0, -1, -2, -3, -4, -5, -6].map((d) => addDays(TODAY_ISO, d))
 
 const DIRECTIONS: { value: Direction; label: string; tint: string; Icon: typeof ArrowRightUpIcon }[] = [
   { value: 'debit', label: 'Money out', tint: color.debit, Icon: ArrowRightUpIcon },
@@ -38,7 +39,7 @@ const DIRECTIONS: { value: Direction; label: string; tint: string; Icon: typeof 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back']
 
 /** Which list the drawer is showing. Null is the keypad, which is the default. */
-type Picker = null | 'category' | 'method' | 'date'
+type Picker = null | 'category' | 'method'
 
 /** Best-guess brand mark from what the user typed, so new rows aren't all grey. */
 function inferBrand(name: string): BrandKey {
@@ -90,6 +91,7 @@ function dayLabel(iso: string): string {
 export function Composer() {
   const { composerOpen, composerDirection, scope, transactions } = useAppState()
   const categories = useCategories()
+  const ledger = useVisibleLedger()
   const dispatch = useDispatch()
 
   const [direction, setDirection] = useState<Direction>('debit')
@@ -105,6 +107,7 @@ export function Composer() {
   const [anchor, setAnchor] = useState<Record<string, number>>({})
   const [coining, setCoining] = useState(false)
   const [draft, setDraft] = useState('')
+  const [dating, setDating] = useState(false)
 
   /*
    * The chooser has already asked which side this is, so the sheet opens on
@@ -117,6 +120,7 @@ export function Composer() {
     setName('')
     setPicker(null)
     setNaming(false)
+    setDating(false)
     setCoining(false)
     setDraft('')
     setError(null)
@@ -187,6 +191,20 @@ export function Composer() {
       open={composerOpen}
       title="New entry"
       onClose={close}
+      overlay={
+        dating ? (
+          <Calendar
+            value={date}
+            today={TODAY_ISO}
+            ledger={ledger}
+            onPick={(iso) => {
+              setDate(iso)
+              setDating(false)
+            }}
+            onClose={() => setDating(false)}
+          />
+        ) : null
+      }
       footer={
         <Pressable accessibilityRole="button" style={s.submit} onPress={submit}>
           {/* The same ramp and edge the bar's Add carries, at this width. */}
@@ -241,21 +259,27 @@ export function Composer() {
       <View style={s.chips}>
         <Stat
           label={category}
+          Icon={TagIcon}
           on={picker === 'category'}
           onPress={() => open('category')}
           onAnchor={(x) => setAnchor((a) => ({ ...a, category: x }))}
         />
         <Stat
           label={method}
+          Icon={CardIcon}
           on={picker === 'method'}
           onPress={() => open('method')}
           onAnchor={(x) => setAnchor((a) => ({ ...a, method: x }))}
         />
         <Stat
           label={dayLabel(date)}
-          on={picker === 'date'}
-          onPress={() => open('date')}
-          onAnchor={(x) => setAnchor((a) => ({ ...a, date: x }))}
+          Icon={CalendarIcon}
+          on={dating}
+          onPress={() => {
+            setPicker(null)
+            setDating(true)
+          }}
+          onAnchor={() => {}}
         />
       </View>
 
@@ -342,22 +366,18 @@ export function Composer() {
                     ))
                   : null}
 
-                {picker === 'date'
-                  ? DATES.map((option) => (
-                      <Row
-                        key={option}
-                        label={dayLabel(option)}
-                        on={option === date}
-                        onPress={() => {
-                          setDate(option)
-                          setPicker(null)
-                        }}
-                      />
-                    ))
-                  : null}
+              </ScrollView>
 
-                {picker === 'category' ? (
-                  <View style={s.menuRule}>
+              {/*
+                * Pinned under the list rather than sitting at the end of it.
+                * Coining a category is the rarest line in the menu, so it does
+                * not belong above the ten it is being weighed against — but at
+                * the foot of a list that scrolls it cannot be got at without
+                * scrolling past all of them either. Outside the scroller it
+                * keeps last place and stays in reach.
+                */}
+              {picker === 'category' ? (
+                <View style={s.menuRule}>
                     {coining ? (
                       <TextInput
                         style={s.coin}
@@ -381,9 +401,8 @@ export function Composer() {
                         <PlusIcon size={sp(14)} color={color.textSoft} />
                       </Pressable>
                     )}
-                  </View>
-                ) : null}
-              </ScrollView>
+                </View>
+              ) : null}
             </View>
           </>
         ) : null}
@@ -395,11 +414,13 @@ export function Composer() {
 /** A chip stating what one of the details currently is. */
 function Stat({
   label,
+  Icon,
   on,
   onPress,
   onAnchor,
 }: {
   label: string
+  Icon: typeof TagIcon
   on: boolean
   onPress: () => void
   onAnchor: (x: number) => void
@@ -412,6 +433,7 @@ function Stat({
       onLayout={(e) => onAnchor(e.nativeEvent.layout.x)}
       style={[s.stat, on ? s.statOpen : null]}
     >
+      <Icon size={sp(15)} color={color.textSoft} />
       <Text style={s.statText} numberOfLines={1}>
         {label}
       </Text>
@@ -499,13 +521,15 @@ const s = StyleSheet.create({
   },
   nameOn: { borderColor: 'rgba(255,255,255,0.28)' },
 
-  chips: { flexDirection: 'row', gap: sp(8), paddingTop: sp(12) },
+  chips: { flexDirection: 'row', gap: sp(7), paddingTop: sp(12) },
   stat: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: sp(36),
-    paddingHorizontal: sp(14),
+    gap: sp(6),
+    height: sp(38),
+    paddingLeft: sp(12),
+    paddingRight: sp(14),
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.14)',
@@ -528,11 +552,14 @@ const s = StyleSheet.create({
     height: KEY_H,
     alignItems: 'center',
     justifyContent: 'center',
-    /* Rounded, not a pill: at the chip radius a 52-tall key is a lozenge. */
-    borderRadius: sp(18),
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    /*
+     * A fill and no stroke, the way the reference has it. An outline on every
+     * key draws a grid of twelve boxes and the eye reads the grid before the
+     * numbers; a fill alone leaves the digits as the only marks on the pad.
+     * Lifted a little to carry on its own now there is no edge helping it.
+     */
+    borderRadius: radius.soft,
+    backgroundColor: 'rgba(255,255,255,0.09)',
   },
   keyText: { fontFamily: font.r500, fontSize: sp(24), color: color.text },
 
@@ -546,9 +573,9 @@ const s = StyleSheet.create({
     top: sp(6),
     width: MENU_W,
     maxHeight: DRAWER_H - sp(8),
-    borderRadius: sp(18),
+    borderRadius: radius.soft,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
+    borderColor: 'rgba(255,255,255,0.16)',
     overflow: 'hidden',
     zIndex: 3,
   },
