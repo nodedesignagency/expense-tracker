@@ -279,3 +279,28 @@ export function ArrowLeftDownIcon({ size = CORNER_BOX, color = '#25E063' }: Icon
     </Svg>
   )
 }
+
+/**
+ * Backspace, for the number pad.
+ *
+ * Drawn rather than set as ⌫: SF Pro Rounded has no glyph at that codepoint,
+ * so it came out as the empty box a font falls back to.
+ */
+export function BackspaceIcon({ size = 24, color = '#FFFFFF' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9.5 4.75h8.75A2.25 2.25 0 0 1 20.5 7v10a2.25 2.25 0 0 1-2.25 2.25H9.5a1.75 1.75 0 0 1-1.32-.6l-4.4-5a1.75 1.75 0 0 1 0-2.3l4.4-5a1.75 1.75 0 0 1 1.32-.6Z"
+        stroke={color}
+        strokeWidth={1.6}
+        strokeLinejoin="round"
+      />
+      <Path
+        d="m12.6 9.9 4 4.2m0-4.2-4 4.2"
+        stroke={color}
+        strokeWidth={1.6}
+        strokeLinecap="round"
+      />
+    </Svg>
+  )
+}
