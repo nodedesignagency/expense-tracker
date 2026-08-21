@@ -39,6 +39,20 @@ export const SWAP = 260
 export const PRESS = 120
 
 /**
+ * The Add button's chooser, opening and shutting. Shorter than the pill's
+ * travel: that one is a thing moving across the bar and wants to be followed,
+ * this one is a menu answering a tap and wants to be there.
+ */
+export const MENU = 260
+
+/**
+ * How far the second choice starts behind the first, as a fraction of the
+ * whole. They emerge from under the button, so running them together reads as
+ * one object splitting rather than two arriving.
+ */
+export const MENU_STAGGER = 0.18
+
+/**
  * Nothing in the real world appears out of nothing, so the incoming artwork
  * starts fractionally small. Small enough that it reads as arriving rather
  * than as a zoom.

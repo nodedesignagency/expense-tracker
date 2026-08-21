@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { TODAY_ISO } from '../data/seed'
 import { parseAmountToCents } from '../lib/money'
@@ -31,7 +31,7 @@ function inferBrand(name: string): BrandKey {
 }
 
 export function Composer() {
-  const { composerOpen, scope, transactions } = useAppState()
+  const { composerOpen, composerDirection, scope, transactions } = useAppState()
   const dispatch = useDispatch()
 
   const [name, setName] = useState('')
@@ -42,6 +42,14 @@ export function Composer() {
   const [date, setDate] = useState(TODAY_ISO)
   const [time, setTime] = useState('09:00')
   const [error, setError] = useState<string | null>(null)
+
+  /*
+   * The chooser has already asked which side this is, so the sheet opens on
+   * it. Only on the way open — once it is up, the toggle is the user's.
+   */
+  useEffect(() => {
+    if (composerOpen) setDirection(composerDirection)
+  }, [composerOpen, composerDirection])
 
   const close = () => {
     setError(null)

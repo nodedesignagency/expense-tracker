@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { buildSeedLedger, TODAY_ISO } from './data/seed'
 import { compareIsoDesc } from './lib/dates'
 import { netBalanceCents } from './lib/selectors'
-import type { Category, Scope, Transaction } from './lib/types'
+import type { Category, Direction, Scope, Transaction } from './lib/types'
 
 export type Tab = 'home' | 'insights' | 'settings'
 
@@ -27,7 +27,14 @@ export interface AppState {
   filterOpen: boolean
   categories: Category[]
   tab: Tab
+  /** The Add button's credit-or-debit chooser. */
+  quickAddOpen: boolean
   composerOpen: boolean
+  /**
+   * What the composer opens set to. Chosen in the chooser, so the entry starts
+   * on the side the user actually picked rather than always on debit.
+   */
+  composerDirection: Direction
   /** Entry shown in the detail sheet, by id. */
   detailId: string | null
 }
@@ -43,7 +50,8 @@ export type Action =
   | { type: 'toggleCategory'; category: Category }
   | { type: 'clearFilters' }
   | { type: 'setTab'; tab: Tab }
-  | { type: 'openComposer' }
+  | { type: 'toggleQuickAdd'; open?: boolean }
+  | { type: 'openComposer'; direction?: Direction }
   | { type: 'closeComposer' }
   | { type: 'addTransaction'; transaction: Transaction }
   | { type: 'deleteTransaction'; id: string }
@@ -83,7 +91,9 @@ export function initialState(): AppState {
     filterOpen: false,
     categories: [],
     tab: 'home',
+    quickAddOpen: false,
     composerOpen: false,
+    composerDirection: 'debit',
     detailId: null,
   }
 }
@@ -136,9 +146,17 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'clearFilters':
       return { ...state, categories: [], query: '', searchOpen: false, filterOpen: false }
     case 'setTab':
-      return { ...state, tab: action.tab, detailId: null }
+      return { ...state, tab: action.tab, detailId: null, quickAddOpen: false }
+    case 'toggleQuickAdd':
+      return { ...state, quickAddOpen: action.open ?? !state.quickAddOpen }
     case 'openComposer':
-      return { ...state, composerOpen: true, detailId: null }
+      return {
+        ...state,
+        composerOpen: true,
+        quickAddOpen: false,
+        composerDirection: action.direction ?? state.composerDirection,
+        detailId: null,
+      }
     case 'closeComposer':
       return { ...state, composerOpen: false }
     case 'addTransaction':
@@ -146,6 +164,7 @@ export function reducer(state: AppState, action: Action): AppState {
         ...state,
         transactions: sortNewestFirst([...state.transactions, action.transaction]),
         composerOpen: false,
+        quickAddOpen: false,
         scope: action.transaction.scope,
         selectedDate: action.transaction.date,
         weekAnchor: action.transaction.date,

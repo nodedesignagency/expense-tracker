@@ -12,7 +12,7 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient'
 import Svg, { Defs, LinearGradient as SvgGradient, Rect, Stop } from 'react-native-svg'
 import { useAppState, useDispatch, type Tab } from '../store'
-import { EASE_ENTER, EASE_MOVE, MOVE, PRESS } from '../motion'
+import { EASE_ENTER, EASE_MOVE, MENU, MOVE, PRESS } from '../motion'
 import {
   RIM_DEG,
   RIM_STOPS,
@@ -116,6 +116,12 @@ const PILL_R = ITEM_H / 2
 /** The whole bar, so the scroll view knows how much room to leave under it. */
 export const NAV_HEIGHT = ITEM_H
 
+/** How far the bar floats above the safe area — the chooser stacks off this. */
+export const NAV_BOTTOM = sp(24)
+
+/** "Add" at 15pt medium, measured; the label collapses to nothing on open. */
+const ADD_NAME_W = 26.851
+
 /**
  * Two floating groups: destinations pinned left, the primary action right.
  *
@@ -124,7 +130,7 @@ export const NAV_HEIGHT = ITEM_H
  * eased, because two shapes change at once and neither is the thing that moved.
  */
 export function BottomNav({ inset = 0 }: { inset?: number }) {
-  const { tab } = useAppState()
+  const { tab, quickAddOpen } = useAppState()
   const dispatch = useDispatch()
 
   const index = Math.max(0, TABS.findIndex((t) => t.id === tab))
@@ -133,6 +139,32 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
   useEffect(() => {
     slide.set(withTiming(index, { duration: MOVE, easing: EASE_MOVE }))
   }, [index, slide])
+
+  /*
+   * The button and the chooser run off the same value, so the pills leaving
+   * and the button growing its name back are one movement rather than two
+   * that happen to have the same duration.
+   */
+  const menu = useSharedValue(0)
+
+  useEffect(() => {
+    menu.set(withTiming(quickAddOpen ? 1 : 0, { duration: MENU, easing: EASE_ENTER }))
+  }, [quickAddOpen, menu])
+
+  /* Open, it is a circle: the name collapses and the button closes down on it. */
+  const addBox = useAnimatedStyle(() => ({
+    width: interpolate(menu.get(), [0, 1], [ADD_W, ITEM_H]),
+  }))
+  const addAccent = useAnimatedStyle(() => ({ opacity: 1 - menu.get() }))
+  const addNeutral = useAnimatedStyle(() => ({ opacity: menu.get() }))
+  /* A plus turned through 45 is a cross. Same glyph, so it cannot jump. */
+  const addGlyph = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${interpolate(menu.get(), [0, 1], [0, 45])}deg` }],
+  }))
+  const addName = useAnimatedStyle(() => ({
+    width: interpolate(menu.get(), [0, 1], [ADD_GAP + ADD_NAME_W, 0]),
+    opacity: interpolate(menu.get(), [0, 0.5], [1, 0], 'clamp'),
+  }))
 
   return (
     <View style={[s.nav, { bottom: sp(24) + inset }]} pointerEvents="box-none">
@@ -150,24 +182,53 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
         ))}
       </View>
 
-      {/* Add: 84 x 40, the accent ramp, a 25% white edge, its name at 15. */}
-      <Pressable
+      {/*
+        * Add: 84 x 40, the accent ramp, a 25% white edge, its name at 15 — and
+        * on a tap it becomes the close for the chooser it opens. The accent
+        * goes out as the glass comes up, rather than the button being swapped
+        * for a different one, so there is nothing to appear or disappear.
+        */}
+      <AnimatedPressable
         accessibilityRole="button"
-        accessibilityLabel="Add entry"
-        onPress={() => dispatch({ type: 'openComposer' })}
-        style={s.add}
+        accessibilityLabel={quickAddOpen ? 'Close' : 'Add entry'}
+        onPress={() => dispatch({ type: 'toggleQuickAdd' })}
+        style={[s.add, addBox]}
       >
-        <AccentFill width={ADD_W} height={ITEM_H} />
+        <Animated.View style={[StyleSheet.absoluteFill, addAccent]} pointerEvents="none">
+          <AccentFill width={ADD_W} height={ITEM_H} />
+        </Animated.View>
+
+        <Animated.View style={[StyleSheet.absoluteFill, addNeutral]} pointerEvents="none">
+          <LinearGradient
+            colors={fill.raised.colors}
+            start={neutralAxis.start}
+            end={neutralAxis.end}
+            style={StyleSheet.absoluteFill}
+          />
+        </Animated.View>
+
         <View style={s.addContent}>
-          <PlusIcon size={PLUS} color={color.text} />
-          <Text style={s.addLabel}>Add</Text>
+          <Animated.View style={addGlyph}>
+            <PlusIcon size={PLUS} color={color.text} />
+          </Animated.View>
+          <Animated.View style={[s.addNameClip, addName]}>
+            <View style={s.addName}>
+              <Text style={s.addLabel} numberOfLines={1}>
+                Add
+              </Text>
+            </View>
+          </Animated.View>
         </View>
-      </Pressable>
+      </AnimatedPressable>
     </View>
   )
 }
 
 const AnimatedRect = Animated.createAnimatedComponent(Rect)
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
+
+/* The close state's surface, on the button's own proportions. */
+const neutralAxis = axisFor(fill.raised.deg, ADD_W, ITEM_H)
 
 /**
  * The travelling pill.
@@ -373,8 +434,10 @@ const s = StyleSheet.create({
   addContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ADD_GAP,
     zIndex: 1,
   },
+  /* The name's room, which is what closes the button down to a circle. */
+  addNameClip: { overflow: 'hidden' },
+  addName: { width: ADD_GAP + ADD_NAME_W, paddingLeft: ADD_GAP, justifyContent: 'center' },
   addLabel: { ...type.nav, fontSize: ADD_LABEL, ...capTrim(ADD_LABEL), color: color.textBright },
 })

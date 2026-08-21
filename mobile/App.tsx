@@ -7,13 +7,14 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context'
 import { BottomNav, NAV_HEIGHT } from './src/components/BottomNav'
+import { QuickAdd } from './src/components/QuickAdd'
 import { Composer } from './src/components/Composer'
 import { DetailSheet } from './src/components/DetailSheet'
 import { TopBar } from './src/components/TopBar'
 import { HomeScreen } from './src/screens/HomeScreen'
 import { InsightsScreen } from './src/screens/InsightsScreen'
 import { SettingsScreen } from './src/screens/SettingsScreen'
-import { StoreProvider, useAppState } from './src/store'
+import { StoreProvider, useAppState, useDispatch } from './src/store'
 import { color } from './src/theme'
 
 /*
@@ -57,7 +58,8 @@ export default function App() {
 }
 
 function Shell() {
-  const { tab } = useAppState()
+  const { tab, quickAddOpen } = useAppState()
+  const dispatch = useDispatch()
   const insets = useSafeAreaInsets()
 
   return (
@@ -89,6 +91,18 @@ function Shell() {
         locations={[0, 0.5, 1]}
         style={[s.scrim, { height: 200 + insets.bottom }]}
         pointerEvents="none"
+      />
+
+      {/*
+       * Under the nav, so the bar stays lit and reachable with the chooser up
+       * — the scrim is for the ledger behind it, not for the button that
+       * opened it. Over the app's own bottom scrim, and under the sheets.
+       */}
+      <QuickAdd
+        inset={insets.bottom}
+        open={quickAddOpen}
+        onDismiss={() => dispatch({ type: 'toggleQuickAdd', open: false })}
+        onChoose={(direction) => dispatch({ type: 'openComposer', direction })}
       />
 
       <BottomNav inset={insets.bottom} />
