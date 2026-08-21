@@ -7,13 +7,12 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated'
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg'
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg'
 import type { Direction } from '../lib/types'
 import { EASE_ENTER, MENU, MENU_STAGGER } from '../motion'
-import { capTrim, color, fill, font, metric, radius, rim } from '../theme'
+import { capTrim, color, font, metric } from '../theme'
 import { NAV_BOTTOM, NAV_HEIGHT } from './BottomNav'
-import { Glass } from './Glass'
-import { ArrowDownLeftIcon, ArrowUpRightIcon } from './Icons'
+import { ArrowLeftDownIcon, ArrowRightUpIcon } from './Icons'
 
 /*
  * The Add button asks which side first.
@@ -23,26 +22,78 @@ import { ArrowDownLeftIcon, ArrowUpRightIcon } from './Icons'
  * button no longer opens the sheet — it opens two choices, and the sheet comes
  * up already set to the one that was picked.
  *
- * Sizes are the frame's, unscaled, for the reason set out in BottomNav: a
- * height is not bound by the width of the screen. The pill is the nav's own
- * 40 so the two read as one family, and each hugs its name the same way a
- * destination does.
+ * Transcribed from the Credit and Debit frames, nodes 21:106 and 21:100. Both
+ * are the same 100 wide — they do not hug their names the way a nav
+ * destination does, so the pair squares off on the right and the two labels
+ * start on the same line. Sizes are the frame's, unscaled, for the reason set
+ * out in BottomNav: a height is not bound by the width of the screen.
  */
+const PILL_W = 100
 const PILL_H = 40
-const ORB = 32
-/** The orb sits almost against the edge — it is the thing you aim at. */
-const ORB_INSET = 4
-const ORB_GAP = 10
-const PAD_R = 20
+/** The frame says 42.667, which on a box 40 deep is as round as it goes. */
+const PILL_R = PILL_H / 2
+const PILL_PAD_L = 3.333
+const PILL_GAP = 6
+/** Flat and opaque, not glass: the chip inside is what carries the light. */
+const PILL_BG = '#262626'
+
+const CHIP_W = 40
+const CHIP_H = 33.333
+/** 60 in the frame, so again the full round. */
+const CHIP_R = CHIP_H / 2
+const GLYPH = 20
+
 const LABEL = 15
 const STACK_GAP = 12
+
+interface Tint {
+  /** The chip's flat wash. */
+  base: string
+  /** The light caught around its edge. */
+  edge: string
+  /** The arrow, which is the ledger's own colour rather than the wash's. */
+  glyph: string
+}
+
+/*
+ * The wash and the edge are this component's own reds and greens, a step
+ * cleaner than the ledger's; the arrow inside is the ledger's exactly. The two
+ * alphas are not the same either — green reads weaker than red at the same
+ * strength, and the frame corrects for it.
+ */
+const TINT: Record<Direction, Tint> = {
+  debit: { base: 'rgba(255,84,84,0.15)', edge: '#FF5454', glyph: color.debit },
+  credit: { base: 'rgba(84,255,84,0.2)', edge: '#54FF54', glyph: color.credit },
+}
+
+/*
+ * The chip's edge light. The frame gives it as a radial ramp that is nothing
+ * at all until 81% and solid by 100, painted at 60% — so what shows is a band
+ * around the outside and almost nothing through the middle. Worked through,
+ * the ramp ends exactly on the bottom edge of the chip and is still clear at
+ * the top, so the light gathers underneath, where a thing sitting in a lit box
+ * would catch it.
+ *
+ * The frame's own transform, carried across rather than resolved into radii.
+ * An ellipse written as rx/ry is not a thing SVG gradients have: react-native-
+ * svg takes the props and hands them straight to the DOM, where the browser
+ * drops them and falls back to a default radius — the chip came out flooded
+ * rather than rimmed. A matrix is SVG 1.1, and both targets read it the same.
+ */
+const GLOW = {
+  /** A unit circle at the origin, put where it belongs by the transform. */
+  cx: 0,
+  cy: 0,
+  r: 10,
+  transform: 'matrix(0.033325, 2.1166, -2.54, 0.03999, 19.667, 12.167)',
+  from: 0.81158,
+  opacity: 0.6,
+}
 
 interface Choice {
   direction: Direction
   label: string
-  /** The name's advance at 15pt medium, read out of the font we ship. */
-  nameW: number
-  Icon: typeof ArrowUpRightIcon
+  Icon: typeof ArrowRightUpIcon
 }
 
 /*
@@ -50,23 +101,9 @@ interface Choice {
  * out is the entry people make most, and it is the one nearest the thumb.
  */
 const CHOICES: Choice[] = [
-  { direction: 'debit', label: 'Debit', nameW: 34.819, Icon: ArrowUpRightIcon },
-  { direction: 'credit', label: 'Credit', nameW: 39.866, Icon: ArrowDownLeftIcon },
+  { direction: 'debit', label: 'Debit', Icon: ArrowRightUpIcon },
+  { direction: 'credit', label: 'Credit', Icon: ArrowLeftDownIcon },
 ]
-
-/*
- * Each orb is a lit sphere, not a flat disc: a light core up and to the left,
- * the ledger colour through the middle, and the same hue in shadow at the rim.
- * A single flat fill next to the nav's 3D renders reads as a placeholder.
- */
-const ORB_STOPS: Record<Direction, [string, string, string]> = {
-  debit: ['#FFD2D2', '#FF6E6E', '#D14B4B'],
-  credit: ['#B4F8CC', '#2BE86A', '#12A84A'],
-}
-
-function width(choice: Choice) {
-  return ORB_INSET + ORB + ORB_GAP + choice.nameW + PAD_R
-}
 
 /**
  * The chooser: a scrim over the screen and the two choices stacked above the
@@ -143,7 +180,6 @@ function Option({
   t: SharedValue<number>
   onPress: () => void
 }) {
-  const w = width(choice)
   const from = (order + 1) * (PILL_H + STACK_GAP)
 
   const style = useAnimatedStyle(() => {
@@ -168,54 +204,50 @@ function Option({
         accessibilityRole="button"
         accessibilityLabel={`Add ${choice.label.toLowerCase()} entry`}
         onPress={onPress}
+        style={s.pill}
       >
-        <Glass
-          rim={rim.button}
-          fill={fill.raised}
-          radius={radius.pill}
-          w={w}
-          h={PILL_H}
-          style={{ width: w, height: PILL_H }}
-          innerStyle={s.row}
-          stretch
-        >
-          <View style={s.orb}>
-            <Orb direction={choice.direction} />
-            <View style={s.orbGlyph} pointerEvents="none">
-              <choice.Icon size={18} color={color.text} />
-            </View>
-          </View>
-          <Text style={s.label} numberOfLines={1}>
-            {choice.label}
-          </Text>
-        </Glass>
+        <Chip choice={choice} />
+        <Text style={s.label} numberOfLines={1}>
+          {choice.label}
+        </Text>
       </Pressable>
     </Animated.View>
   )
 }
 
-function Orb({ direction }: { direction: Direction }) {
-  const [light, mid, deep] = ORB_STOPS[direction]
-  const id = `orb-${direction}`
+/** The tinted chip the arrow sits in: flat wash, lit around its edge. */
+function Chip({ choice }: { choice: Choice }) {
+  const tint = TINT[choice.direction]
+  const id = `chipEdge${choice.direction}`
 
   return (
-    <Svg width={ORB} height={ORB} viewBox={`0 0 ${ORB} ${ORB}`}>
-      <Defs>
-        <RadialGradient
-          id={id}
-          cx={ORB * 0.38}
-          cy={ORB * 0.32}
-          r={ORB * 0.92}
-          gradientUnits="userSpaceOnUse"
-        >
-          <Stop offset="0" stopColor={light} />
-          <Stop offset="0.3" stopColor={mid} />
-          <Stop offset="0.78" stopColor={mid} />
-          <Stop offset="1" stopColor={deep} />
-        </RadialGradient>
-      </Defs>
-      <Circle cx={ORB / 2} cy={ORB / 2} r={ORB / 2} fill={`url(#${id})`} />
-    </Svg>
+    <View style={[s.chip, { backgroundColor: tint.base }]}>
+      <Svg width={CHIP_W} height={CHIP_H} style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Defs>
+          <RadialGradient
+            id={id}
+            gradientUnits="userSpaceOnUse"
+            cx={GLOW.cx}
+            cy={GLOW.cy}
+            r={GLOW.r}
+            gradientTransform={GLOW.transform}
+          >
+            <Stop offset={GLOW.from} stopColor={tint.edge} stopOpacity={0} />
+            <Stop offset={1} stopColor={tint.edge} stopOpacity={1} />
+          </RadialGradient>
+        </Defs>
+        <Rect
+          x={0}
+          y={0}
+          width={CHIP_W}
+          height={CHIP_H}
+          fill={`url(#${id})`}
+          opacity={GLOW.opacity}
+        />
+      </Svg>
+
+      <choice.Icon size={GLYPH} color={tint.glyph} />
+    </View>
   )
 }
 
@@ -232,17 +264,24 @@ const s = StyleSheet.create({
     alignItems: 'flex-end',
     gap: STACK_GAP,
   },
-  row: {
+  pill: {
+    width: PILL_W,
+    height: PILL_H,
+    borderRadius: PILL_R,
+    backgroundColor: PILL_BG,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: ORB_INSET,
-    gap: ORB_GAP,
+    paddingLeft: PILL_PAD_L,
+    gap: PILL_GAP,
+    overflow: 'hidden',
   },
-  orb: { width: ORB, height: ORB, alignItems: 'center', justifyContent: 'center' },
-  orbGlyph: {
-    ...StyleSheet.absoluteFillObject,
+  chip: {
+    width: CHIP_W,
+    height: CHIP_H,
+    borderRadius: CHIP_R,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   label: {
     fontFamily: font.r500,

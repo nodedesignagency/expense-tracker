@@ -1,4 +1,4 @@
-import Svg, { Path, Rect } from 'react-native-svg'
+import Svg, { G, Path, Rect } from 'react-native-svg'
 
 /*
  * The frame's own vectors, generated from public/icons/*.svg by the port so
@@ -230,6 +230,52 @@ export function CalendarIcon({ size = 20, color = '#FFFFFF' }: IconProps) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </Svg>
+  )
+}
+
+/*
+ * The chooser's arrows, from the Credit and Debit frames (nodes 21:119 and
+ * 21:114). Filled corner arrows with a rounded stem, and a different drawing
+ * from the thin stroked pair above that the composer's toggle uses — so both
+ * pairs stay, rather than one being bent into the other's job.
+ *
+ * The frame draws an 11.25 glyph inside a 20 box, which is 21.88% of padding
+ * on every side. Keeping that rather than filling the box is what holds it to
+ * the same weight as the label beside it.
+ */
+const CORNER_BOX = 20
+const CORNER_ART = 11.25
+const CORNER_INSET = (CORNER_BOX - CORNER_ART) / 2
+
+/** Money out: away from you, up and to the right. */
+export function ArrowRightUpIcon({ size = CORNER_BOX, color = '#FF6969' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox={`0 0 ${CORNER_BOX} ${CORNER_BOX}`} fill="none">
+      <G x={CORNER_INSET} y={CORNER_INSET}>
+        <Path
+          d="M3.125 1.25C2.77982 1.25 2.5 0.970178 2.5 0.625C2.5 0.279822 2.77982 0 3.125 0H10.625C10.9702 0 11.25 0.279822 11.25 0.625V8.125C11.25 8.47018 10.9702 8.75 10.625 8.75C10.2798 8.75 10 8.47018 10 8.125V2.13388L1.06694 11.0669C0.822864 11.311 0.427136 11.311 0.183058 11.0669C-0.0610194 10.8229 -0.0610194 10.4271 0.183058 10.1831L9.11612 1.25H3.125Z"
+          fill={color}
+          fillRule="evenodd"
+          clipRule="evenodd"
+        />
+      </G>
+    </Svg>
+  )
+}
+
+/** Money in: toward you, down and to the left. */
+export function ArrowLeftDownIcon({ size = CORNER_BOX, color = '#25E063' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox={`0 0 ${CORNER_BOX} ${CORNER_BOX}`} fill="none">
+      <G x={CORNER_INSET} y={CORNER_INSET}>
+        <Path
+          d="M11.0669 0.183058C11.311 0.427136 11.311 0.822864 11.0669 1.06694L2.13388 10L8.125 10C8.47018 10 8.75 10.2798 8.75 10.625C8.75 10.9702 8.47018 11.25 8.125 11.25L0.625 11.25C0.279822 11.25 -4.96705e-08 10.9702 0 10.625L5.96046e-07 3.125C6.45717e-07 2.77982 0.279823 2.5 0.625 2.5C0.970179 2.5 1.25 2.77982 1.25 3.125L1.25 9.11612L10.1831 0.183058C10.4271 -0.0610194 10.8229 -0.0610194 11.0669 0.183058Z"
+          fill={color}
+          fillRule="evenodd"
+          clipRule="evenodd"
+        />
+      </G>
     </Svg>
   )
 }
