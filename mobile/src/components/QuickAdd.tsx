@@ -10,7 +10,7 @@ import Animated, {
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg'
 import type { Direction } from '../lib/types'
 import { EASE_ENTER, MENU, MENU_STAGGER } from '../motion'
-import { capTrim, color, font, metric } from '../theme'
+import { capTrim, color, font, metric, sp } from '../theme'
 import { NAV_BOTTOM, NAV_HEIGHT } from './BottomNav'
 import { ArrowLeftDownIcon, ArrowRightUpIcon } from './Icons'
 
@@ -37,25 +37,29 @@ import { ArrowLeftDownIcon, ArrowRightUpIcon } from './Icons'
  * fills a lifted box, so it is measured out instead: the padding, the chip,
  * the gap, the longer of the two names, and the frame's own 10.67 of air on
  * the right, all lifted. That comes to 120.
+ *
+ * Then all of it through sp(), for the reason set out in BottomNav — held at
+ * full size on a narrow phone they are 9% larger against their surroundings
+ * than on a wide one, and everything they sit over is already scaled.
  */
 const LIFT = 1.3
-const PILL_W = 120
-const PILL_H = 40 * LIFT
+const PILL_W = sp(120)
+const PILL_H = sp(40 * LIFT)
 /** The frame says 42.667, which on a box this deep is as round as it goes. */
 const PILL_R = PILL_H / 2
-const PILL_PAD_L = 3.333 * LIFT
-const PILL_GAP = 6 * LIFT
+const PILL_PAD_L = sp(3.333 * LIFT)
+const PILL_GAP = sp(6 * LIFT)
 /** Flat and opaque, not glass: the chip inside is what carries the light. */
 const PILL_BG = '#262626'
 
-const CHIP_W = 40 * LIFT
-const CHIP_H = 33.333 * LIFT
+const CHIP_W = sp(40 * LIFT)
+const CHIP_H = sp(33.333 * LIFT)
 /** 60 in the frame, so again the full round. */
 const CHIP_R = CHIP_H / 2
-const GLYPH = 20 * LIFT
+const GLYPH = sp(20 * LIFT)
 
-const LABEL = 16
-const STACK_GAP = 12 * LIFT
+const LABEL = sp(16)
+const STACK_GAP = sp(12 * LIFT)
 
 interface Tint {
   /** The chip's flat wash. */

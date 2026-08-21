@@ -14,7 +14,7 @@ import {
   TILT_FROM,
   TILT_PERSPECTIVE,
 } from '../motion'
-import { color } from '../theme'
+import { color, sp } from '../theme'
 import { NavGlow } from './NavGlow'
 
 /*
@@ -23,12 +23,10 @@ import { NavGlow } from './NavGlow'
  * 56, 16 is what it takes. The earlier 20 was an upsize against a pill half
  * again as deep, and there is no longer one to sit against.
  *
- * Not run through sp(). A glyph is not bound by the width of the screen, and
- * scaled to 91.6% with everything else it came out at 14.7 inside a pill that
- * was itself drawn short — see the note on what scales in BottomNav.
- *
- * Both carry that note's 1.3 as well, since the pill they sit in does: 16 and
- * 21.6 become 20.8 and 28.08, which is the same pair against a taller bar.
+ * Both carry the bar's 1.3 lift, since the pill they sit in does: 16 and 21.6
+ * become 20.8 and 28.08, the same pair against a taller bar. And both go
+ * through sp() with it, so a glyph keeps its size against the pill around it
+ * on every screen — see the note on what scales in BottomNav.
  *
  * The 3D box is not the same number as the artwork inside it. These renders
  * carry transparent margin — the current set fills 78-84% of its 64px canvas —
@@ -36,8 +34,8 @@ import { NavGlow } from './NavGlow'
  * What settled that was 27 against a 20 outline; held to the same ratio at 16
  * it is 21.6, which puts roughly 18 of actual artwork against a 16 outline.
  */
-const FLAT = 20.8
-const DIMENSIONAL = 28.08
+const FLAT = sp(20.8)
+const DIMENSIONAL = sp(28.08)
 
 /** How far the outline dims when idle — the frame's own value for a nav item. */
 const IDLE = 0.72

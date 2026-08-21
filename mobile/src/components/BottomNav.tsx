@@ -17,7 +17,6 @@ import {
   RIM_DEG,
   RIM_STOPS,
   RIM_WIDTH,
-  SCALE,
   axisFor,
   capTrim,
   color,
@@ -54,69 +53,66 @@ const TABS: TabDef[] = [
 ]
 
 /*
- * The bar, transcribed from Frame 2147239311 — node 11:19 — and a note on
- * which of its numbers scale, because they do not all get to.
+ * The bar, transcribed from Frame 2147239311 — node 11:19 — with two things
+ * changed from what the frame draws, and a note on how they scale.
  *
- * A width has no choice. The gutters are the frame's 24 and the screen is 360,
- * so a 345 card is drawn at 316 and everything laid out across it follows.
- * That is what sp() is for.
+ * The first is size. The frame's 40 is under the 44 both platforms ask of a
+ * touch target, and on a 393 phone, where it renders at exactly the height it
+ * was drawn, it still read small. So the bar is lifted to 52 and everything in
+ * it goes up by the same 1.3 — except the type, which moves 12 to 13 and 15 to
+ * 16 rather than to 15.6 and 19.5, because the full lift would have eaten the
+ * width the names need.
  *
- * A height is bound by nothing. Neither is a type size, nor the space between
- * a glyph and the name under it. Put through sp() with everything else they
- * came out at 91.6% — a 40 pill drawn 36.6, 12pt type set at 11, a 16 glyph at
- * 14.7 — and the bar read small and cramped against a design that is neither.
- * So every vertical measurement here, and every type size, is the frame's own
- * number, unscaled.
+ * The second is that all of it goes through sp(), including the heights and
+ * the type. That is a reversal: for a while they did not, on the reasoning
+ * that a height is bound by nothing. True in itself, and wrong in company —
+ * everything else on the screen is quoted at 393 and scaled, so a bar held at
+ * its full size on a 360 phone is 9% larger against its own surroundings than
+ * the same bar on a 393 one. At 40 that read as slightly generous. At 52 it
+ * read as cluttered, and it was the only thing on the screen not shrinking.
  *
- * The horizontal padding is the one figure that cannot be. At the frame's 20 a
- * side the three destinations come to 237; 237 plus an 84 button plus two 24
- * gutters is 369 on a screen that has 360, so it does not fit with any gap at
- * all, let alone the frame's. So the padding takes whatever is left once
- * everything that cannot move has been paid for — 20 where there is room for
- * 20, and about 15.6 on this phone.
- *
- * And the frame's 40 is not enough. On a 393 phone that renders at exactly the
- * height it was drawn and it still read small, and it is still awkward to hit:
- * 40 is under the 44 both platforms ask of a touch target. So the bar is
- * lifted to 52 and everything in it goes up by the same 1.3 — except the type,
- * which moves 12 to 13 and 15 to 16 rather than to 15.6 and 19.5, because the
- * full lift would have eaten the width the names need.
+ * So the fit is solved once, in frame units, at the frame's own 393 — and then
+ * the whole bar is scaled by how much narrower the screen actually is. A 393
+ * phone gets these numbers exactly; a 360 phone gets the same bar at 91.6%,
+ * which is the proportion everything around it is already drawn at.
  *
  * Note what this replaces: three identical 58-wide boxes, 56 tall, each
  * reserving room for a name it only showed when selected. The frame shows all
  * three names at all times, which is what lets each box be its own width.
  */
-const ITEM_H = 52
-/** How much bigger than the frame everything in the bar is drawn. */
-const LIFT = ITEM_H / 40
-const STACK_GAP = 6 * LIFT
-const LABEL = 13
-const ADD_LABEL = 16
-const PLUS = 12 * LIFT
-const ADD_GAP = 4 * LIFT
 
-/** The gap the frame leaves between the destinations and the button. */
-const GROUP_GAP = sp(18.84)
-
-/** "Add" at 16pt medium, measured; the name collapses to nothing on open. */
-const ADD_NAME_W = 28.641
-
+/* Frame units, all of them, down as far as PAD_H. */
+const FRAME_H = 52
+/** How much bigger than the frame the bar is drawn, before the screen scale. */
+const LIFT = FRAME_H / 40
+/** "Add" at 16pt medium, measured out of the font we ship. */
+const FRAME_ADD_NAME = 28.641
 /** Add's contents: the plus, the gap, and the name. */
-const ADD_CONTENT = PLUS + ADD_GAP + ADD_NAME_W
+const FRAME_ADD_CONTENT = 12 * LIFT + 4 * LIFT + FRAME_ADD_NAME
 
 /*
  * Everything across the bar that is not padding, and so cannot give: the three
- * names, the button's contents, both gutters, and the gap between the groups.
- * What is left is shared by four boxes with two sides each.
+ * names, the button's contents, both gutters, and the gap the frame leaves
+ * between the two groups. What is left is shared by four boxes with two sides
+ * each — 20 where there is room for 20, and about 19 at the frame's width.
  */
 const IMMOVABLE =
-  TABS.reduce((w, t) => w + t.nameW, 0) + ADD_CONTENT + metric.gutter * 2 + GROUP_GAP
-const PAD_H = Math.min(20, (metric.appW * SCALE - IMMOVABLE) / 8)
+  TABS.reduce((w, t) => w + t.nameW, 0) + FRAME_ADD_CONTENT + 24 * 2 + 18.84
+const PAD_H = Math.min(20, (metric.appW - IMMOVABLE) / 8)
 
-const WIDTHS = TABS.map((t) => PAD_H * 2 + t.nameW)
+/* And from here on, what actually gets drawn. */
+const ITEM_H = sp(FRAME_H)
+const STACK_GAP = sp(6 * LIFT)
+const LABEL = sp(13)
+const ADD_LABEL = sp(16)
+const PLUS = sp(12 * LIFT)
+const ADD_GAP = sp(4 * LIFT)
+const ADD_NAME_W = sp(FRAME_ADD_NAME)
+
+const WIDTHS = TABS.map((t) => sp(PAD_H * 2 + t.nameW))
 const OFFSETS = WIDTHS.map((_, i) => WIDTHS.slice(0, i).reduce((a, b) => a + b, 0))
 const GROUP_W = WIDTHS.reduce((a, b) => a + b, 0)
-const ADD_W = PAD_H * 2 + ADD_CONTENT
+const ADD_W = sp(PAD_H * 2 + FRAME_ADD_CONTENT)
 
 /** What the pill interpolates over: one entry per destination. */
 const TRACK = TABS.map((_, i) => i)
@@ -204,13 +200,18 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
         style={[s.add, addBox]}
       >
         {/*
-          * Cut to the inside of the border, not the outside. absoluteFill
-          * measures from the padding box, so a ramp sized to the full width
-          * had its right and bottom edges clipped away by the very border it
-          * sits under, and the button lost its corner.
+          * Cut to the whole button and hung a unit outside it, so it covers
+          * the border box however the border is being measured.
+          *
+          * absoluteFill puts a child against the padding box, inside the
+          * border — but whether the clip is taken there or at the border box
+          * is not something to rely on, and a ramp cut to fit the first showed
+          * a hairline of the ground beneath it along the bottom edge. With a
+          * unit of overhang there is nothing left to show through, and what
+          * falls outside is clipped either way.
           */}
-        <Animated.View style={[StyleSheet.absoluteFill, addAccent]} pointerEvents="none">
-          <AccentFill width={ADD_W - RIM_WIDTH * 2} height={ITEM_H - RIM_WIDTH * 2} />
+        <Animated.View style={[s.addFill, addAccent]} pointerEvents="none">
+          <AccentFill width={ADD_W} height={ITEM_H} />
         </Animated.View>
 
         <Animated.View style={[StyleSheet.absoluteFill, addNeutral]} pointerEvents="none">
@@ -445,6 +446,13 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  addFill: {
+    position: 'absolute',
+    left: -RIM_WIDTH,
+    top: -RIM_WIDTH,
+    width: ADD_W,
+    height: ITEM_H,
   },
   addContent: {
     flexDirection: 'row',
