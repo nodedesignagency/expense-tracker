@@ -114,6 +114,27 @@ const OFFSETS = WIDTHS.map((_, i) => WIDTHS.slice(0, i).reduce((a, b) => a + b, 
 const GROUP_W = WIDTHS.reduce((a, b) => a + b, 0)
 const ADD_W = sp(PAD_H * 2 + FRAME_ADD_CONTENT)
 
+/*
+ * Where the button's contents sit.
+ *
+ * Both are placed rather than laid out in a row, and this is the second go at
+ * it. The first collapsed the name's box to nothing to close the button down
+ * to a circle — which works, until a platform decides the box it has been
+ * given is the width to measure the string against. Android did, found "Add"
+ * would not fit, and ellipsised it to "A…".
+ *
+ * So nothing here is ever measured against a box that moves. The name has a
+ * fixed place and a box with room to spare, and it leaves by fading; the plus
+ * has a fixed place and slides the point or so between where it sits in the
+ * row and the middle of the circle. The button's own width is the only thing
+ * animating, and it clips.
+ */
+const ROW_LEFT = sp(PAD_H)
+const PLUS_SHIFT = ITEM_H / 2 - (ROW_LEFT + PLUS / 2)
+const NAME_LEFT = ROW_LEFT + PLUS + ADD_GAP
+/** Room to spare, so no platform's own measurement of "Add" can come up short. */
+const NAME_ROOM = ADD_NAME_W + sp(8)
+
 /** What the pill interpolates over: one entry per destination. */
 const TRACK = TABS.map((_, i) => i)
 const PILL_MAX = Math.max(...WIDTHS)
@@ -164,11 +185,13 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
   const addNeutral = useAnimatedStyle(() => ({ opacity: menu.get() }))
   /* A plus turned through 45 is a cross. Same glyph, so it cannot jump. */
   const addGlyph = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${interpolate(menu.get(), [0, 1], [0, 45])}deg` }],
+    transform: [
+      { translateX: interpolate(menu.get(), [0, 1], [0, PLUS_SHIFT]) },
+      { rotate: `${interpolate(menu.get(), [0, 1], [0, 45])}deg` },
+    ],
   }))
   const addName = useAnimatedStyle(() => ({
-    width: interpolate(menu.get(), [0, 1], [ADD_GAP + ADD_NAME_W, 0]),
-    opacity: interpolate(menu.get(), [0, 0.5], [1, 0], 'clamp'),
+    opacity: interpolate(menu.get(), [0, 0.45], [1, 0], 'clamp'),
   }))
 
   return (
@@ -210,8 +233,8 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
           * unit of overhang there is nothing left to show through, and what
           * falls outside is clipped either way.
           */}
-        <Animated.View style={[s.addFill, addAccent]} pointerEvents="none">
-          <AccentFill width={ADD_W} height={ITEM_H} />
+        <Animated.View style={[StyleSheet.absoluteFill, addAccent]} pointerEvents="none">
+          <AccentFill width={ADD_W} height={ITEM_H} overhang={RIM_WIDTH} />
         </Animated.View>
 
         <Animated.View style={[StyleSheet.absoluteFill, addNeutral]} pointerEvents="none">
@@ -223,18 +246,15 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
           />
         </Animated.View>
 
-        <View style={s.addContent}>
-          <Animated.View style={addGlyph}>
-            <PlusIcon size={PLUS} color={color.text} />
-          </Animated.View>
-          <Animated.View style={[s.addNameClip, addName]}>
-            <View style={s.addName}>
-              <Text style={s.addLabel} numberOfLines={1}>
-                Add
-              </Text>
-            </View>
-          </Animated.View>
-        </View>
+        <Animated.View style={[s.addGlyph, addGlyph]} pointerEvents="none">
+          <PlusIcon size={PLUS} color={color.text} />
+        </Animated.View>
+
+        <Animated.View style={[s.addName, addName]} pointerEvents="none">
+          <Text style={s.addLabel} numberOfLines={1} ellipsizeMode="clip">
+            Add
+          </Text>
+        </Animated.View>
       </AnimatedPressable>
     </View>
   )
@@ -443,40 +463,25 @@ const s = StyleSheet.create({
     borderWidth: RIM_WIDTH,
     borderColor: color.strokeAccent,
     overflow: 'hidden',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  addFill: {
+  addGlyph: {
     position: 'absolute',
-    left: -RIM_WIDTH,
-    top: -RIM_WIDTH,
-    width: ADD_W,
-    height: ITEM_H,
-  },
-  addContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  /*
-   * The name's room, which is what closes the button down to a circle.
-   *
-   * The name itself is taken out of flow rather than given a box cut to its
-   * own measured advance. A box sized to the exact advance has nothing spare,
-   * and the platform is entitled to set the same string a fraction wider than
-   * the font file says — which took the last stroke off the "d". Out of flow
-   * it keeps whatever width it actually needs, and the clip above is the only
-   * thing deciding how much of it shows.
-   */
-  addNameClip: { overflow: 'hidden', alignSelf: 'stretch' },
-  addName: {
-    position: 'absolute',
-    left: 0,
+    left: ROW_LEFT,
     top: 0,
     bottom: 0,
-    paddingLeft: ADD_GAP,
+    width: PLUS,
+    alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1,
+  },
+  addName: {
+    position: 'absolute',
+    left: NAME_LEFT,
+    top: 0,
+    bottom: 0,
+    width: NAME_ROOM,
+    justifyContent: 'center',
+    zIndex: 1,
   },
   addLabel: { ...type.nav, fontSize: ADD_LABEL, ...capTrim(ADD_LABEL), color: color.textBright },
 })

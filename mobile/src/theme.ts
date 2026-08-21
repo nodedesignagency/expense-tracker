@@ -196,17 +196,32 @@ export function capTrim(fontSize: number) {
  * Type. SF Pro Rounded throughout, except the weekday labels, which the frame
  * sets in Geist. Tracking is part of the spec — roughly -1% on medium text and
  * -2% on the smaller regular text.
+ *
+ * The small end is set above the frame, on the owner's reading of it on a real
+ * phone rather than on a canvas: two points on the two smallest, one on the
+ * rest. The frame's own figures are kept in the comments, because the
+ * difference is a judgement about a screen and not a correction.
+ *
+ * The three largest are untouched — they were never the problem — and so is
+ * nav, which the bar overrides with its own sizes anyway.
  */
 export const type = {
   display: { fontFamily: font.r600, fontSize: sp(40) },
   title: { fontFamily: font.r500, fontSize: sp(18), letterSpacing: sp(-0.36) },
   name: { fontFamily: font.r500, fontSize: sp(16), letterSpacing: sp(-0.16) },
   nav: { fontFamily: font.r500, fontSize: sp(15) },
-  day: { fontFamily: font.r500, fontSize: sp(13.714) },
-  label: { fontFamily: font.r400, fontSize: sp(14) },
-  chip: { fontFamily: font.r500, fontSize: sp(12), letterSpacing: sp(-0.12) },
-  amount: { fontFamily: font.r600, fontSize: sp(14), letterSpacing: sp(-0.28) },
-  figure: { fontFamily: font.r400, fontSize: sp(12), letterSpacing: sp(-0.24) },
-  tooltip: { fontFamily: font.r400, fontSize: sp(10), lineHeight: sp(14) },
-  weekday: { fontFamily: font.label, fontSize: sp(9) },
+  /* 13.714 */
+  day: { fontFamily: font.r500, fontSize: sp(15) },
+  /* 14 */
+  label: { fontFamily: font.r400, fontSize: sp(15) },
+  /* 12 */
+  chip: { fontFamily: font.r500, fontSize: sp(14), letterSpacing: sp(-0.14) },
+  /* 14 */
+  amount: { fontFamily: font.r600, fontSize: sp(15), letterSpacing: sp(-0.3) },
+  /* 12 */
+  figure: { fontFamily: font.r400, fontSize: sp(14), letterSpacing: sp(-0.28) },
+  /* 10 / 14 */
+  tooltip: { fontFamily: font.r400, fontSize: sp(12), lineHeight: sp(16) },
+  /* 9 */
+  weekday: { fontFamily: font.label, fontSize: sp(11) },
 } as const

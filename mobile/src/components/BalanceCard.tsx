@@ -116,7 +116,8 @@ const s = StyleSheet.create({
     position: 'absolute',
     right: sp(54),
     top: sp(26),
-    width: sp(82),
+    /* 82 in the frame, widened to hold the line count now the type is 12. */
+    width: sp(96),
     paddingVertical: sp(6),
     paddingHorizontal: sp(8),
     borderRadius: sp(12),

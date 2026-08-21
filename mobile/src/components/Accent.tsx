@@ -34,15 +34,26 @@ const STOPS: Array<[string, string]> = [
 interface AccentFillProps {
   width: number
   height: number
+  /**
+   * How far the ramp hangs outside the box it is given, for a parent that
+   * draws a border.
+   *
+   * A child laid in with absoluteFill sits against the padding box, inside
+   * the border — but whether the parent's clip is taken there or at the border
+   * box is not a thing to rely on. Cut to fit exactly, a hairline of the
+   * ground beneath shows along an edge; hung a unit out, there is nothing left
+   * to show through and the overhang is clipped either way.
+   */
+  overhang?: number
 }
 
 /** Fills its parent with the accent ramp. The parent must clip and be relative. */
-export function AccentFill({ width, height }: AccentFillProps) {
+export function AccentFill({ width, height, overhang = 0 }: AccentFillProps) {
   const id = `accent${useId().replace(/[^a-zA-Z0-9]/g, '')}`
 
   return (
     <Svg
-      style={StyleSheet.absoluteFill}
+      style={[StyleSheet.absoluteFill, { left: -overhang, top: -overhang }]}
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}

@@ -60,7 +60,7 @@ function DayCircle({ iso, selected, future }: { iso: string; selected: boolean; 
   if (selected) {
     return (
       <View style={[s.circle, s.circleAccent]}>
-        <AccentFill width={metric.day} height={metric.day} />
+        <AccentFill width={metric.day} height={metric.day} overhang={1} />
         <View style={s.above}>{label}</View>
       </View>
     )
