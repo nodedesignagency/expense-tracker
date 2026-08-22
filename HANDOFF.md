@@ -161,17 +161,18 @@ Three pieces, in order of appearance:
    with a hairline border. Takes `tall`, `overlay` (used by the calendar, which
    sits over the sheet) and `header`.
 
-   **`tall` is a page sheet, not a full page.** It used to be the whole screen
-   bar the status bar, which covered the app outright and read as a screen
-   pushed on rather than a sheet raised in front of one. It now stops `PEEK`
-   below the receded page's own top edge, leaving a shoulder of it and its
-   rounded corners showing — the owner asked for this off the reference, and
-   it is what iOS calls a page sheet. The stop is **derived** from the recede
-   (`recededTop()` in `motion.ts`), not given as its own number, so the two
-   cannot drift; on both the owner's phones it lands at 84% of the screen with
-   about 25pt of page showing. A page sheet also takes a much lighter scrim —
-   `SCRIM_PAGE` against the panel's `SCRIM_PANEL` — because the page behind
-   one has already dimmed itself and the two multiply out to near black.
+   **`tall` is a page sheet, not a full page — and its shoulder is anchored to
+   the page's *content*, not its top edge.** The first cut measured the
+   shoulder from the page's top edge, and what that showed was the page's own
+   safe-area padding: an empty strip, dimmed twice over, which on a dark page
+   read as no shoulder at all — the owner circled it. The stop is now
+   `recededContentTop() + RECEDE·sp(SHOULDER)` (`motion.ts`), where `SHOULDER`
+   is the home page's own top row (58: its 20 of air plus the 38 toggle), so
+   what shows behind the sheet is the Business/Personal bar — something the
+   eye knows. The recede also barely dims now (0.92, was 0.72) and the page
+   scrim is 0.12: the two multiply, and at the old strengths they crushed the
+   shoulder to black. The recede's lift hugs the status bar (`recedeLift`)
+   instead of dropping half the inset for no reason.
 3. **`Composer.tsx`** — the entry screen itself. Full-page and flat, following
    the owner's reference: a header (close / Credit–Debit segmented / spacer), a
    middle stage holding **only the figure and its name caption**, one row of
@@ -182,9 +183,31 @@ Three pieces, in order of appearance:
    marks the days already carrying an entry.
 
 **`SlideAction.tsx`** commits the entry. A rectangle lying down (1.5:1, not a
-circle), grey→white as it travels, two fill ramps behind it — a long one and a
-brighter bloom band under the handle — with haptics at the detent and at the
-result, springing home if released short of 88%.
+circle), grey→white as it travels, with haptics at the detent and at the
+result, springing home if released short of 88%. Rebuilt against the owner's
+CRED reference (x.com/60fpsdesign/status/2091055462611616090 — paywalled from
+the container, so built from what CRED's swipe-to-pay is known for; say so if
+the video wants something more specific):
+
+- **The fill is a five-shade ramp anchored to the track**, not a wash: one
+  full-width gradient that never resizes, slid in from the left by a
+  translate, revealed by the track's clip. The leading edge is always the
+  pale hot end; pulling further uncovers the deeper shades. The hue leans
+  across the ramp (credit passes through teal, debit through ember) — five
+  stops of one hue is a tint, five that lean is light. Ramps live in
+  `Composer.tsx` (`RAMP`), typed as `SlideRamp`.
+- **A sheen sweeps the track** on a loop — the invitation over the unfilled
+  stretch, light moving on colour over the filled one. `withRepeat` replays
+  its sequence, so the sequence must snap back to 0 at the end or the second
+  pass never moves.
+- **On success it celebrates**: the ramp floods the last stretch, the grip
+  crossfades to a check that pops past full size, and the thumb's final
+  position throws a white strike, an expanding ring of the ramp's colour, and
+  twelve sparks from a fixed table (`SPRAY`) — all driven by the one `boom`
+  value, all transform/opacity. The burst layer sits **outside the track's
+  clip** so the light can leave the control. The composer holds its dispatch
+  for `CELEBRATE` (900, `motion.ts`) so the payoff plays before the sheet
+  falls; the entry is built at commit time, only its arrival is deferred.
 
 The name under the figure is **plain centred text with no box at all.** It was
 a pill, and a pill has to be some width: too narrow and a real name overruns
@@ -228,6 +251,10 @@ These are settled; do not regress them:
 - **SF Pro Rounded has no glyph at U+232B.** The backspace key is a drawn icon.
 - **A measured inner width must subtract the panel's border**, or a three-column
   keypad wraps to six rows of two.
+- **Do not lean on Yoga to centre an absolutely-positioned child.** An
+  absolute child with no left/top inside a zero-sized anchor, centred with
+  `alignItems`, drew nothing at all — and said nothing. The slider's burst
+  places every child by arithmetic: explicit negative `left`/`top` per child.
 - **A worklet can only call another worklet.** A `useAnimatedStyle` body runs
   on the UI thread. An ordinary function imported from another module gets
   captured in its closure, and calling it there **aborts the app on the spot** —

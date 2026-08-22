@@ -14,10 +14,11 @@ import { addDays, formatDateHeading } from '../lib/dates'
 import { parseAmountToCents } from '../lib/money'
 import type { BrandKey, Category, Direction, Method } from '../lib/types'
 import { createTransaction, useAppState, useCategories, useDispatch, useVisibleLedger } from '../store'
+import { CELEBRATE } from '../motion'
 import { capTrim, color, font, radius, sp, type } from '../theme'
 import { Calendar } from './Calendar'
 import { CloseIcon } from './Icons'
-import { SlideAction } from './SlideAction'
+import { SlideAction, type SlideRamp } from './SlideAction'
 import {
   ArrowLeftDownIcon,
   ArrowRightUpIcon,
@@ -39,6 +40,19 @@ const DIRECTIONS: { value: Direction; label: string; tint: string; Icon: typeof 
 ]
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back']
+
+/*
+ * The slider's track shades, deep to pale, per direction. Not five tints of
+ * the ledger colour: the hue leans across the ramp — the credit run passes
+ * through teal on its way to mint, the debit run through ember on its way to
+ * blush — which is what makes the drawn-out colour read as light on a surface
+ * rather than a bar filling up. The ledger's own colour sits fourth, so the
+ * shade nearest the thumb is recognisably the entry's kind.
+ */
+const RAMP: Record<Direction, SlideRamp> = {
+  credit: ['#03150D', '#065F46', '#10B981', '#25E063', '#D9FFEC'],
+  debit: ['#1C0507', '#7F1D1D', '#E8433F', '#FF6969', '#FFE1DD'],
+}
 
 /** Which list the drawer is showing. Null is the keypad, which is the default. */
 type Picker = null | 'category' | 'method'
@@ -162,7 +176,14 @@ export function Composer() {
     setPicker(null)
   }
 
-  /* Returns whether it took, so the slider knows to run home or spring back. */
+  /*
+   * Returns whether it took, so the slider knows to celebrate or spring back.
+   *
+   * When it takes, the dispatch — which closes the sheet — is held for
+   * CELEBRATE, so the slider's burst plays out on screen instead of to a
+   * curtain already falling. The entry is built *now*, against the ledger as
+   * it stands, and only its arrival is deferred.
+   */
   const submit = () => {
     const amountCents = parseAmountToCents(amount)
     if (!amountCents) {
@@ -174,23 +195,21 @@ export function Composer() {
       return false
     }
 
-    dispatch({
-      type: 'addTransaction',
-      transaction: createTransaction(
-        {
-          name: name.trim(),
-          amountCents,
-          direction,
-          category,
-          method,
-          date,
-          time: '09:00',
-          scope,
-          brand: inferBrand(name),
-        },
-        transactions,
-      ),
-    })
+    const transaction = createTransaction(
+      {
+        name: name.trim(),
+        amountCents,
+        direction,
+        category,
+        method,
+        date,
+        time: '09:00',
+        scope,
+        brand: inferBrand(name),
+      },
+      transactions,
+    )
+    setTimeout(() => dispatch({ type: 'addTransaction', transaction }), CELEBRATE)
     return true
   }
 
@@ -259,6 +278,7 @@ export function Composer() {
           width={INNER_W}
           label={`Slide to add to ${scope === 'business' ? 'Business' : 'Personal'}`}
           tint={tint}
+          ramp={RAMP[direction]}
           onCommit={submit}
         />
       }

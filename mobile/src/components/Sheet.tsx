@@ -19,7 +19,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { scheduleOnRN } from 'react-native-worklets'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { EASE_SHEET, PEEK, SHEET, recededTop } from '../motion'
+import { EASE_SHEET, RECEDE, SHEET, SHOULDER, recededContentTop } from '../motion'
 import { color, radius, sp, type } from '../theme'
 
 interface SheetProps {
@@ -76,7 +76,19 @@ const WINDOW_H = Dimensions.get('window').height
  * cannot drift: move the page back further and the sheet follows it down.
  */
 function pageHeight(insetTop: number, insetBottom: number) {
-  return WINDOW_H - (recededTop(WINDOW_H, insetTop) + sp(PEEK)) - insetBottom - FLOAT
+  /*
+   * Anchored to the receded page's *content*, not its top edge. The stretch
+   * between the two is the page's own safe-area padding — empty — and the
+   * first cut measured the shoulder from there, which on a notched phone
+   * spent the whole allowance on a slice of nothing. What shows now is the
+   * page's actual top row, scaled the way the page is.
+   */
+  return (
+    WINDOW_H -
+    (recededContentTop(WINDOW_H, insetTop) + RECEDE * sp(SHOULDER)) -
+    insetBottom -
+    FLOAT
+  )
 }
 
 /*
@@ -86,10 +98,11 @@ function pageHeight(insetTop: number, insetBottom: number) {
  * has already gone back and dimmed itself, so the scrim is stacking on top of
  * that dimming rather than doing it — and at the panel's own strength the two
  * multiply out to near black, which loses the shoulder the sheet stops short
- * to show. A panel has no such help and keeps the full weight.
+ * to show — 0.28 here still did, on top of the page's own dim; the pair have
+ * to be tuned together. A panel has no such help and keeps the full weight.
  */
 const SCRIM_PANEL = 0.6
-const SCRIM_PAGE = 0.28
+const SCRIM_PAGE = 0.12
 
 /** What the panel spans once the float has been taken off both sides. */
 const PANEL_W = Dimensions.get('window').width - FLOAT * 2

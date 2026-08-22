@@ -55,6 +55,15 @@ export const MOVE = 320
  */
 export const SWAP = 260
 
+/**
+ * The slider's payoff: how long the sheet holds after a successful commit so
+ * the burst can be seen. The dismissal is a story ending; ending it on the
+ * same frame the entry lands means the celebration plays to a closed curtain.
+ * The slider animates its own pieces inside this window and the composer
+ * waits it out before dispatching.
+ */
+export const CELEBRATE = 900
+
 /** Press feedback wants to land almost before you notice it. */
 export const PRESS = 120
 
@@ -144,29 +153,53 @@ export const TILT_PERSPECTIVE = 520
 export const RECEDE = 0.92
 
 /**
- * How far the receding page is pushed down, so it clears the status bar.
+ * How far the receding page is pushed down.
  *
- * Render-time only. This and `recededTop` are ordinary functions, so neither
- * may be *called* inside a worklet — work the figure out first and let the
- * worklet close over the number.
+ * As little as the status bar allows. The first cut pushed it half the inset
+ * plus eight, which on a notched phone parked the page's top edge 12pt below
+ * the status bar for no reason anyone could see — and every point it moves
+ * down is a point the sheet cannot have. Now the page's top edge lands just
+ * under the status bar text, the way iOS parks a parent card, with a small
+ * floor for phones whose scale-travel alone already clears it.
+ *
+ * Render-time only. This and the two functions below are ordinary functions,
+ * so none may be *called* inside a worklet — work the figure out first and
+ * let the worklet close over the number.
  */
-export const recedeLift = (insetTop: number) => insetTop * 0.5 + 8
+export function recedeLift(insetTop: number, windowH: number) {
+  return Math.max(6, insetTop - 4 - (windowH * (1 - RECEDE)) / 2)
+}
 
 /**
  * Where the receded page's own top edge lands, measured from the top of the
  * screen. A scale is taken about the centre, so half of what the page gives up
- * comes off the top — which on a tall screen is most of the travel, and is why
- * this cannot be read off the lift alone.
+ * comes off the top — which is why this cannot be read off the lift alone.
  */
 export function recededTop(windowH: number, insetTop: number) {
-  return recedeLift(insetTop) + (windowH * (1 - RECEDE)) / 2
+  return recedeLift(insetTop, windowH) + (windowH * (1 - RECEDE)) / 2
 }
 
 /**
- * How much of that page stays showing above the sheet. Frame units: scale it.
- *
- * Enough for the corner to read as a corner. The page rounds at 40 and the
- * scale carries that to about 37, so a shoulder much under this shows an arc
- * that has not finished turning — which reads as a crop, not as a card behind.
+ * Where the receded page's *content* starts: its own safe-area padding sits
+ * inside it, scaled with it. This is the line the sheet must anchor to, not
+ * the page's top edge — the strip between the two is empty padding, and a
+ * shoulder cut from it shows a slice of nothing. That is exactly what the
+ * first cut of the page sheet did, and on a dark page it read as no shoulder
+ * at all.
  */
-export const PEEK = 26
+export function recededContentTop(windowH: number, insetTop: number) {
+  return recededTop(windowH, insetTop) + RECEDE * insetTop
+}
+
+/**
+ * How much of the page's *content* stays showing above the sheet, in frame
+ * units — scaled by sp() and by the recede, since the content it measures is.
+ *
+ * 58 is the home page's own top row: its 20 of breathing room plus the 38 of
+ * the scope toggle and the round buttons. The shoulder is that row exactly,
+ * so what shows behind the sheet is something the eye knows — not an arc of
+ * anonymous card. What the row costs in sheet height is the price of the
+ * shoulder being legible; a smaller number here buys the sheet back but shows
+ * a sliced control, and below ~20 it is back to showing nothing.
+ */
+export const SHOULDER = 58

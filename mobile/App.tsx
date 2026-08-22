@@ -74,6 +74,8 @@ export default function App() {
   )
 }
 
+const WINDOW_H = Dimensions.get('window').height
+
 function Shell() {
   const { tab, quickAddOpen, composerOpen, detailId } = useAppState()
   const dispatch = useDispatch()
@@ -105,7 +107,7 @@ function Shell() {
    * way is just a number. It also saves a call every frame for a figure that
    * cannot change without the insets changing.
    */
-  const lift = recedeLift(insets.top)
+  const lift = recedeLift(insets.top, WINDOW_H)
 
   const page = useAnimatedStyle(() => ({
     transform: [
@@ -113,7 +115,13 @@ function Shell() {
       { scale: interpolate(behind.get(), [0, 1], [1, RECEDE]) },
     ],
     borderRadius: interpolate(behind.get(), [0, 1], [0, radius.sheet]),
-    opacity: interpolate(behind.get(), [0, 1], [1, 0.72]),
+    /*
+     * Barely dimmed. The page is near-black on black already; at 0.72, with
+     * the sheet's scrim on top, the shoulder it leaves showing read as a void
+     * — the owner circled it and asked where the page was. The recession and
+     * the scrim carry the depth; the dim only has to say "not current".
+     */
+    opacity: interpolate(behind.get(), [0, 1], [1, 0.92]),
   }))
 
   return (
