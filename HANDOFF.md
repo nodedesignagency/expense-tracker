@@ -158,11 +158,23 @@ Three pieces, in order of appearance:
    verbatim.
 2. **`Sheet.tsx`** — the container. A `Modal` with `animationType="none"`, the
    panel animated by Reanimated from its own measured height. Flat `#141414`
-   with a hairline border. Takes `tall` (a real full height, not a maximum),
-   `overlay` (used by the calendar, which sits over the sheet) and `header`.
+   with a hairline border. Takes `tall`, `overlay` (used by the calendar, which
+   sits over the sheet) and `header`.
+
+   **`tall` is a page sheet, not a full page.** It used to be the whole screen
+   bar the status bar, which covered the app outright and read as a screen
+   pushed on rather than a sheet raised in front of one. It now stops `PEEK`
+   below the receded page's own top edge, leaving a shoulder of it and its
+   rounded corners showing — the owner asked for this off the reference, and
+   it is what iOS calls a page sheet. The stop is **derived** from the recede
+   (`recededTop()` in `motion.ts`), not given as its own number, so the two
+   cannot drift; on both the owner's phones it lands at 84% of the screen with
+   about 25pt of page showing. A page sheet also takes a much lighter scrim —
+   `SCRIM_PAGE` against the panel's `SCRIM_PANEL` — because the page behind
+   one has already dimmed itself and the two multiply out to near black.
 3. **`Composer.tsx`** — the entry screen itself. Full-page and flat, following
    the owner's reference: a header (close / Credit–Debit segmented / spacer), a
-   middle stage holding **only the figure and a small name pill**, one row of
+   middle stage holding **only the figure and its name caption**, one row of
    three chips (category / method / date) sitting on the keypad, a custom
    numeric keypad, and the slider. Category and method open **anchored menus**
    over the pad; the category menu has a pinned "New category" row outside its
@@ -174,9 +186,18 @@ circle), grey→white as it travels, two fill ramps behind it — a long one and
 brighter bloom band under the handle — with haptics at the detent and at the
 result, springing home if released short of 88%.
 
-Behind all of this, `App.tsx` **recedes the page** — scales it to 0.92, rounds
-its corners, drops it back and dims it — which is the iOS *page sheet*
-presentation the owner asked for by description.
+The name under the figure is **plain centred text with no box at all.** It was
+a pill, and a pill has to be some width: too narrow and a real name overruns
+it, too wide and an empty one is a large blank outline under the figure —
+either way a second shape competing with the only thing on the screen that
+matters. Set as a caption it is stretched to the full width, so the box never
+changes size as the name grows and a long name simply runs inside the line.
+Android's own TextInput padding and vertical alignment are turned off or it
+does not sit where a `Text` would.
+
+Behind all of this, `App.tsx` **recedes the page** — scales it to `RECEDE`,
+rounds its corners, drops it back and dims it. The recede's geometry lives in
+`motion.ts` because the sheet is measured off it; changing one moves the other.
 
 ## Animation rules now being followed
 
@@ -207,6 +228,10 @@ These are settled; do not regress them:
 - **SF Pro Rounded has no glyph at U+232B.** The backspace key is a drawn icon.
 - **A measured inner width must subtract the panel's border**, or a three-column
   keypad wraps to six rows of two.
+- **A sheet has to travel further than its own height to leave.** The panel
+  floats clear of the bottom, so translating it exactly its height leaves that
+  float still on screen as a strip of panel at the moment the modal unmounts.
+  Add what sits below it.
 - **`git push origin refs/tags/...` is refused by the proxy** ("the remote end
   hung up"). Tags stay local; communicate a recovery point as a commit SHA.
 

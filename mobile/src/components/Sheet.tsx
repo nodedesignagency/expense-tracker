@@ -19,7 +19,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { scheduleOnRN } from 'react-native-worklets'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { EASE_SHEET, SHEET } from '../motion'
+import { EASE_SHEET, PEEK, SHEET, recededTop } from '../motion'
 import { color, radius, sp, type } from '../theme'
 
 interface SheetProps {
@@ -61,6 +61,35 @@ const MAX_H = Dimensions.get('window').height * 0.86
  * screen showing. Given the height outright it fills what it is given.
  */
 const WINDOW_H = Dimensions.get('window').height
+
+/**
+ * How tall a page sheet is: everything from its shoulder down to the float it
+ * leaves at the bottom.
+ *
+ * "Page" used to mean the whole screen bar the status bar, which covered the
+ * app outright — nothing of what you came from was left, so it read as a
+ * screen that had been pushed on rather than a sheet raised in front of one.
+ * It now stops below the receded page's own top edge, leaving PEEK of it and
+ * its rounded corners showing.
+ *
+ * Derived from the recede rather than given as its own figure, so the two
+ * cannot drift: move the page back further and the sheet follows it down.
+ */
+function pageHeight(insetTop: number, insetBottom: number) {
+  return WINDOW_H - (recededTop(WINDOW_H, insetTop) + sp(PEEK)) - insetBottom - FLOAT
+}
+
+/*
+ * How dark it gets behind.
+ *
+ * A page sheet wants far less of this than a panel does. The page behind one
+ * has already gone back and dimmed itself, so the scrim is stacking on top of
+ * that dimming rather than doing it — and at the panel's own strength the two
+ * multiply out to near black, which loses the shoulder the sheet stops short
+ * to show. A panel has no such help and keeps the full weight.
+ */
+const SCRIM_PANEL = 0.6
+const SCRIM_PAGE = 0.28
 
 /** What the panel spans once the float has been taken off both sides. */
 const PANEL_W = Dimensions.get('window').width - FLOAT * 2
@@ -107,11 +136,20 @@ export function Sheet({
     )
   }, [open, t])
 
-  const scrim = useAnimatedStyle(() => ({ opacity: t.get() }))
+  const scrim = useAnimatedStyle(() => ({
+    opacity: t.get() * (tall ? SCRIM_PAGE : SCRIM_PANEL),
+  }))
+
+  /*
+   * Its own height is not far enough to leave by: the panel floats clear of
+   * the bottom, so travelling exactly its height leaves that float still on
+   * screen as a strip of the panel, right as the modal unmounts. Add what sits
+   * below it. Until it has been measured, a screenful is far enough.
+   */
+  const exit = (height || WINDOW_H) + insets.bottom + FLOAT
 
   const panel = useAnimatedStyle(() => ({
-    /* Until it has been measured, a screenful is far enough to be off-stage. */
-    transform: [{ translateY: interpolate(t.get(), [0, 1], [height || 900, 0]) }],
+    transform: [{ translateY: interpolate(t.get(), [0, 1], [exit, 0]) }],
   }))
 
   const onLayout = (e: LayoutChangeEvent) => {
@@ -142,7 +180,7 @@ export function Sheet({
               tall
                 ? {
                     marginBottom: insets.bottom + FLOAT,
-                    height: WINDOW_H - insets.top - insets.bottom - FLOAT * 2,
+                    height: pageHeight(insets.top, insets.bottom),
                   }
                 : { marginBottom: insets.bottom + FLOAT, maxHeight: MAX_H },
               panel,
@@ -183,7 +221,8 @@ const s = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
   /* Hugs the panel: no flex, so it cannot stretch and strand it at the top. */
   avoider: { justifyContent: 'flex-end' },
-  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
+  /* The strength is animated, so the colour here is flat black. */
+  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000' },
   panel: {
     /*
      * Flat, and opaque. This was glass — blurred, washed warm, with a lit

@@ -125,3 +125,42 @@ export const GLOW_PEAK = 0.42
 export const TILT = false
 export const TILT_FROM = -22
 export const TILT_PERSPECTIVE = 520
+
+/*
+ * The page sheet.
+ *
+ * A sheet that is really a page still must not be the whole screen. What it
+ * should read as is a card lifted in front of the one you were on — so it
+ * stops short of the top and leaves a shoulder of the page showing above it,
+ * corners and all. That is the iOS presentation of the same name.
+ *
+ * These live together because the sheet's top is *derived* from where the
+ * receded page's own top edge lands, not given as its own number. Split across
+ * two files they drift, and the sheet ends up sitting over the shoulder it
+ * exists to leave.
+ */
+
+/** How far back the page goes. Enough to read as behind, not as shrunk. */
+export const RECEDE = 0.92
+
+/** How far the receding page is pushed down, so it clears the status bar. */
+export const recedeLift = (insetTop: number) => insetTop * 0.5 + 8
+
+/**
+ * Where the receded page's own top edge lands, measured from the top of the
+ * screen. A scale is taken about the centre, so half of what the page gives up
+ * comes off the top — which on a tall screen is most of the travel, and is why
+ * this cannot be read off the lift alone.
+ */
+export function recededTop(windowH: number, insetTop: number) {
+  return recedeLift(insetTop) + (windowH * (1 - RECEDE)) / 2
+}
+
+/**
+ * How much of that page stays showing above the sheet. Frame units: scale it.
+ *
+ * Enough for the corner to read as a corner. The page rounds at 40 and the
+ * scale carries that to about 37, so a shoulder much under this shows an arc
+ * that has not finished turning — which reads as a crop, not as a card behind.
+ */
+export const PEEK = 26

@@ -14,7 +14,7 @@ import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context'
-import { EASE_SHEET, SHEET } from './src/motion'
+import { EASE_SHEET, RECEDE, SHEET, recedeLift } from './src/motion'
 import { radius } from './src/theme'
 import { BottomNav, NAV_HEIGHT } from './src/components/BottomNav'
 import { QuickAdd } from './src/components/QuickAdd'
@@ -74,9 +74,6 @@ export default function App() {
   )
 }
 
-/** How far back the page goes. Enough to read as behind, not as shrunk. */
-const RECEDE = 0.92
-
 function Shell() {
   const { tab, quickAddOpen, composerOpen, detailId } = useAppState()
   const dispatch = useDispatch()
@@ -100,7 +97,7 @@ function Shell() {
 
   const page = useAnimatedStyle(() => ({
     transform: [
-      { translateY: interpolate(behind.get(), [0, 1], [0, insets.top * 0.5 + 8]) },
+      { translateY: interpolate(behind.get(), [0, 1], [0, recedeLift(insets.top)]) },
       { scale: interpolate(behind.get(), [0, 1], [1, RECEDE]) },
     ],
     borderRadius: interpolate(behind.get(), [0, 1], [0, radius.sheet]),

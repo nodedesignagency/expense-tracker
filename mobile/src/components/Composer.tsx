@@ -273,9 +273,15 @@ export function Composer() {
         </View>
 
         {/*
-          * One small pill under the figure, which is where the reference puts
-          * the only other thing it shows up here. In the row below it made a
-          * fourth chip and wrapped the line; here it is the number's caption.
+          * The number's caption, and nothing else — no box around it.
+          *
+          * It was a pill, and a pill has to be some width: too narrow and a
+          * real name overruns it, too wide and an empty one is a large blank
+          * outline sitting under the figure. Either way it is a second shape
+          * competing with the one thing on this screen that matters. Set as
+          * plain centred text it is simply what the entry is for, the way a
+          * figure carries its own subtitle, and a long name has the width of
+          * the page to run in.
           */}
         <TextInput
           style={[s.name, naming ? s.nameOn : null]}
@@ -568,7 +574,8 @@ const s = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: sp(20),
+    /* Tight: the name reads as the figure's own caption, not as a field. */
+    gap: sp(6),
     minHeight: sp(140),
   },
   amount: {
@@ -582,24 +589,30 @@ const s = StyleSheet.create({
   figure: { fontFamily: font.r600, fontSize: sp(60), color: color.text, letterSpacing: sp(-1.4) },
 
   /*
-   * A small pill sitting under the figure rather than a field spanning the
-   * sheet. Full width it read as the main event and drew the eye off the
-   * amount, which is the one thing on this screen that matters; at this size
-   * it is one more thing stated about the entry, like the chips below it.
+   * Centred text under the figure, with no chrome of its own.
+   *
+   * Stretched to the full width rather than hugging what is typed, so the box
+   * never changes size as the name grows — a name longer than the line simply
+   * runs inside it. Nothing here is measured against a box that moves.
+   *
+   * Android gives a TextInput padding of its own and its own idea of where
+   * text sits in one, neither of which the frame asks for: both are turned off
+   * so the caption lands where a Text would.
    */
   name: {
-    minWidth: sp(150),
-    height: sp(38),
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    paddingHorizontal: sp(16),
-    ...type.chip,
-    fontSize: sp(14),
-    color: color.text,
+    alignSelf: 'stretch',
+    height: sp(34),
+    paddingVertical: 0,
+    paddingHorizontal: sp(24),
+    fontFamily: font.r500,
+    fontSize: sp(16),
+    color: color.textSoft,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
-  nameOn: { borderColor: 'rgba(255,255,255,0.30)' },
+  /* With no outline to light, the focus tell is the text coming up to full. */
+  nameOn: { color: color.text },
 
   /* Three, and they fit a line: 85 + 120 + 90 against the 339 there is. */
   chips: {
