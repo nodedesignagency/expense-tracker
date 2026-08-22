@@ -263,31 +263,45 @@ export function Composer() {
         />
       }
     >
-      <View style={s.amount}>
-        <Text style={[s.sign, { color: tint }]}>{direction === 'debit' ? '−' : '+'}</Text>
-        <Text style={s.currency}>$</Text>
-        <Text style={s.figure} numberOfLines={1} adjustsFontSizeToFit>
-          {display(amount)}
-        </Text>
+      <View style={s.stage}>
+        <View style={s.amount}>
+          <Text style={[s.sign, { color: tint }]}>{direction === 'debit' ? '−' : '+'}</Text>
+          <Text style={s.currency}>$</Text>
+          <Text style={s.figure} numberOfLines={1} adjustsFontSizeToFit>
+            {display(amount)}
+          </Text>
+        </View>
+
+        {/*
+          * One small pill under the figure, which is where the reference puts
+          * the only other thing it shows up here. In the row below it made a
+          * fourth chip and wrapped the line; here it is the number's caption.
+          */}
+        <TextInput
+          style={[s.name, naming ? s.nameOn : null]}
+          placeholder="Who's it for?"
+          placeholderTextColor={color.textDim}
+          textAlign="center"
+          value={name}
+          onChangeText={setName}
+          onFocus={() => {
+            setNaming(true)
+            setPicker(null)
+          }}
+          onBlur={() => setNaming(false)}
+          returnKeyType="done"
+          accessibilityLabel="Who the entry is for"
+        />
       </View>
 
-      <TextInput
-        style={[s.name, naming ? s.nameOn : null]}
-        placeholder="Who's it for?"
-        placeholderTextColor={color.textDim}
-        textAlign="center"
-        value={name}
-        onChangeText={setName}
-        onFocus={() => {
-          setNaming(true)
-          setPicker(null)
-        }}
-        onBlur={() => setNaming(false)}
-        returnKeyType="done"
-        accessibilityLabel="Who the entry is for"
-      />
-
+      {/*
+        * Everything the entry is, on one line above the pad. It used to be
+        * stacked under the figure — a field, then a row of chips, then the
+        * error — which put four things in the space the reference leaves
+        * empty. Down here they annotate the number instead of crowding it.
+        */}
       <View style={s.chips}>
+
         <Stat
           label={category}
           Icon={TagIcon}
@@ -313,8 +327,6 @@ export function Composer() {
           onAnchor={() => {}}
         />
       </View>
-
-      {error ? <Text style={s.error}>{error}</Text> : null}
 
       <View style={s.drawer}>
         {!naming ? (
@@ -438,6 +450,8 @@ export function Composer() {
           </>
         ) : null}
       </View>
+
+      {error ? <Text style={s.error}>{error}</Text> : null}
     </Sheet>
   )
 }
@@ -545,17 +559,23 @@ const s = StyleSheet.create({
 
   /* The amount, which is the screen. */
   /*
-   * The figure, given the room the reference gives it. It was set at 46 with
-   * twenty-two of air, which is a heading; at 60 with thirty-four it is the
-   * screen, and everything under it reads as annotation on the number.
+   * The middle of the page, and the figure is all that is in it. Given the
+   * room rather than a padding: whatever the sheet has left over after the
+   * header, the line of chips and the pad goes here, so the number sits in
+   * open space however tall the phone is.
    */
+  stage: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: sp(20),
+    minHeight: sp(140),
+  },
   amount: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: sp(3),
-    paddingTop: sp(34),
-    paddingBottom: sp(28),
   },
   sign: { fontFamily: font.r600, fontSize: sp(36) },
   currency: { fontFamily: font.r600, fontSize: sp(36), color: color.textDim },
@@ -568,8 +588,7 @@ const s = StyleSheet.create({
    * it is one more thing stated about the entry, like the chips below it.
    */
   name: {
-    alignSelf: 'center',
-    minWidth: sp(160),
+    minWidth: sp(150),
     height: sp(38),
     borderRadius: radius.pill,
     borderWidth: 1,
@@ -582,7 +601,13 @@ const s = StyleSheet.create({
   },
   nameOn: { borderColor: 'rgba(255,255,255,0.30)' },
 
-  chips: { flexDirection: 'row', justifyContent: 'center', gap: sp(7), paddingTop: sp(16) },
+  /* Three, and they fit a line: 85 + 120 + 90 against the 339 there is. */
+  chips: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: sp(7),
+    paddingBottom: sp(14),
+  },
   stat: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -661,6 +686,7 @@ const s = StyleSheet.create({
     color: color.text,
   },
 
-  error: { ...type.chip, color: color.debit, paddingTop: sp(12) },
+  /* Against the slider, which is where the refusal happens. */
+  error: { ...type.chip, color: color.debit, textAlign: 'center', paddingTop: sp(12) },
 
 })

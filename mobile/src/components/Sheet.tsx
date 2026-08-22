@@ -18,22 +18,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 import { scheduleOnRN } from 'react-native-worklets'
-import { BlurView } from 'expo-blur'
-import Svg, { Defs, LinearGradient as SvgGradient, Rect, Stop } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { EASE_SHEET, SHEET } from '../motion'
-import {
-  RIM_STOPS,
-  RIM_WIDTH,
-  axisFor,
-  color,
-  radius,
-  rim,
-  sp,
-  type,
-  RIM_DEG,
-} from '../theme'
-import { splitAlpha } from './Glass'
+import { color, radius, sp, type } from '../theme'
 
 interface SheetProps {
   open: boolean
@@ -67,11 +54,13 @@ const FLOAT = sp(6)
 const MAX_H = Dimensions.get('window').height * 0.86
 
 /*
- * A page rather than a panel: everything the screen has bar the status bar and
- * the float. What sits behind it is not being referred to any more, so leaving
- * a strip of it visible only makes the sheet look short of its own content.
+ * A page rather than a panel takes a height, not a cap on one.
+ *
+ * It had a maxHeight, which only stops a panel growing — the panel still hugs
+ * its content, so it ended wherever the form did and left a third of the
+ * screen showing. Given the height outright it fills what it is given.
  */
-const TALL_H = Dimensions.get('window').height - sp(64)
+const WINDOW_H = Dimensions.get('window').height
 
 /** What the panel spans once the float has been taken off both sides. */
 const PANEL_W = Dimensions.get('window').width - FLOAT * 2
@@ -150,30 +139,16 @@ export function Sheet({
           <Animated.View
             style={[
               s.panel,
-              { marginBottom: insets.bottom + FLOAT, maxHeight: tall ? TALL_H : MAX_H },
+              tall
+                ? {
+                    marginBottom: insets.bottom + FLOAT,
+                    height: WINDOW_H - insets.top - insets.bottom - FLOAT * 2,
+                  }
+                : { marginBottom: insets.bottom + FLOAT, maxHeight: MAX_H },
               panel,
             ]}
             onLayout={onLayout}
           >
-            {/*
-              * The ledger goes soft behind the panel rather than being hidden
-              * by it. Android's blur is Expo's experimental one and has to be
-              * asked for by name; it also will not take a border radius of its
-              * own, which is why the panel clips.
-              *
-              * A wash goes over the top: blur alone leaves whatever was behind
-              * showing through at its own brightness, and the balance figure
-              * is bright enough to read through the sheet sitting on it.
-              */}
-            <BlurView
-              intensity={62}
-              tint="dark"
-              experimentalBlurMethod="dimezisBlurView"
-              style={StyleSheet.absoluteFill}
-            />
-            <View style={s.wash} pointerEvents="none" />
-            {height > 0 ? <LiquidRim height={height} /> : null}
-
             <View style={s.grabber} />
 
             {header ?? (
@@ -186,8 +161,8 @@ export function Sheet({
             )}
 
             <ScrollView
-              style={s.body}
-              contentContainerStyle={s.bodyContent}
+              style={[s.body, tall ? s.bodyTall : null]}
+              contentContainerStyle={[s.bodyContent, tall ? s.bodyContentTall : null]}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
@@ -204,87 +179,30 @@ export function Sheet({
   )
 }
 
-/**
- * The edge, carrying colour.
- *
- * Same construction as every other rim in the app — one gradient traced round
- * a stroked rounded rect, so the light is continuous and the corners are one
- * curve rather than two shapes meeting. The only difference is that the ramp
- * has hue in it, which is what makes an edge read as a pane catching light
- * rather than as a line drawn round a box.
- *
- * Alpha goes in stop-opacity, never inside stop-color: Android reads the three
- * channels there and drops the fourth, and the whole rim paints solid.
- */
-function LiquidRim({ height }: { height: number }) {
-  const half = RIM_WIDTH / 2
-  const axis = axisFor(RIM_DEG, PANEL_W, height)
-
-  return (
-    <Svg
-      width={PANEL_W}
-      height={height}
-      style={StyleSheet.absoluteFill}
-      pointerEvents="none"
-    >
-      <Defs>
-        <SvgGradient
-          id="sheetRim"
-          gradientUnits="userSpaceOnUse"
-          x1={axis.start.x * PANEL_W}
-          y1={axis.start.y * height}
-          x2={axis.end.x * PANEL_W}
-          y2={axis.end.y * height}
-        >
-          {rim.liquid.map((css, i) => {
-            const stop = splitAlpha(css)
-            return (
-              <Stop
-                key={i}
-                offset={RIM_STOPS[i] ?? i / (rim.liquid.length - 1)}
-                stopColor={stop.color}
-                stopOpacity={stop.opacity}
-              />
-            )
-          })}
-        </SvgGradient>
-      </Defs>
-      <Rect
-        x={half}
-        y={half}
-        width={PANEL_W - RIM_WIDTH}
-        height={Math.max(height - RIM_WIDTH, 0)}
-        rx={radius.sheet - half}
-        ry={radius.sheet - half}
-        fill="none"
-        stroke="url(#sheetRim)"
-        strokeWidth={RIM_WIDTH}
-      />
-    </Svg>
-  )
-}
-
 const s = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
   /* Hugs the panel: no flex, so it cannot stretch and strand it at the top. */
   avoider: { justifyContent: 'flex-end' },
   scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
   panel: {
-    /* Transparent: the blur and the wash under everything are the surface. */
-    backgroundColor: 'transparent',
+    /*
+     * Flat, and opaque. This was glass — blurred, washed warm, with a lit
+     * edge — and against a screen that is one enormous number the effect was
+     * competing with the number. What the reference does instead is get out
+     * of the way: a single dark surface, a hairline so it parts from the black
+     * behind it, and nothing else on it that is not information.
+     */
+    backgroundColor: '#141414',
     /* Floating, so every corner rounds and the border goes all the way round. */
     marginHorizontal: FLOAT,
     borderRadius: radius.sheet,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 16,
     overflow: 'hidden',
   },
-  /*
-   * Warm rather than neutral. A flat black wash over a blur reads as a screen
-   * gone dim; a touch of warmth in it reads as a pane with something behind.
-   */
-  wash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(30,26,26,0.62)' },
   grabber: {
     alignSelf: 'center',
     width: 40,
@@ -302,6 +220,17 @@ const s = StyleSheet.create({
   title: { ...type.title, fontSize: 20, color: color.text },
   close: { ...type.chip, color: color.textSoft },
   body: { flexGrow: 0 },
+  /*
+   * A page's body takes the room the page has, so the middle can breathe.
+   *
+   * Spelled out rather than `flex: 1`. `flex` and `flexGrow` are separate keys
+   * to the style merger, so the shorthand does not replace the `flexGrow: 0`
+   * above it — the body kept collapsing to nothing and the footer rode up
+   * under the header, sitting over the pad.
+   */
+  bodyTall: { flexGrow: 1, flexShrink: 1, flexBasis: 0 },
   bodyContent: { paddingBottom: 12 },
+  /* And the content has to be allowed to fill, or nothing inside can stretch. */
+  bodyContentTall: { flexGrow: 1 },
   footer: { paddingTop: 12 },
 })

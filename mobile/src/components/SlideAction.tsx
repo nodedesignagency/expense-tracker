@@ -15,11 +15,16 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { EASE_ENTER, SPRING_SETTLE } from '../motion'
 import { capTrim, color, font, radius, sp } from '../theme'
 
-const TRACK_H = sp(62)
+const TRACK_H = sp(64)
 const PAD = sp(6)
-const THUMB = TRACK_H - PAD * 2
-/** A squircle, as the reference has it — not a circle, and not a pill. */
-const THUMB_R = THUMB * 0.42
+const THUMB_H = TRACK_H - PAD * 2
+/*
+ * A rectangle lying down, not a circle. The reference's handle is half again
+ * as wide as it is tall, which is what makes it read as something to push
+ * rather than something to tap — and gives the grip somewhere to live.
+ */
+const THUMB_W = THUMB_H * 1.5
+const THUMB_R = sp(16)
 /** How far along counts as meaning it. */
 const COMMIT = 0.88
 
@@ -55,7 +60,7 @@ interface SlideActionProps {
  * spring carries it through.
  */
 export function SlideAction({ width, label, tint, onCommit }: SlideActionProps) {
-  const travel = Math.max(width - THUMB - PAD * 2, 1)
+  const travel = Math.max(width - THUMB_W - PAD * 2, 1)
   const x = useSharedValue(0)
   const held = useSharedValue(0)
   /** Latched at the commit point so the haptic fires once, not every frame. */
@@ -108,7 +113,7 @@ export function SlideAction({ width, label, tint, onCommit }: SlideActionProps) 
 
   /* The fill follows the thumb, so the colour is something being drawn out. */
   const fill = useAnimatedStyle(() => ({
-    width: PAD + THUMB / 2 + x.get(),
+    width: PAD + THUMB_W / 2 + x.get(),
     opacity: interpolate(at.get(), [0, 0.05], [0, 1], 'clamp'),
   }))
 
@@ -124,13 +129,27 @@ export function SlideAction({ width, label, tint, onCommit }: SlideActionProps) 
   return (
     <GestureDetector gesture={pan}>
       <View style={[s.track, { width }]}>
+        {/*
+          * Two layers, because one ramp is a wash and what the reference has
+          * is light. The long one carries the colour back down the track and
+          * dies out; the short one is the source, packed into the last stretch
+          * behind the handle so the brightness travels with the hand rather
+          * than sitting evenly across everything already covered.
+          */}
         <Animated.View style={[s.fill, fill]} pointerEvents="none">
           <LinearGradient
-            colors={[`${tint}00`, `${tint}2E`, `${tint}5C`]}
-            locations={[0, 0.6, 1]}
+            colors={[`${tint}00`, `${tint}1F`, `${tint}47`]}
+            locations={[0, 0.55, 1]}
             start={{ x: 0, y: 0.5 }}
             end={{ x: 1, y: 0.5 }}
             style={StyleSheet.absoluteFill}
+          />
+          <LinearGradient
+            colors={[`${tint}00`, `${tint}70`, `${tint}D6`]}
+            locations={[0, 0.62, 1]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={s.bloom}
           />
         </Animated.View>
 
@@ -145,6 +164,18 @@ export function SlideAction({ width, label, tint, onCommit }: SlideActionProps) 
         </Animated.Text>
 
         <Animated.View style={[s.thumb, thumb]} pointerEvents="none">
+          {/*
+            * Lit from above and shaded at the foot, which is the whole of the
+            * depth: a flat fill at this size reads as a sticker, and a shadow
+            * would be Android elevation re-rendering every frame of the drag.
+            */}
+          <LinearGradient
+            colors={['rgba(255,255,255,0.62)', 'rgba(255,255,255,0)', 'rgba(0,0,0,0.20)']}
+            locations={[0, 0.52, 1]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={[StyleSheet.absoluteFill, s.gloss]}
+          />
           <View style={s.grip} />
           <View style={s.grip} />
         </Animated.View>
@@ -168,17 +199,20 @@ const s = StyleSheet.create({
     ...capTrim(sp(16)),
     textAlign: 'center',
   },
+  bloom: { position: 'absolute', right: 0, top: 0, bottom: 0, width: sp(96) },
   thumb: {
     position: 'absolute',
     left: PAD,
-    width: THUMB,
-    height: THUMB,
+    width: THUMB_W,
+    height: THUMB_H,
     borderRadius: THUMB_R,
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: sp(3),
   },
+  gloss: { borderRadius: THUMB_R },
   /* Two bars, which is a grip and not an instruction to read. */
   grip: {
     width: sp(2),
