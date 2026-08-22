@@ -33,7 +33,9 @@ and blocks the next pull.
 
 **Android, 360pt wide, three-button nav bar, Expo Go for SDK 54.** Every
 layout decision has been made against 360, not the frame's 393. They cannot
-run anything the store's Expo Go will not open.
+run anything the store's Expo Go will not open. They also check on an iPhone
+(393) — several things have looked right on one and wrong on the other, so
+sizing is solved proportionally rather than per-device (see `sp()` below).
 
 ## Hard constraints — do not change these without a reason
 
@@ -50,6 +52,21 @@ run anything the store's Expo Go will not open.
 - **Reanimated, not core `Animated`.** Core's native driver takes only
   transform and opacity, and runs on the JS thread otherwise — busy during a
   tab change, because the next screen is mounting.
+- **`GestureHandlerRootView` must stay wrapping everything in `App.tsx`.**
+  Every gesture in the app is dead without it, silently — no error, the
+  handlers just never fire.
+
+## The native dependencies, and what each is for
+
+`react-native-svg` (every stroked/gradient shape), `expo-linear-gradient`
+(fills), `expo-font`, `@react-native-async-storage/async-storage`
+(persistence), `react-native-safe-area-context`, plus three added later:
+
+- **`react-native-gesture-handler`** — the slide-to-add control. Not
+  `PanResponder`; see the animation rules below.
+- **`expo-haptics`** — the slider's detent and its result.
+- **`expo-blur`** — the composer's anchored menus and the calendar overlay
+  only. The sheets themselves are flat; glass on them was built and rejected.
 
 ## Verify on the device, not in the browser
 
@@ -65,8 +82,18 @@ thing in every case; Android does not:
 | Glass corners broke up | Nested rounded rects anti-aliasing against each other. Now one stroked SVG rect. |
 | App died at startup | The worklets version mismatch above. A bundle build does not exercise the native bridge. |
 
+A fifth has since joined them: **Android elided the Add button's name to
+"A…"** while iOS drew it in full — Android measures a string against its box,
+and the box was mid-animation. Anything whose width animates must not have
+text measured against it; place the text absolutely instead.
+
+Two more things the browser cannot judge at all: **haptics**, and how a
+**drag** feels. The slider can be seen to move in Chrome and that is the whole
+of what a web check proves about it.
+
 So: a clean `npx expo export` proves nothing about native behaviour, and
 "verified" through the web target should be said with that caveat attached.
+Say which check was actually run — the owner asks.
 
 ## How the design system works
 
@@ -75,6 +102,15 @@ So: a clean `npx expo export` proves nothing about native behaviour, and
   module load from `Dimensions`. The frame's numbers are absolute (a 345 card,
   a 40 figure, a 24 gutter); used raw on a 360 phone the gutters eat a larger
   share and the type sits heavier. Any new measurement goes through `sp()`.
+  Unscaling something "so it isn't too small" was tried and had to be reversed
+  — it made the nav 9% larger relative to everything else on a 360 screen.
+  **Solve a fit in frame units at 393, then scale the result.**
+- `capTrim(fontSize)` — Figma trims a text box to the cap height; React Native
+  gives you the full line box, ascender to descender. Text transcribed
+  faithfully therefore sits low in a box that is too tall. This returns the
+  negative margins that reconcile the two. The metrics come from the shipped
+  font file (2048 upem, cap 1443, ascender 1950, descender 494), not from
+  guessing.
 - `axisFor(deg, w, h)` — a CSS gradient angle is a direction in real space, but
   a `LinearGradient`'s start/end are fractions of the box, so the box stretches
   whatever vector you give it. This cancels that out. Each fill carries its own
@@ -84,12 +120,14 @@ So: a clean `npx expo export` proves nothing about native behaviour, and
   rounded rect, brightest at the top-left corner, thinning across the middle of
   each side, lifting again at the bottom-right. It is a *light*, not a stroke:
   giving each side a constant brightness reads as a drawn box and was rejected.
+  Still used by the card, the week strip, the top bar and the entry rows. **Not**
+  by the sheets — see below.
 - `mobile/src/motion.ts` — every duration and curve, with the reasoning.
 
-## The bottom nav, which is where most recent effort went
+## The bottom nav
 
-One pill, and it **travels**. Every destination is a fixed-size box holding the
-glyph above its name, so nothing in the bar ever moves.
+Rebuilt from its own Figma frame (node `11:19`), 52 tall. One pill, and it
+**travels**. Every destination is a box holding the glyph above its name.
 
 A pill per destination, opening and shutting, was tried and rejected: two
 shapes change at once, neither is the thing that moved, and every neighbour is
@@ -99,18 +137,96 @@ Each glyph reads **how near the pill is** rather than running its own timer, so
 the icon swap and the slide are one movement. That coupling is the thing that
 made it feel right — do not replace it with independent per-tab animations.
 
-Labels stack *under* the glyph because beside it they do not fit. Measured from
-the font: Home 35.8, Insights 46.8, Settings 49.3. A travelling pill needs
-fixed positions, so each reserves its label's width whether shown or not —
-beside the glyph that is 367 against the 316 a 360pt screen has between its
-gutters. Stacked, 274.
+Destinations hug their names rather than sharing a fixed width; the horizontal
+padding is whatever is left after the immovable content, solved in frame units
+and then scaled. Widths are measured out of the font file, not estimated
+(there is a hand-written TTF parser at `scratchpad/ttf.py` for this).
+
+`NavPill` animates an SVG `Rect`'s width directly rather than laying out a
+`Glass`, because `Glass` measures itself on layout and that meant a JS
+round-trip every frame.
+
+## Adding an entry
+
+Three pieces, in order of appearance:
+
+1. **`QuickAdd.tsx`** — tapping Add does not open the composer. Two pills rise
+   out of the button, **credit first, debit second** (debit nearest the thumb),
+   and the Add button itself morphs into their close. Built from Figma nodes
+   `21:100`/`21:106`. Each chip carries a flat tint wash plus a radial edge
+   glow whose shape is Figma's own `gradientTransform` matrix, carried across
+   verbatim.
+2. **`Sheet.tsx`** — the container. A `Modal` with `animationType="none"`, the
+   panel animated by Reanimated from its own measured height. Flat `#141414`
+   with a hairline border. Takes `tall` (a real full height, not a maximum),
+   `overlay` (used by the calendar, which sits over the sheet) and `header`.
+3. **`Composer.tsx`** — the entry screen itself. Full-page and flat, following
+   the owner's reference: a header (close / Credit–Debit segmented / spacer), a
+   middle stage holding **only the figure and a small name pill**, one row of
+   three chips (category / method / date) sitting on the keypad, a custom
+   numeric keypad, and the slider. Category and method open **anchored menus**
+   over the pad; the category menu has a pinned "New category" row outside its
+   scroller. The date chip opens `Calendar.tsx`, a Monday-first month grid that
+   marks the days already carrying an entry.
+
+**`SlideAction.tsx`** commits the entry. A rectangle lying down (1.5:1, not a
+circle), grey→white as it travels, two fill ramps behind it — a long one and a
+brighter bloom band under the handle — with haptics at the detent and at the
+result, springing home if released short of 88%.
+
+Behind all of this, `App.tsx` **recedes the page** — scales it to 0.92, rounds
+its corners, drops it back and dims it — which is the iOS *page sheet*
+presentation the owner asked for by description.
+
+## Animation rules now being followed
+
+From the skills repo the owner supplied (`emilkowalski/skills`, `animate-expo`).
+These are settled; do not regress them:
+
+- **Never `PanResponder`.** `Gesture.Pan()` from gesture-handler.
+- **`scheduleOnRN`, not `runOnJS`** — `runOnJS` is gone in Reanimated 4.
+- **Never read or write a shared value during render.** It was being done in
+  `BottomNav`'s `accessibilityState` and had to be undone.
+- **Transform and opacity only** on anything animating per frame.
+- Springs for anything a finger has been on; timing curves for everything else.
+
+## Traps that have already cost time
+
+- **`flex` and `flexGrow` are separate style keys.** Merging a `{ flex: 1 }`
+  over a `{ flexGrow: 0 }` does not replace it — you get a collapsed box and a
+  footer sitting on top of the keypad. Spell out `flexGrow/flexShrink/flexBasis`.
+- **`maxHeight` is not `height`.** A maximum only stops growth, so a panel with
+  one hugs its content. And a percentage `maxHeight` resolves against the
+  keyboard avoider, which is why a sheet once sat stranded 104pt off the bottom.
+  Use absolute points.
+- **SVG gradients have no `rx`/`ry`.** react-native-svg passes them through to
+  the DOM, the browser drops them, and you get a default radius that floods the
+  shape. Carry Figma's `gradientTransform` matrix instead.
+- **`absoluteFill` fills the padding box, not the border box.** A fill sized to
+  the border box and positioned with it loses its right and bottom edges.
+- **SF Pro Rounded has no glyph at U+232B.** The backspace key is a drawn icon.
+- **A measured inner width must subtract the panel's border**, or a three-column
+  keypad wraps to six rows of two.
+- **`git push origin refs/tags/...` is refused by the proxy** ("the remote end
+  hung up"). Tags stay local; communicate a recovery point as a commit SHA.
+
+## Recovery points
+
+- **`c11ac8c`** — the previous composer, as a bottom sheet with an amount hero
+  rather than a full page. The owner asked for this version to be kept before
+  the rebuild.
 
 ## Open, waiting on the owner
 
 - **`ARRIVAL` in `mobile/src/motion.ts` is `'bloom'` or `'pop'`.** Both keep the
   crossfade and the warm bloom and differ only in the scale — bloom eases up to
-  full size, pop overshoots to 1.07 and settles. The owner is choosing on
-  device. Delete the loser once they say.
+  full size, pop overshoots to 1.07 and settles. Still unanswered from the
+  first turn. Delete the loser once they say.
+- **The wider animation pass has not been done.** List entrances, press
+  feedback, the nav — the skills repo enables it, the owner has not asked yet.
+- **The composer has no time field.** It was removed in the rebuild; entries
+  default to `'09:00'`. Flagged, not decided.
+- **"New category" exists for categories but not for payment methods.**
 - **`TILT` is `false` and should stay.** It was built and rejected: the icons
   are flat images with the depth painted in, so a rotation has no side face to
   reveal and they simply squash. The flag is kept as the record.
@@ -124,11 +240,16 @@ gutters. Stacked, 274.
 
 - They are a designer, not a coder. Explain what and why in plain terms; skip
   the API names unless they matter to the decision.
-- They spot real problems from screenshots. "The glass is breaking" and "the
-  background should move, not resize" were both correct diagnoses of structural
-  bugs. Take the description seriously and go looking.
+- They spot real problems from screenshots. "The glass is breaking", "the
+  background should move, not resize" and "why is that half sized" were all
+  correct diagnoses of structural bugs. Take the description seriously and go
+  looking.
+- They often send reference images and expect the build to match them exactly,
+  not approximately. When they say "same as image 2", read the image again
+  before deciding it is close enough.
 - Ask before guessing on a design fork. They answer directly and it is faster
-  than three wrong builds.
+  than three wrong builds. When they say "first confirm if you understand then
+  only build", do exactly that.
 - Measure rather than estimate. Pixel-sampling the frame, reading label widths
   out of the font file, tracing opacity frame by frame — every one of those
   settled an argument that eyeballing had not.
