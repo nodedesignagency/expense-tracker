@@ -228,6 +228,15 @@ These are settled; do not regress them:
 - **SF Pro Rounded has no glyph at U+232B.** The backspace key is a drawn icon.
 - **A measured inner width must subtract the panel's border**, or a three-column
   keypad wraps to six rows of two.
+- **A worklet can only call another worklet.** A `useAnimatedStyle` body runs
+  on the UI thread. An ordinary function imported from another module gets
+  captured in its closure, and calling it there **aborts the app on the spot** —
+  no red box, no message, Expo Go simply quits, and the bundle builds fine
+  because none of this is exercised until the view mounts. This has now cost a
+  turn once: `recedeLift(insets.top)` was being called inside the page's
+  animated style. Work any such figure out in the component body and let the
+  worklet close over the number. Constants and numbers are safe; functions are
+  not. `motion.ts` says which of its exports are render-time only.
 - **A sheet has to travel further than its own height to leave.** The panel
   floats clear of the bottom, so translating it exactly its height leaves that
   float still on screen as a strip of panel at the moment the modal unmounts.

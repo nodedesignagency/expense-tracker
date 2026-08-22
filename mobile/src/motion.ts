@@ -143,7 +143,13 @@ export const TILT_PERSPECTIVE = 520
 /** How far back the page goes. Enough to read as behind, not as shrunk. */
 export const RECEDE = 0.92
 
-/** How far the receding page is pushed down, so it clears the status bar. */
+/**
+ * How far the receding page is pushed down, so it clears the status bar.
+ *
+ * Render-time only. This and `recededTop` are ordinary functions, so neither
+ * may be *called* inside a worklet — work the figure out first and let the
+ * worklet close over the number.
+ */
 export const recedeLift = (insetTop: number) => insetTop * 0.5 + 8
 
 /**

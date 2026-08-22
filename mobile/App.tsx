@@ -95,9 +95,21 @@ function Shell() {
     behind.set(withTiming(under ? 1 : 0, { duration: SHEET, easing: EASE_SHEET }))
   }, [composerOpen, detailId, behind])
 
+  /*
+   * Worked out here, not in the worklet below.
+   *
+   * A useAnimatedStyle body runs on the UI thread, and the only things it can
+   * call there are other worklets. An ordinary function imported from another
+   * module is not one: it gets captured in the closure and calling it aborts
+   * the app on the spot, before anything has drawn. A number captured the same
+   * way is just a number. It also saves a call every frame for a figure that
+   * cannot change without the insets changing.
+   */
+  const lift = recedeLift(insets.top)
+
   const page = useAnimatedStyle(() => ({
     transform: [
-      { translateY: interpolate(behind.get(), [0, 1], [0, recedeLift(insets.top)]) },
+      { translateY: interpolate(behind.get(), [0, 1], [0, lift]) },
       { scale: interpolate(behind.get(), [0, 1], [1, RECEDE]) },
     ],
     borderRadius: interpolate(behind.get(), [0, 1], [0, radius.sheet]),
