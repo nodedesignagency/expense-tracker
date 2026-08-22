@@ -339,3 +339,17 @@ export function CardIcon({ size = 16, color = '#FFFFFF' }: IconProps) {
     </Svg>
   )
 }
+
+/** The way out of a sheet. */
+export function CloseIcon({ size = 18, color = '#FFFFFF' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <Path
+        d="M5 5l10 10M15 5L5 15"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+      />
+    </Svg>
+  )
+}

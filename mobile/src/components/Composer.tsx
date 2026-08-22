@@ -16,6 +16,7 @@ import type { BrandKey, Category, Direction, Method } from '../lib/types'
 import { createTransaction, useAppState, useCategories, useDispatch, useVisibleLedger } from '../store'
 import { capTrim, color, font, radius, sp, type } from '../theme'
 import { Calendar } from './Calendar'
+import { CloseIcon } from './Icons'
 import { SlideAction } from './SlideAction'
 import {
   ArrowLeftDownIcon,
@@ -200,6 +201,45 @@ export function Composer() {
       open={composerOpen}
       title="New entry"
       onClose={close}
+      tall
+      header={
+        /*
+         * The reference's own header: the way out on the left, what kind of
+         * entry this is in the middle, and nothing on the right but the room
+         * to keep the middle centred. The title is gone — a screen that is
+         * one enormous number does not need to be told it is a new entry.
+         */
+        <View style={s.header}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            onPress={close}
+            style={s.exit}
+          >
+            <CloseIcon size={sp(17)} color={color.text} />
+          </Pressable>
+
+          <View style={s.segment}>
+            {DIRECTIONS.map((d) => {
+              const on = direction === d.value
+              return (
+                <Pressable
+                  key={d.value}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: on }}
+                  onPress={() => setDirection(d.value)}
+                  style={[s.segmentOption, on ? s.segmentOn : null]}
+                >
+                  <d.Icon size={sp(16)} color={on ? d.tint : color.textDim} />
+                  <Text style={[s.segmentText, on ? null : s.segmentTextOff]}>{d.label}</Text>
+                </Pressable>
+              )
+            })}
+          </View>
+
+          <View style={s.exit} />
+        </View>
+      }
       overlay={
         dating ? (
           <Calendar
@@ -223,24 +263,6 @@ export function Composer() {
         />
       }
     >
-      <View style={s.segment}>
-        {DIRECTIONS.map((d) => {
-          const on = direction === d.value
-          return (
-            <Pressable
-              key={d.value}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: on }}
-              onPress={() => setDirection(d.value)}
-              style={[s.segmentOption, on ? s.segmentOn : null]}
-            >
-              <d.Icon size={sp(18)} color={d.tint} />
-              <Text style={s.segmentText}>{d.label}</Text>
-            </Pressable>
-          )
-        })}
-      </View>
-
       <View style={s.amount}>
         <Text style={[s.sign, { color: tint }]}>{direction === 'debit' ? '−' : '+'}</Text>
         <Text style={s.currency}>$</Text>
@@ -486,6 +508,21 @@ const DRAWER_H = KEY_H * 4 + KEY_GAP * 3
 const MENU_W = sp(196)
 
 const s = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: sp(6),
+  },
+  /* The right one is empty, and there to hold the middle in the middle. */
+  exit: {
+    width: sp(38),
+    height: sp(38),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+  },
   segment: {
     flexDirection: 'row',
     padding: sp(3),
@@ -494,16 +531,17 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
   segmentOption: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: sp(6),
-    height: sp(38),
+    height: sp(32),
+    paddingHorizontal: sp(14),
     borderRadius: radius.pill,
   },
   segmentOn: { backgroundColor: 'rgba(255,255,255,0.14)' },
   segmentText: { ...type.chip, ...capTrim(sp(14)), color: color.text },
+  segmentTextOff: { color: color.textDim },
 
   /* The amount, which is the screen. */
   /*

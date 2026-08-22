@@ -23,6 +23,26 @@ export const EASE_MOVE = Easing.bezier(0.33, 1, 0.68, 1)
 export const EASE_ENTER = Easing.bezier(0.23, 1, 0.32, 1)
 
 /**
+ * The curve iOS gives its own sheets: slower to leave, and it lands without
+ * the small hitch a standard ease-out has at the end of a long travel. Used
+ * for the sheet and for the page receding behind it, so the two are one move.
+ */
+export const EASE_SHEET = Easing.bezier(0.32, 0.72, 0, 1)
+
+/**
+ * A spring for anything a finger has been on.
+ *
+ * Quoted the way Apple quotes one — a duration and a damping ratio — rather
+ * than as mass, stiffness and damping, which are the same thing said in units
+ * nobody can picture. Under 1 overshoots; at 1 it settles dead.
+ *
+ * A finger carries velocity, and a timing curve throws it away: let go of
+ * something mid-flick and it restarts from nothing. The spring takes the
+ * velocity through, which is the whole reason to use one.
+ */
+export const SPRING_SETTLE = { duration: 400, dampingRatio: 0.82 } as const
+
+/**
  * The pill's slide and stretch. Long enough to read as one continuous
  * movement rather than a jump.
  */

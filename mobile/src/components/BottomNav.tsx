@@ -221,6 +221,7 @@ export function BottomNav({ inset = 0 }: { inset?: number }) {
             key={def.id}
             def={def}
             index={i}
+            selected={i === index}
             slide={slide}
             onPress={() => dispatch({ type: 'setTab', tab: def.id })}
           />
@@ -380,6 +381,12 @@ function NavPill({ slide }: { slide: SharedValue<number> }) {
 interface NavItemProps {
   def: TabDef
   index: number
+  /**
+   * Passed in rather than read off the shared value here. A shared value read
+   * during render is a snapshot that never updates again — it desyncs with no
+   * warning, and this one decides what a screen reader announces.
+   */
+  selected: boolean
   slide: SharedValue<number>
   onPress: () => void
 }
@@ -396,7 +403,7 @@ interface NavItemProps {
  * The name is simply always there. The frame lights all three at once and only
  * the glyph changes on selection, so there is nothing here to animate.
  */
-function NavItem({ def, index, slide, onPress }: NavItemProps) {
+function NavItem({ def, index, selected, slide, onPress }: NavItemProps) {
   const press = useSharedValue(0)
 
   const swap = useDerivedValue(() => {
@@ -411,7 +418,7 @@ function NavItem({ def, index, slide, onPress }: NavItemProps) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ selected: index === Math.round(slide.get()) }}
+      accessibilityState={{ selected: selected }}
       accessibilityLabel={def.label}
       onPress={onPress}
       onPressIn={() => press.set(withTiming(1, { duration: PRESS, easing: EASE_ENTER }))}

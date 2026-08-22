@@ -13,15 +13,15 @@ import {
 } from 'react-native'
 import Animated, {
   interpolate,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated'
+import { scheduleOnRN } from 'react-native-worklets'
 import { BlurView } from 'expo-blur'
 import Svg, { Defs, LinearGradient as SvgGradient, Rect, Stop } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { EASE_ENTER, SHEET } from '../motion'
+import { EASE_SHEET, SHEET } from '../motion'
 import {
   RIM_STOPS,
   RIM_WIDTH,
@@ -40,6 +40,10 @@ interface SheetProps {
   title: string
   onClose: () => void
   footer?: ReactNode
+  /** Replaces the title row, for a sheet whose header is its own control. */
+  header?: ReactNode
+  /** Nearly the whole screen, for a sheet that is really a page. */
+  tall?: boolean
   children?: ReactNode
   /**
    * Drawn over the panel and outside its scroller, for anything that has to
@@ -62,6 +66,13 @@ const FLOAT = sp(6)
  */
 const MAX_H = Dimensions.get('window').height * 0.86
 
+/*
+ * A page rather than a panel: everything the screen has bar the status bar and
+ * the float. What sits behind it is not being referred to any more, so leaving
+ * a strip of it visible only makes the sheet look short of its own content.
+ */
+const TALL_H = Dimensions.get('window').height - sp(64)
+
 /** What the panel spans once the float has been taken off both sides. */
 const PANEL_W = Dimensions.get('window').width - FLOAT * 2
 
@@ -80,7 +91,16 @@ const PANEL_W = Dimensions.get('window').width - FLOAT * 2
  * seen: `visible` follows a flag that is only dropped once the panel has
  * finished travelling back down.
  */
-export function Sheet({ open, title, onClose, footer, children, overlay }: SheetProps) {
+export function Sheet({
+  open,
+  title,
+  onClose,
+  footer,
+  header,
+  tall,
+  children,
+  overlay,
+}: SheetProps) {
   const insets = useSafeAreaInsets()
   const [mounted, setMounted] = useState(open)
   /* The panel's own height, so it starts exactly its own height below. */
@@ -90,9 +110,10 @@ export function Sheet({ open, title, onClose, footer, children, overlay }: Sheet
   useEffect(() => {
     if (open) setMounted(true)
     t.set(
-      withTiming(open ? 1 : 0, { duration: SHEET, easing: EASE_ENTER }, (done) => {
+      withTiming(open ? 1 : 0, { duration: SHEET, easing: EASE_SHEET }, (done) => {
         'worklet'
-        if (done && !open) runOnJS(setMounted)(false)
+        /* scheduleOnRN, not runOnJS — the latter is gone in Reanimated 4. */
+        if (done && !open) scheduleOnRN(setMounted, false)
       }),
     )
   }, [open, t])
@@ -127,7 +148,11 @@ export function Sheet({ open, title, onClose, footer, children, overlay }: Sheet
           style={s.avoider}
         >
           <Animated.View
-            style={[s.panel, { marginBottom: insets.bottom + FLOAT }, panel]}
+            style={[
+              s.panel,
+              { marginBottom: insets.bottom + FLOAT, maxHeight: tall ? TALL_H : MAX_H },
+              panel,
+            ]}
             onLayout={onLayout}
           >
             {/*
@@ -151,12 +176,14 @@ export function Sheet({ open, title, onClose, footer, children, overlay }: Sheet
 
             <View style={s.grabber} />
 
-            <View style={s.head}>
-              <Text style={s.title}>{title}</Text>
-              <Pressable accessibilityRole="button" onPress={onClose} hitSlop={12}>
-                <Text style={s.close}>Close</Text>
-              </Pressable>
-            </View>
+            {header ?? (
+              <View style={s.head}>
+                <Text style={s.title}>{title}</Text>
+                <Pressable accessibilityRole="button" onPress={onClose} hitSlop={12}>
+                  <Text style={s.close}>Close</Text>
+                </Pressable>
+              </View>
+            )}
 
             <ScrollView
               style={s.body}
@@ -251,7 +278,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 16,
-    maxHeight: MAX_H,
     overflow: 'hidden',
   },
   /*

@@ -1,31 +1,37 @@
-import { useMemo, useRef } from 'react'
-import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native'
+import * as Haptics from 'expo-haptics'
+import { StyleSheet, Text, View } from 'react-native'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
   interpolate,
+  interpolateColor,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated'
+import { scheduleOnRN } from 'react-native-worklets'
 import { LinearGradient } from 'expo-linear-gradient'
-import { EASE_ENTER, EASE_MOVE, MOVE } from '../motion'
+import { EASE_ENTER, SPRING_SETTLE } from '../motion'
 import { capTrim, color, font, radius, sp } from '../theme'
-import { ChevronRightIcon } from './Icons'
 
-const TRACK_H = sp(60)
-const PAD = sp(5)
+const TRACK_H = sp(62)
+const PAD = sp(6)
 const THUMB = TRACK_H - PAD * 2
-/** How far along it has to get before letting go counts as meaning it. */
-const COMMIT = 0.86
+/** A squircle, as the reference has it — not a circle, and not a pill. */
+const THUMB_R = THUMB * 0.42
+/** How far along counts as meaning it. */
+const COMMIT = 0.88
 
 interface SlideActionProps {
-  /** The whole control's width, so the travel can be worked out up front. */
+  /** The whole control's width, so the travel is known before a finger lands. */
   width: number
   label: string
-  /** What the fill glows with — the ledger's own red or green. */
+  /** What the track fills with — the ledger's own red or green. */
   tint: string
   /**
    * Called once the thumb has been carried far enough and let go. Return false
-   * to refuse it: the thumb goes back and the caller says why.
+   * to refuse: the thumb springs home and the caller says why.
    */
   onCommit: () => boolean
 }
@@ -34,106 +40,124 @@ interface SlideActionProps {
  * Slide to add.
  *
  * A tap is one event and this one writes to the ledger, so it asks for a
- * gesture with some length in it instead — the same reason a payment sheet
- * does. Carrying the thumb across lights the track in the direction's own
- * colour, so the confirmation says which kind of entry it is while it is being
- * given rather than after.
+ * gesture with some length in it. Carrying the thumb across fills the track in
+ * the direction's own colour, so the confirmation says which kind of entry it
+ * is while it is being given rather than after.
  *
- * Driven from PanResponder rather than a gesture library. It is a plain
- * left-to-right drag with nothing else moving on screen while it happens, and
- * the alternative is a native dependency and a root wrapper around the whole
- * app for one control.
+ * On Gesture.Pan rather than PanResponder. PanResponder hands every move back
+ * to the React runtime, which is one render per frame for the length of the
+ * drag; the gesture's callbacks are worklets and never touch it. The finger is
+ * on the thing that is moving, so this is the one place where the difference
+ * is felt directly rather than measured.
+ *
+ * Springs home rather than easing home, for the same reason: let go mid-flick
+ * and a curve throws the velocity away and restarts from nothing, where the
+ * spring carries it through.
  */
 export function SlideAction({ width, label, tint, onCommit }: SlideActionProps) {
   const travel = Math.max(width - THUMB - PAD * 2, 1)
-  /* 0 at rest, 1 carried the whole way. Shared, so the paint stays off JS. */
-  const at = useSharedValue(0)
+  const x = useSharedValue(0)
   const held = useSharedValue(0)
+  /** Latched at the commit point so the haptic fires once, not every frame. */
+  const armed = useSharedValue(0)
 
-  const responder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 2,
-        onPanResponderGrant: () => {
-          held.set(withTiming(1, { duration: 120, easing: EASE_ENTER }))
-        },
-        onPanResponderMove: (_, g) => {
-          at.set(Math.min(Math.max(g.dx / travel, 0), 1))
-        },
-        onPanResponderRelease: (_, g) => {
-          held.set(withTiming(0, { duration: 160, easing: EASE_ENTER }))
-          const reached = Math.min(Math.max(g.dx / travel, 0), 1)
-          /* Carried far enough and accepted: run it home rather than snap. */
-          if (reached >= COMMIT && onCommit()) {
-            at.set(withTiming(1, { duration: 140, easing: EASE_ENTER }))
-            return
-          }
-          at.set(withTiming(0, { duration: MOVE, easing: EASE_MOVE }))
-        },
-        onPanResponderTerminate: () => {
-          held.set(withTiming(0, { duration: 160, easing: EASE_ENTER }))
-          at.set(withTiming(0, { duration: MOVE, easing: EASE_MOVE }))
-        },
-      }),
-    [at, held, onCommit, travel],
-  )
+  const at = useDerivedValue(() => x.get() / travel)
+
+  const commit = () => {
+    if (onCommit()) {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+      return
+    }
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+    x.set(withSpring(0, SPRING_SETTLE))
+  }
+
+  const pan = Gesture.Pan()
+    .onBegin(() => {
+      held.set(withTiming(1, { duration: 120, easing: EASE_ENTER }))
+    })
+    .onUpdate((e) => {
+      x.set(Math.min(Math.max(e.translationX, 0), travel))
+      /*
+       * The detent, felt as it is crossed rather than on release — a haptic
+       * that waits for the end is a report, not feedback. Latched, or it
+       * would fire on every frame the finger spends past the line.
+       */
+      const past = x.get() / travel >= COMMIT ? 1 : 0
+      if (past !== armed.get()) {
+        armed.set(past)
+        if (past) scheduleOnRN(Haptics.impactAsync, Haptics.ImpactFeedbackStyle.Light)
+      }
+    })
+    .onEnd((e) => {
+      held.set(withTiming(0, { duration: 160, easing: EASE_ENTER }))
+      armed.set(0)
+      if (x.get() / travel >= COMMIT) {
+        x.set(withSpring(travel, { ...SPRING_SETTLE, velocity: e.velocityX }))
+        scheduleOnRN(commit)
+        return
+      }
+      x.set(withSpring(0, { ...SPRING_SETTLE, velocity: e.velocityX }))
+    })
 
   const thumb = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: at.get() * travel },
-      { scale: interpolate(held.get(), [0, 1], [1, 1.04]) },
-    ],
+    transform: [{ translateX: x.get() }, { scale: interpolate(held.get(), [0, 1], [1, 1.03]) }],
+    /* Grey at rest, white once it is being carried — the reference's tell. */
+    backgroundColor: interpolateColor(at.get(), [0, 0.25], ['#9A9A9A', '#FFFFFF']),
   }))
 
-  /* The lit part follows the thumb, so the colour is something being drawn. */
+  /* The fill follows the thumb, so the colour is something being drawn out. */
   const fill = useAnimatedStyle(() => ({
-    width: PAD + THUMB / 2 + at.get() * travel,
-    opacity: interpolate(at.get(), [0, 0.06], [0, 1], 'clamp'),
+    width: PAD + THUMB / 2 + x.get(),
+    opacity: interpolate(at.get(), [0, 0.05], [0, 1], 'clamp'),
   }))
 
-  /* The instruction goes as the gesture takes over from it. */
+  /*
+   * The caption stays and takes the colour on rather than fading out. The
+   * reference keeps it legible the whole way across, which is what lets you
+   * read what you are committing to while committing to it.
+   */
   const caption = useAnimatedStyle(() => ({
-    opacity: interpolate(at.get(), [0, 0.55], [1, 0], 'clamp'),
+    color: interpolateColor(at.get(), [0, 0.6], [color.textDim, tint]),
   }))
 
   return (
-    <View style={[s.track, { width }]}>
-      <Animated.View style={[s.fill, fill]} pointerEvents="none">
-        <LinearGradient
-          colors={[`${tint}00`, `${tint}66`, `${tint}CC`]}
-          locations={[0, 0.55, 1]}
-          start={{ x: 0, y: 0.5 }}
-          end={{ x: 1, y: 0.5 }}
-          style={StyleSheet.absoluteFill}
-        />
-      </Animated.View>
+    <GestureDetector gesture={pan}>
+      <View style={[s.track, { width }]}>
+        <Animated.View style={[s.fill, fill]} pointerEvents="none">
+          <LinearGradient
+            colors={[`${tint}00`, `${tint}2E`, `${tint}5C`]}
+            locations={[0, 0.6, 1]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </Animated.View>
 
-      <Animated.Text style={[s.caption, caption]} pointerEvents="none" numberOfLines={1}>
-        {label}
-      </Animated.Text>
-
-      <Animated.View style={[s.thumb, thumb]} {...responder.panHandlers}>
-        <Pressable
+        <Animated.Text
+          style={[s.caption, caption]}
+          pointerEvents="none"
+          numberOfLines={1}
           accessibilityRole="button"
           accessibilityLabel={label}
-          onPress={onCommit}
-          style={s.thumbInner}
         >
-          <ChevronRightIcon size={sp(22)} color={color.bg} />
-        </Pressable>
-      </Animated.View>
-    </View>
+          {label}
+        </Animated.Text>
+
+        <Animated.View style={[s.thumb, thumb]} pointerEvents="none">
+          <View style={s.grip} />
+          <View style={s.grip} />
+        </Animated.View>
+      </View>
+    </GestureDetector>
   )
 }
 
 const s = StyleSheet.create({
   track: {
     height: TRACK_H,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: radius.soft,
+    backgroundColor: 'rgba(255,255,255,0.05)',
     overflow: 'hidden',
     justifyContent: 'center',
   },
@@ -142,7 +166,6 @@ const s = StyleSheet.create({
     fontFamily: font.r500,
     fontSize: sp(16),
     ...capTrim(sp(16)),
-    color: color.textSoft,
     textAlign: 'center',
   },
   thumb: {
@@ -150,13 +173,17 @@ const s = StyleSheet.create({
     left: PAD,
     width: THUMB,
     height: THUMB,
-    borderRadius: radius.pill,
-  },
-  thumbInner: {
-    flex: 1,
-    borderRadius: radius.pill,
-    backgroundColor: color.text,
+    borderRadius: THUMB_R,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: sp(3),
+  },
+  /* Two bars, which is a grip and not an instruction to read. */
+  grip: {
+    width: sp(2),
+    height: sp(14),
+    borderRadius: sp(1),
+    backgroundColor: 'rgba(0,0,0,0.42)',
   },
 })

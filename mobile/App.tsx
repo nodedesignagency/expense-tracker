@@ -1,11 +1,21 @@
 import { StatusBar } from 'expo-status-bar'
 import { useFonts } from 'expo-font'
 import { LinearGradient } from 'expo-linear-gradient'
-import { ScrollView, StyleSheet, View } from 'react-native'
+import { useEffect } from 'react'
+import { Dimensions, ScrollView, StyleSheet, View } from 'react-native'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated'
 import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context'
+import { EASE_SHEET, SHEET } from './src/motion'
+import { radius } from './src/theme'
 import { BottomNav, NAV_HEIGHT } from './src/components/BottomNav'
 import { QuickAdd } from './src/components/QuickAdd'
 import { Composer } from './src/components/Composer'
@@ -44,26 +54,62 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="light" />
-      {fontsLoaded || fontError ? (
-        <StoreProvider>
-          <Shell />
-        </StoreProvider>
-      ) : (
-        <View style={s.screen} />
-      )}
-    </SafeAreaProvider>
+    /*
+     * Gesture handler needs this at the root or gestures do nothing at all,
+     * and say nothing about it either — no warning, no error, just a control
+     * that never responds.
+     */
+    <GestureHandlerRootView style={s.root}>
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        {fontsLoaded || fontError ? (
+          <StoreProvider>
+            <Shell />
+          </StoreProvider>
+        ) : (
+          <View style={s.screen} />
+        )}
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   )
 }
 
+/** How far back the page goes. Enough to read as behind, not as shrunk. */
+const RECEDE = 0.92
+
 function Shell() {
-  const { tab, quickAddOpen } = useAppState()
+  const { tab, quickAddOpen, composerOpen, detailId } = useAppState()
   const dispatch = useDispatch()
   const insets = useSafeAreaInsets()
 
+  /*
+   * The page recedes while a sheet is up — iOS's own page-sheet behaviour,
+   * where what you came from does not merely dim but goes back, taking on
+   * rounded corners as it leaves the edges of the screen. It is the thing
+   * that makes a sheet read as in front of something rather than pasted on.
+   *
+   * Transform and opacity only: a scale is free, where animating the size of
+   * a view this big would re-run layout on the whole tree every frame.
+   */
+  const behind = useSharedValue(0)
+
+  useEffect(() => {
+    const under = composerOpen || detailId !== null
+    behind.set(withTiming(under ? 1 : 0, { duration: SHEET, easing: EASE_SHEET }))
+  }, [composerOpen, detailId, behind])
+
+  const page = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: interpolate(behind.get(), [0, 1], [0, insets.top * 0.5 + 8]) },
+      { scale: interpolate(behind.get(), [0, 1], [1, RECEDE]) },
+    ],
+    borderRadius: interpolate(behind.get(), [0, 1], [0, radius.sheet]),
+    opacity: interpolate(behind.get(), [0, 1], [1, 0.72]),
+  }))
+
   return (
-    <View style={s.screen}>
+    <View style={s.root}>
+      <Animated.View style={[s.screen, s.recede, page]}>
       <View style={{ paddingTop: insets.top }}>
         {tab === 'home' ? <TopBar /> : null}
       </View>
@@ -108,6 +154,8 @@ function Shell() {
 
       <BottomNav inset={insets.bottom} />
 
+      </Animated.View>
+
       <Composer />
       <DetailSheet />
     </View>
@@ -115,7 +163,10 @@ function Shell() {
 }
 
 const s = StyleSheet.create({
+  /* Black behind the page, so its corners have something to round against. */
+  root: { flex: 1, backgroundColor: '#000' },
   screen: { flex: 1, backgroundColor: color.bg },
+  recede: { overflow: 'hidden' },
   scroll: { flex: 1 },
   scrim: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 15 },
 })
