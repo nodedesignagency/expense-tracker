@@ -15,8 +15,8 @@ import { parseAmountToCents } from '../lib/money'
 import type { BrandKey, Category, Direction, Method } from '../lib/types'
 import { createTransaction, useAppState, useCategories, useDispatch, useVisibleLedger } from '../store'
 import { capTrim, color, font, radius, sp, type } from '../theme'
-import { AccentFill } from './Accent'
 import { Calendar } from './Calendar'
+import { SlideAction } from './SlideAction'
 import {
   ArrowLeftDownIcon,
   ArrowRightUpIcon,
@@ -31,9 +31,10 @@ import { Sheet } from './Sheet'
 
 const METHODS: Method[] = ['Wise', 'Credit Card', 'Bank Transfer', 'Apple Pay', 'PayPal', 'Cash']
 
+/* The ledger's own words, and its own order: credit first, debit second. */
 const DIRECTIONS: { value: Direction; label: string; tint: string; Icon: typeof ArrowRightUpIcon }[] = [
-  { value: 'debit', label: 'Money out', tint: color.debit, Icon: ArrowRightUpIcon },
-  { value: 'credit', label: 'Money in', tint: color.credit, Icon: ArrowLeftDownIcon },
+  { value: 'credit', label: 'Credit', tint: color.credit, Icon: ArrowLeftDownIcon },
+  { value: 'debit', label: 'Debit', tint: color.debit, Icon: ArrowRightUpIcon },
 ]
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back']
@@ -160,10 +161,17 @@ export function Composer() {
     setPicker(null)
   }
 
+  /* Returns whether it took, so the slider knows to run home or spring back. */
   const submit = () => {
     const amountCents = parseAmountToCents(amount)
-    if (!amountCents) return setError('Enter an amount greater than zero.')
-    if (!name.trim()) return setError('Give the entry a name.')
+    if (!amountCents) {
+      setError('Enter an amount greater than zero.')
+      return false
+    }
+    if (!name.trim()) {
+      setError('Say who it is for.')
+      return false
+    }
 
     dispatch({
       type: 'addTransaction',
@@ -182,6 +190,7 @@ export function Composer() {
         transactions,
       ),
     })
+    return true
   }
 
   const tint = direction === 'debit' ? color.debit : color.credit
@@ -206,13 +215,12 @@ export function Composer() {
         ) : null
       }
       footer={
-        <Pressable accessibilityRole="button" style={s.submit} onPress={submit}>
-          {/* The same ramp and edge the bar's Add carries, at this width. */}
-          <AccentFill width={INNER_W} height={SUBMIT_H} overhang={1} />
-          <Text style={s.submitText}>
-            {`Add to ${scope === 'business' ? 'Business' : 'Personal'}`}
-          </Text>
-        </Pressable>
+        <SlideAction
+          width={INNER_W}
+          label={`Slide to add to ${scope === 'business' ? 'Business' : 'Personal'}`}
+          tint={tint}
+          onCommit={submit}
+        />
       }
     >
       <View style={s.segment}>
@@ -245,6 +253,7 @@ export function Composer() {
         style={[s.name, naming ? s.nameOn : null]}
         placeholder="Who's it for?"
         placeholderTextColor={color.textDim}
+        textAlign="center"
         value={name}
         onChangeText={setName}
         onFocus={() => {
@@ -475,7 +484,6 @@ const INNER_W = Dimensions.get('window').width - sp(6) * 2 - 2 - 20 * 2
 const KEY_W = Math.floor(((INNER_W - KEY_GAP * 2) / 3) * 100) / 100
 const DRAWER_H = KEY_H * 4 + KEY_GAP * 3
 const MENU_W = sp(196)
-const SUBMIT_H = sp(54)
 
 const s = StyleSheet.create({
   segment: {
@@ -498,30 +506,45 @@ const s = StyleSheet.create({
   segmentText: { ...type.chip, ...capTrim(sp(14)), color: color.text },
 
   /* The amount, which is the screen. */
+  /*
+   * The figure, given the room the reference gives it. It was set at 46 with
+   * twenty-two of air, which is a heading; at 60 with thirty-four it is the
+   * screen, and everything under it reads as annotation on the number.
+   */
   amount: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: sp(4),
-    paddingVertical: sp(22),
+    gap: sp(3),
+    paddingTop: sp(34),
+    paddingBottom: sp(28),
   },
-  sign: { fontFamily: font.r600, fontSize: sp(34) },
-  currency: { fontFamily: font.r600, fontSize: sp(34), color: color.textDim },
-  figure: { fontFamily: font.r600, fontSize: sp(46), color: color.text, letterSpacing: sp(-1) },
+  sign: { fontFamily: font.r600, fontSize: sp(36) },
+  currency: { fontFamily: font.r600, fontSize: sp(36), color: color.textDim },
+  figure: { fontFamily: font.r600, fontSize: sp(60), color: color.text, letterSpacing: sp(-1.4) },
 
+  /*
+   * A small pill sitting under the figure rather than a field spanning the
+   * sheet. Full width it read as the main event and drew the eye off the
+   * amount, which is the one thing on this screen that matters; at this size
+   * it is one more thing stated about the entry, like the chips below it.
+   */
   name: {
-    height: sp(48),
+    alignSelf: 'center',
+    minWidth: sp(160),
+    height: sp(38),
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
+    borderColor: 'rgba(255,255,255,0.14)',
     backgroundColor: 'rgba(255,255,255,0.06)',
-    paddingHorizontal: sp(18),
-    ...type.name,
+    paddingHorizontal: sp(16),
+    ...type.chip,
+    fontSize: sp(14),
     color: color.text,
   },
-  nameOn: { borderColor: 'rgba(255,255,255,0.28)' },
+  nameOn: { borderColor: 'rgba(255,255,255,0.30)' },
 
-  chips: { flexDirection: 'row', gap: sp(7), paddingTop: sp(12) },
+  chips: { flexDirection: 'row', justifyContent: 'center', gap: sp(7), paddingTop: sp(16) },
   stat: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -602,14 +625,4 @@ const s = StyleSheet.create({
 
   error: { ...type.chip, color: color.debit, paddingTop: sp(12) },
 
-  submit: {
-    height: SUBMIT_H,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: color.strokeAccent,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  submitText: { ...type.name, ...capTrim(sp(16)), color: color.text, zIndex: 1 },
 })

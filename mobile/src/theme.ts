@@ -97,20 +97,24 @@ export const RIM_WIDTH = 1
 
 export const rim: Record<'card' | 'soft' | 'button' | 'raised' | 'liquid', Gradient> = {
   /*
-   * The sheets' edge. Same light travelling the same way round as every other
-   * rim, but carrying colour: the app's own pinks warming the two corners the
-   * light enters and leaves by, and near-white where it crosses the middle.
+   * The sheets' edge, and the only rim here that is not a ring.
    *
-   * The reference for this catches green and teal. Those would be a second
-   * identity beside the accent rather than a highlight on it, so the hue is
-   * the one the app already has and only the trick is borrowed.
+   * The others carry light the whole way round because they are objects on a
+   * surface. A sheet is a pane held up in front of one, and what that catches
+   * is a single source: bright where the light strikes the top-left corner,
+   * gone within a third of the way round, and nothing at all across the foot.
+   * Traced the whole way it stops reading as light and starts reading as a
+   * border drawn round the card, which is the thing it must not look like.
+   *
+   * The colour is the app's own pinks rather than the reference's greens —
+   * those would be a second identity beside the accent, not a highlight on it.
    */
   liquid: [
-    'rgba(255,196,198,0.88)',
-    'rgba(255,255,255,0.52)',
-    'rgba(255,150,160,0.26)',
-    'rgba(255,255,255,0.42)',
-    'rgba(255,182,186,0.74)',
+    'rgba(255,214,216,0.95)',
+    'rgba(255,255,255,0.30)',
+    'rgba(255,255,255,0.05)',
+    'rgba(255,255,255,0.01)',
+    'rgba(255,255,255,0)',
   ],
   card: ['rgba(255,255,255,0.30)', 'rgba(255,255,255,0.15)', 'rgba(255,255,255,0.06)', 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0.20)'],
   /** Day circles and the toggle track, well under half as lit. */
