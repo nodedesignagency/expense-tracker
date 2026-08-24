@@ -20,6 +20,7 @@ import { CELEBRATE, HANDOFF } from '../motion'
 import { capTrim, color, font, radius, sp, type } from '../theme'
 import { Calendar } from './Calendar'
 import { Commit, type BloomSpec, type BloomTint } from './Commit'
+import { Figure } from './Figure'
 import { CloseIcon } from './Icons'
 import { SlideAction } from './SlideAction'
 import {
@@ -351,9 +352,9 @@ export function Composer() {
       header={
         /*
          * The reference's own header: the way out on the left, what kind of
-         * entry this is in the middle, and nothing on the right but the room
-         * to keep the middle centred. The title is gone — a screen that is
-         * one enormous number does not need to be told it is a new entry.
+         * entry this is in the middle, and the date on the right. The title is
+         * gone — a screen that is one enormous number does not need to be told
+         * it is a new entry.
          */
         <View style={s.header}>
           <Pressable
@@ -365,25 +366,56 @@ export function Composer() {
             <CloseIcon size={sp(17)} color={color.text} />
           </Pressable>
 
-          <View style={s.segment}>
-            {DIRECTIONS.map((d) => {
-              const on = direction === d.value
-              return (
-                <Pressable
-                  key={d.value}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: on }}
-                  onPress={() => setDirection(d.value)}
-                  style={[s.segmentOption, on ? s.segmentOn : null]}
-                >
-                  <d.Icon size={sp(16)} color={on ? d.tint : color.textDim} />
-                  <Text style={[s.segmentText, on ? null : s.segmentTextOff]}>{d.label}</Text>
-                </Pressable>
-              )
-            })}
+          {/*
+            * Centred against the header rather than sat between its two
+            * neighbours, because they are no longer the same width — the date
+            * on the right is a chip and the way out on the left is a circle.
+            * `box-none` so it does not swallow the taps meant for either.
+            */}
+          <View style={s.middle} pointerEvents="box-none">
+            <View style={s.segment}>
+              {DIRECTIONS.map((d) => {
+                const on = direction === d.value
+                return (
+                  <Pressable
+                    key={d.value}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on }}
+                    onPress={() => setDirection(d.value)}
+                    style={[s.segmentOption, on ? s.segmentOn : null]}
+                  >
+                    <d.Icon size={sp(16)} color={on ? d.tint : color.textDim} />
+                    <Text style={[s.segmentText, on ? null : s.segmentTextOff]}>
+                      {d.label}
+                    </Text>
+                  </Pressable>
+                )
+              })}
+            </View>
           </View>
 
-          <View style={s.exit} />
+          {/*
+            * The date, which used to sit in the row of chips below and left an
+            * empty disc up here holding the middle in place. An empty disc
+            * reads as a control that has lost its glyph, and the owner called
+            * it out as exactly that. It is filled rather than outlined, like
+            * the way out beside it, so the header's two controls belong to
+            * each other. The chips below are a set of two now, not three.
+            */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Date, ${dayLabel(date)}`}
+            onPress={() => {
+              setPicker(null)
+              setDating(true)
+            }}
+            style={[s.when, dating ? s.whenOn : null]}
+          >
+            <CalendarIcon size={sp(15)} color={color.text} />
+            <Text style={s.whenText} numberOfLines={1}>
+              {dayLabel(date)}
+            </Text>
+          </Pressable>
         </View>
       }
       hold={landed}
@@ -440,9 +472,7 @@ export function Composer() {
         >
           <Text style={[s.sign, { color: tint }]}>{direction === 'debit' ? '−' : '+'}</Text>
           <Text style={s.currency}>$</Text>
-          <Text style={s.figure} numberOfLines={1} adjustsFontSizeToFit>
-            {display(amount)}
-          </Text>
+          <Figure value={display(amount)} />
         </Pressable>
 
         {/*
@@ -495,16 +525,6 @@ export function Composer() {
           on={picker === 'method'}
           onPress={() => open('method')}
           onAnchor={(x) => setAnchor((a) => ({ ...a, method: x }))}
-        />
-        <Stat
-          label={dayLabel(date)}
-          Icon={CalendarIcon}
-          on={dating}
-          onPress={() => {
-            setPicker(null)
-            setDating(true)
-          }}
-          onAnchor={() => {}}
         />
       </View>
 
@@ -728,7 +748,20 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: sp(6),
   },
-  /* The right one is empty, and there to hold the middle in the middle. */
+  /*
+   * The middle, pinned to the header rather than sharing a row with its two
+   * neighbours. Spelled with all four edges: an absolute child left to find
+   * its own box has drawn nothing at all in this project before.
+   */
+  middle: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: sp(6),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   exit: {
     width: sp(38),
     height: sp(38),
@@ -737,6 +770,23 @@ const s = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: 'rgba(255,255,255,0.07)',
   },
+  /*
+   * The date, up in the header. Filled like the way out beside it rather than
+   * outlined like the chips below, so the two header controls read as a pair
+   * and the chips stay their own set.
+   */
+  when: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: sp(6),
+    height: sp(38),
+    paddingLeft: sp(11),
+    paddingRight: sp(13),
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+  },
+  whenOn: { backgroundColor: 'rgba(255,255,255,0.16)' },
+  whenText: { ...type.chip, ...capTrim(sp(14)), color: color.text },
   segment: {
     flexDirection: 'row',
     padding: sp(3),
@@ -780,7 +830,6 @@ const s = StyleSheet.create({
   },
   sign: { fontFamily: font.r600, fontSize: sp(36) },
   currency: { fontFamily: font.r600, fontSize: sp(36), color: color.textDim },
-  figure: { fontFamily: font.r600, fontSize: sp(60), color: color.text, letterSpacing: sp(-1.4) },
 
   /*
    * Centred text under the figure, with no chrome of its own.
@@ -808,7 +857,12 @@ const s = StyleSheet.create({
   /* With no outline to light, the focus tell is the text coming up to full. */
   nameOn: { color: color.text },
 
-  /* Three, and they fit a line: 85 + 120 + 90 against the 339 there is. */
+  /*
+   * Two now: what it is, and what it was paid with. The date used to be the
+   * third and has gone up to the header, where it fills a disc that was
+   * standing empty. Two hug the middle with room to spare, where three were
+   * solved to fit a line (85 + 120 + 90 against the 339 there is).
+   */
   chips: {
     flexDirection: 'row',
     justifyContent: 'center',

@@ -96,6 +96,34 @@ export const BLOOM_FADE = [0, 1, 1, 0.75, 0] as const
 export type Blob = 'blob' | 'legacy'
 export const BLOB: Blob = 'blob'
 
+/*
+ * A digit landing in the amount.
+ *
+ * The owner's reference: the figure does not simply appear, it arrives —
+ * rising into its seat from below, smeared while it is moving and sharp once
+ * it has stopped. Only the digit just typed does this. The ones already set
+ * are still, which is what makes each keystroke read as its own event rather
+ * than as the whole number twitching.
+ *
+ * There is no per-view blur in React Native — `expo-blur` blurs what is
+ * *behind* a view, not the view itself — so the smear is drawn: a few copies
+ * of the glyph trailing the real one down its path, each faint, all collapsing
+ * into it as it slows. That is what a motion blur is anyway, and it costs
+ * nothing but transforms and opacities.
+ *
+ * Distances are frame units; scale them at the point of use.
+ */
+export const LAND_MS = 380
+/** How far below its seat the digit starts. */
+export const LAND_RISE = 44
+/** How long the trail runs behind it at full speed. */
+export const LAND_SMEAR = 30
+/** How many copies make the smear, and how strongly each one prints. */
+export const LAND_GHOSTS = 3
+export const LAND_GHOST_ALPHA = 0.22
+/** How small it starts. Small enough to read as arriving, not as a zoom. */
+export const LAND_FROM = 0.84
+
 /** Where the confirmation shows itself, along the same track. */
 export const SAID_IN = 0.34
 export const SAID_OUT = 0.88

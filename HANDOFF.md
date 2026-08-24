@@ -215,13 +215,59 @@ Three pieces, in order of appearance:
    any width — checked at 360 and 393. The recession is small as a result;
    the depth is carried by the dim, the corners and the sheet in front.
 3. **`Composer.tsx`** — the entry screen itself. Full-page and flat, following
-   the owner's reference: a header (close / Credit–Debit segmented / spacer), a
-   middle stage holding **only the figure and its name caption**, one row of
-   three chips (category / method / date) sitting on the keypad, a custom
-   numeric keypad, and the slider. Category and method open **anchored menus**
+   the owner's reference: a header (close / Credit–Debit segmented / **date**),
+   a middle stage holding **only the figure and its name caption**, one row of
+   **two** chips (category / method) sitting on the keypad, a custom numeric
+   keypad, and the slider.
+
+   **The date used to be the third chip** and the header's right-hand slot was
+   an empty disc holding the segmented control in the middle. An empty disc
+   reads as a control that has lost its glyph and the owner circled it as
+   exactly that, so the date moved up into it. It is *filled* like the way out
+   beside it rather than outlined like the chips below, so the header's two
+   controls read as a pair. The segmented control is now centred **against the
+   header** rather than sitting between its neighbours — they are no longer the
+   same width — which means an absolute child over the full width, so it takes
+   `pointerEvents="box-none"` or it swallows the taps meant for both. Category and method open **anchored menus**
    over the pad; the category menu has a pinned "New category" row outside its
    scroller. The date chip opens `Calendar.tsx`, a Monday-first month grid that
    marks the days already carrying an entry.
+
+**`Figure.tsx`** is the amount, typed a character at a time.
+
+The owner's reference has the figure *arrive* rather than appear: it rises into
+its seat from below, smeared while it moves and sharp once it stops. Only the
+digit just typed does this — the ones already set are still, which is what
+makes each keystroke its own event instead of the whole number twitching.
+
+- **There is no per-view blur in React Native.** `expo-blur` blurs what is
+  *behind* a view, not the view itself, so the smear is drawn: `LAND_GHOSTS`
+  copies of the glyph trailing the real one down its path, each faint, all
+  collapsing into it as it slows. That is what a motion blur is, and it costs
+  nothing but transforms and opacities.
+- **One `Text` cannot animate a digit on its own,** so the figure is a cell per
+  character. Which loses `adjustsFontSizeToFit` — and does not need it back:
+  the keypad caps the figure at seven digits, the most the hero can set without
+  shrinking, and type and panel scale by the same `sp()`, so what fits at 393
+  fits at 360.
+- **No cell ever animates its width.** Android measures a string against its
+  box and elides it to fit, which is how the Add button once drew as "A…" on
+  the phone; a cell is sized by the character in flow inside it and everything
+  animated is a transform or an opacity.
+- The trailing copies are placed **at the cell's own origin**, not centred by
+  alignment — same character, same size, so a shared origin is all it takes.
+  An absolutely-positioned child left to be centred by Yoga has drawn nothing
+  at all in this project before.
+- `Landing` keeps a **stable key** so it holds its driver across keystrokes and
+  replays instead of remounting, and the parent bumps its token **only when the
+  figure grows** — so backspacing is instant and the digit underneath does not
+  re-announce itself.
+- A timing curve, not a spring: nothing here has had a finger on it.
+
+Known and left alone: the figure is centred, so adding a digit shifts what is
+already there. That reflow is not animated. Smoothing it means measuring the
+row and easing a `translateX` against it, which is a change worth making only
+if it reads badly on the phone.
 
 **`SlideAction.tsx`** commits the entry. Transcribed from the owner's Figma
 — **section `41:76`, nodes `39:26` / `39:48` / `39:58`. Those frames are the
