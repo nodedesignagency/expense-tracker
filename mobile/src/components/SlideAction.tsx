@@ -18,7 +18,15 @@ import Animated, {
 import { scheduleOnRN } from 'react-native-worklets'
 import { LinearGradient } from 'expo-linear-gradient'
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg'
-import { CELEBRATE, EASE_ENTER, SPRING_SETTLE, SPRING_WAKE } from '../motion'
+import {
+  CELEBRATE,
+  EASE_ENTER,
+  SPRING_SETTLE,
+  SPRING_SETTLE_BACK,
+  SPRING_SWELL,
+  SWELL_HOLD,
+  WAKE,
+} from '../motion'
 import { axisFor, capTrim, font, sp } from '../theme'
 import { ArrowRightIcon, CheckIcon } from './Icons'
 
@@ -44,19 +52,38 @@ const TRACK_EDGE = 'rgba(255,255,255,0.1)'
 /* A hairline stays a hairline: a rendering unit, not a measurement. */
 const BORDER = 1
 
-/** Thumb, idle: a 72 x 48 pill at radius 72, which on this box is full round. */
-const THUMB_W = sp(72)
-const THUMB_H = sp(48)
-const THUMB_R = THUMB_H / 2
-const ARROW = sp(24)
-
 /**
- * Live, the frame draws the thumb at 84 x 56 against the idle 72 x 48 — the
- * same 1.1667 on both axes, so it is a scale of the one pill and not a second
- * one. The third state draws it 56 tall too, so this is where it *stays* once
- * there is an amount, not something it comes back from.
+ * The thumb, and why it is laid out at the size it only reaches for a moment.
+ *
+ * The frame draws it 72 x 48 idle and 84 x 56 at its largest — the same
+ * 1.1667 on both axes, so it is one pill scaled and not two. The owner's
+ * animation swells to that larger size and comes **back**, so 72 x 48 is
+ * where it rests in both states and 84 x 56 is only ever passed through.
+ *
+ * The box is nevertheless declared at 84 x 56 and scaled *down* to rest,
+ * rather than declared small and scaled up. Scaled up, the pill left its own
+ * box — 1.83 past the frame's left edge on a 360 screen — and something up
+ * the tree clipped it, taking a bite out of a 25.6 radius that left a 19pt
+ * flat down the cap. Declared at its largest it can never exceed its box on
+ * any axis, whatever clips.
+ *
+ * The horizontal growth is anchored to the left edge (see `pinLeft` below)
+ * rather than spreading from the centre, for the same reason: the left is the
+ * only side with no room. Vertically it spreads from the centre and lands
+ * exactly on the track's height, which is what the frame draws.
  */
-const WAKE_SCALE = 84 / 72
+const BOX_W = sp(84)
+const BOX_H = sp(56)
+const THUMB_R = BOX_H / 2
+/** The arrow at the peak; the rest scale takes it back to the frame's 24. */
+const ARROW = sp(28)
+/** What the pill rests at, as a share of the box it is declared in. */
+const REST_SCALE = 72 / 84
+/** Its resting width, which is what the travel is measured against. */
+const THUMB_W = sp(72)
+
+/** Half of what the box gives up at rest — the shift that pins its left edge. */
+const pinLeft = (scale: number) => -(BOX_W * (1 - scale)) / 2
 
 /** The two fills, both on the frame's own axis. */
 const THUMB_DEG = 133.494
@@ -181,7 +208,7 @@ const SPRAY = [
 ] as const
 
 /** The ring's canvas. Named so its centring is arithmetic, not Yoga's. */
-const RING_SIZE = THUMB_H * 1.6
+const RING_SIZE = sp(48) * 1.6
 
 interface SlideActionProps {
   /** The whole control's width, so the travel is known before a finger lands. */
@@ -240,9 +267,13 @@ export function SlideAction({
   captionLit,
   onCommit,
 }: SlideActionProps) {
-  /* Live, the thumb is wider — so what it may travel is measured from that. */
-  const liveW = THUMB_W * WAKE_SCALE
-  const travel = Math.max(width - liveW - PAD * 2, 1)
+  /*
+   * Measured from the pill's *resting* width, so its far edge finishes the
+   * same distance from the right wall as it starts from the left. Measured
+   * from the swollen width instead it stopped a pill's growth short of the
+   * end, and the swipe read as not quite arriving.
+   */
+  const travel = Math.max(width - THUMB_W - PAD * 2, 1)
 
   const x = useSharedValue(0)
   const held = useSharedValue(0)
@@ -252,8 +283,10 @@ export function SlideAction({
   const boom = useSharedValue(0)
   /** The sheen's own clock, sweeping whether or not a finger is down. */
   const sheen = useSharedValue(0)
-  /** 0 idle, 1 live. Sprung, so the swell arrives with weight. */
+  /** 0 idle, 1 live. The colour and the light, which do not come back. */
   const wake = useSharedValue(active ? 1 : 0)
+  /** 0 resting, 1 at full size. The swell, which does. */
+  const swell = useSharedValue(0)
 
   const at = useDerivedValue(() => x.get() / travel)
   /** How far the light has swung from resting to trailing. */
@@ -279,14 +312,22 @@ export function SlideAction({
   }, [sheen])
 
   useEffect(() => {
-    /*
-     * A spring rather than a curve. The swell is the control coming alive,
-     * and a timing curve arrives at its size and stops dead where the spring
-     * carries a little past and settles — which is what reads as weight.
-     */
-    wake.set(withSpring(active ? 1 : 0, SPRING_WAKE))
-    if (!active) x.set(withSpring(0, SPRING_SETTLE))
-  }, [active, wake, x])
+    /* The colour comes up once and stays. Timed, so opacity cannot overshoot. */
+    wake.set(withTiming(active ? 1 : 0, { duration: WAKE, easing: EASE_ENTER }))
+
+    if (active) {
+      /* Rise, hold a beat at the top, settle back. */
+      swell.set(
+        withSequence(
+          withSpring(1, SPRING_SWELL),
+          withDelay(SWELL_HOLD, withSpring(0, SPRING_SETTLE_BACK)),
+        ),
+      )
+      return
+    }
+    swell.set(withTiming(0, { duration: WAKE, easing: EASE_ENTER }))
+    x.set(withSpring(0, SPRING_SETTLE))
+  }, [active, swell, wake, x])
 
   const commit = () => {
     if (onCommit()) {
@@ -336,16 +377,18 @@ export function SlideAction({
    * step — and the arrow rides it, which is where the frame's 24 -> 28 glyph
    * comes from.
    */
-  const thumb = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: x.get() },
-      {
-        scale:
-          interpolate(wake.get(), [0, 1], [1, WAKE_SCALE]) *
-          interpolate(held.get(), [0, 1], [1, 1.02]),
-      },
-    ],
-  }))
+  const thumb = useAnimatedStyle(() => {
+    /*
+     * Clamped at the top on purpose. The springs overshoot, and past 1 the
+     * pill would leave the box that exists to stop it being clipped — so the
+     * bounce is spent on the way back down, where there is room for it.
+     */
+    const s0 = interpolate(swell.get(), [0, 1], [REST_SCALE, 1], 'clamp')
+    const scale = Math.min(s0 * interpolate(held.get(), [0, 1], [1, 1.02]), 1)
+    return {
+      transform: [{ translateX: x.get() + pinLeft(scale) }, { scale }],
+    }
+  })
 
   const live = useAnimatedStyle(() => ({ opacity: awake.get() }))
   const gone = useAnimatedStyle(() => ({
@@ -408,7 +451,8 @@ export function SlideAction({
     transform: [{ scale: interpolate(boom.get(), [0, 0.25, 0.7], [1, 1.03, 1], 'clamp') }],
   }))
 
-  const thumbAxis = axisFor(THUMB_DEG, THUMB_W, THUMB_H)
+  /* On the box's own proportions, which is what the fill is drawn into. */
+  const thumbAxis = axisFor(THUMB_DEG, BOX_W, BOX_H)
   const trailColors = TRAIL_ALPHA.map((a) => `rgba(${trail},${a})`) as unknown as readonly [
     string,
     string,
@@ -516,7 +560,7 @@ export function SlideAction({
           * offsets in a zero-sized box, centred by alignItems, draws nothing
           * at all and says nothing about it.
           */}
-        <View style={[s.burst, { left: width - PAD - liveW / 2 }]} pointerEvents="none">
+        <View style={[s.burst, { left: width - PAD - THUMB_W / 2 }]} pointerEvents="none">
           <Animated.View style={[s.ringBox, flash]}>
             <BurstCore size={RING_SIZE} />
           </Animated.View>
@@ -640,9 +684,9 @@ const s = StyleSheet.create({
   thumb: {
     position: 'absolute',
     left: PAD,
-    top: (TRACK_H - THUMB_H) / 2,
-    width: THUMB_W,
-    height: THUMB_H,
+    top: (TRACK_H - BOX_H) / 2,
+    width: BOX_W,
+    height: BOX_H,
   },
   /*
    * The same box, one unit in on both axes: an absolute child of the track is
@@ -653,9 +697,9 @@ const s = StyleSheet.create({
   castAnchor: {
     position: 'absolute',
     left: PAD - BORDER,
-    top: (TRACK_H - THUMB_H) / 2 - BORDER,
-    width: THUMB_W,
-    height: THUMB_H,
+    top: (TRACK_H - BOX_H) / 2 - BORDER,
+    width: BOX_W,
+    height: BOX_H,
   },
   /* Nothing in them but the light they throw. */
   cast: { ...StyleSheet.absoluteFillObject, borderRadius: THUMB_R },

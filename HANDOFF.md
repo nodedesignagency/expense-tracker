@@ -197,11 +197,13 @@ drag:**
    fully round, 56 tall, 4 of horizontal padding. Thumb a 72 x 48 pill on
    `#7D7D7D → #5A5A5A` at 133.494°, arrow `#3E3E3E`. **The gesture is
    inert** — `active` is false and the pan callbacks return early.
-2. **An amount exists** (`active` flips true). The thumb scales to the
-   frame's 84 x 56 — exactly 1.1667 on both axes, so one pill and not two —
-   and **stays there**, arriving on `#FFFEFE → #A9AEB1` with a `#000403`
-   arrow and the light lit. Sprung (`SPRING_WAKE`, under-damped) so it
-   carries past and settles.
+2. **An amount exists** (`active` flips true). The thumb **swells to the
+   frame's 84 x 56 and comes back** — rise, a beat held at the top
+   (`SWELL_HOLD`), then a longer settle, all in `motion.ts`. It rests at
+   72 x 48 in *both* states; the larger size is punctuation, not a new
+   resting size. What stays is the colour (`#FFFEFE → #A9AEB1`, `#000403`
+   arrow) and the light. Run without the hold, the two springs meet and it
+   reads as a twitch.
 3. **Travelling.** The light swings from the thumb's right to its left, the
    trail washes the ground behind, the caption takes `#70F1DB`.
 
@@ -221,6 +223,21 @@ drag:**
   near-uniform vertically across a 56 track — so it is drawn as a horizontal
   ramp sampled from that convolution, not a radial one. It is **broad**:
   centred 99 left of the thumb's leading edge and spent ~300 either side.
+- **The thumb's box is declared at its *largest* and scaled down to rest.**
+  Declared small and scaled up, the pill left its own box — 1.83 past the
+  frame's left edge on a 360 screen — and something up the tree clipped it,
+  biting into a 25.6 radius and leaving a **19pt flat down the cap**. The
+  owner caught that twice. Declared at 84 x 56 it can never exceed its box on
+  any axis, whatever clips. The horizontal growth is also pinned to the left
+  edge (`pinLeft`) rather than spreading from the centre, because the left is
+  the only side with no room; vertically it spreads from the centre and lands
+  exactly on the track's height, which is what the frame draws. The scale is
+  **clamped at 1** — the springs overshoot, and past 1 the pill is outside
+  the box again.
+- **Travel is measured from the pill's resting width**, not its swollen one,
+  so its far edge finishes the same distance from the right wall as it starts
+  from the left. Measured from the swollen width it stopped a pill's growth
+  short and the swipe read as not quite arriving.
 - **Casters inside the track's clip, pill outside it.** Sounds backwards; it
   is the only arrangement that works. The stack's inner layers blur wider
   than they offset, so unclipped the glow wraps the pill and spills over the

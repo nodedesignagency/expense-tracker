@@ -65,16 +65,24 @@ export const SWAP = 260
  */
 export const CELEBRATE = 900
 
-/**
- * The slider waking up when an amount first exists — the swell from the
- * frame's first state to its second.
+/*
+ * The slider waking up when an amount first exists.
  *
- * Sprung rather than timed. The swell is a control coming alive, and a curve
- * arrives at its size and stops dead where a spring carries a little past and
- * settles. Under-damped on purpose: this is the one moment on the screen that
- * is allowed to be pleased with itself.
+ * The size does not *travel* from one state to the other — it swells and
+ * comes back. What is left behind is the colour and the light, not a larger
+ * button, so the growth is punctuation rather than a new resting size: the
+ * control noticing that there is now something to commit.
+ *
+ * Three parts, because it reads as three: a quick rise, a beat held at the
+ * top so the eye catches it, and a longer settle back. Run without the hold
+ * the two springs meet and it reads as a twitch.
  */
-export const SPRING_WAKE = { duration: 620, dampingRatio: 0.58 } as const
+export const SPRING_SWELL = { duration: 240, dampingRatio: 0.72 } as const
+export const SWELL_HOLD = 140
+export const SPRING_SETTLE_BACK = { duration: 560, dampingRatio: 0.68 } as const
+
+/** The colour crossfade underneath it, which does not come back. */
+export const WAKE = 280
 
 /** Press feedback wants to land almost before you notice it. */
 export const PRESS = 120
