@@ -29,13 +29,40 @@ They scan the QR with Expo Go. Force-closing Expo Go first avoids a cached
 bundle. `npm ci` rather than `npm install` — `install` rewrites the lockfile
 and blocks the next pull.
 
+### Launching it, and the things that have gone wrong
+
+An afternoon went on this once. In order of what actually bites:
+
+- **`cd` into `mobile/` first.** Run `npx expo start` from anywhere else and
+  npm downloads the *latest* Expo CLI — currently several SDKs ahead of this
+  project's 54 — then dies with `ConfigError: package.json does not exist`.
+  Inside the project, `npx` uses the pinned local CLI.
+- **The iOS simulator wants `--localhost`.** The owner's Mac LAN address has
+  changed repeatedly (192.168.1.5 → .0.197 → .0.200); LAN mode left `Opening
+  on iOS…` hanging with no bundle. `npx expo start -c --localhost` binds
+  127.0.0.1 and the simulator connects every time. **It is also why Android
+  cannot connect on that flag** — the phone is a different machine. Use plain
+  `npx expo start -c` when the phone is the target.
+- **`iOS Bundled … (N modules)` is the line that means it worked.** No such
+  line means the app never reached Metro — a connection problem, not a code
+  one. A crash *after* it is a code problem.
+- **Open the Simulator app before pressing `i`** (`open -a Simulator`); `i`
+  fails quietly otherwise. And if a blank window titled *"iPhone 17 Pro –
+  External Display"* appears, that is a simulated second screen, not the
+  phone: **Window → External Displays → Disabled**, then pick the plain
+  device from the Window menu.
+- **`--tunnel` needs `sudo npm install -g @expo/ngrok@^4.1.0`** first, or it
+  fails with `exited with non-zero code: 243` — a global-install permission
+  error. Only worth it if LAN is blocked.
+
 ## The owner's device
 
 **Android, 360pt wide, three-button nav bar, Expo Go for SDK 54.** Every
 layout decision has been made against 360, not the frame's 393. They cannot
-run anything the store's Expo Go will not open. They also check on an iPhone
-(393) — several things have looked right on one and wrong on the other, so
-sizing is solved proportionally rather than per-device (see `sp()` below).
+run anything the store's Expo Go will not open. They also check on an
+**iPhone 17 Pro simulator (iOS 26.5)** — several things have looked right on
+one and wrong on the other, so sizing is solved proportionally rather than
+per-device (see `sp()` below). Both are live and both are checked.
 
 ## Hard constraints — do not change these without a reason
 
