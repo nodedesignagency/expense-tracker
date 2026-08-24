@@ -126,8 +126,12 @@ function dayLabel(iso: string): string {
  * hold the space the pickers need. Tapping a chip swaps the pad for that
  * chip's list, in the same place, so the sheet never changes height.
  *
- * The one thing that does still want the system keyboard is the name, and
- * focusing it stands the pad down so the two are never up at once.
+ * The one thing that does still want the system keyboard is the name, and the
+ * pad does **not** stand down for it. The keyboard rises over the pad the way
+ * it does over any screen, and when it goes the pad has not moved. Unmounting
+ * it meant the only way back was a control that had taken its place and had to
+ * be found — and that the figure, the obvious thing to tap when you want to
+ * type a number, did nothing at all.
  */
 export function Composer() {
   const { composerOpen, composerDirection, scope, transactions } = useAppState()
@@ -179,6 +183,8 @@ export function Composer() {
 
   const tap = (k: string) => {
     setError(null)
+    /* Reaching for the pad means the name is finished with, wherever focus is. */
+    if (naming) Keyboard.dismiss()
     if (k === 'back') return setAmount((a) => a.slice(0, -1))
     if (k === '.') return setAmount((a) => (a.includes('.') ? a : `${a || '0'}.`))
     setAmount((a) => {
@@ -220,14 +226,18 @@ export function Composer() {
       setError('Enter an amount greater than zero.')
       return false
     }
-    if (!name.trim()) {
-      setError('Say who it is for.')
-      return false
-    }
+    /*
+     * The name is optional. Left blank, the entry takes its category as its
+     * label — always set, and it is what the entry *is*, so the row reads
+     * "Tools / Credit Card" instead of standing a blank line beside its
+     * avatar. The brand mark is inferred from whatever the label ends up
+     * being, so a category named for a brand still picks its mark up.
+     */
+    const label = name.trim() || category
 
     const transaction = createTransaction(
       {
-        name: name.trim(),
+        name: label,
         amountCents,
         direction,
         category,
@@ -235,7 +245,7 @@ export function Composer() {
         date,
         time: '09:00',
         scope,
-        brand: inferBrand(name),
+        brand: inferBrand(label),
       },
       transactions,
     )
@@ -269,6 +279,22 @@ export function Composer() {
       title="New entry"
       onClose={close}
       tall
+      /*
+       * The page must not lift for the keyboard. It is already the height of
+       * the page, so padding it clear carries its head off the top — and the
+       * name it would be lifting sits under the figure, well above where the
+       * keyboard lands. What is below is meant to be covered, and to still be
+       * where it was when the keyboard goes.
+       *
+       * So the avoider is armed for the one field that really is down at the
+       * keyboard's line — "New category", at the foot of a menu lying over the
+       * pad — and for nothing else. Keyed off `naming` instead it would have
+       * to disarm and re-arm around every visit to the name, and re-arming
+       * happens on blur, which races the keyboard's own dismissal: the sheet
+       * pads itself clear of a keyboard that is already leaving, then drops
+       * back. Armed only where it is wanted, it never moves for the name.
+       */
+      avoidKeyboard={coining}
       header={
         /*
          * The reference's own header: the way out on the left, what kind of
@@ -344,13 +370,26 @@ export function Composer() {
       }
     >
       <View style={s.stage}>
-        <View style={s.amount}>
+        {/*
+          * The figure is a way back to the pad, not only a readout.
+          *
+          * With the name focused, tapping the number is what anyone does when
+          * they mean "the amount now" — and it did nothing, which is how the
+          * pad became unreachable. Dismissing the keyboard is the whole of
+          * what was ever between the two.
+          */}
+        <Pressable
+          style={s.amount}
+          onPress={() => Keyboard.dismiss()}
+          accessibilityRole="button"
+          accessibilityLabel="Edit amount"
+        >
           <Text style={[s.sign, { color: tint }]}>{direction === 'debit' ? '−' : '+'}</Text>
           <Text style={s.currency}>$</Text>
           <Text style={s.figure} numberOfLines={1} adjustsFontSizeToFit>
             {display(amount)}
           </Text>
-        </View>
+        </Pressable>
 
         {/*
           * The number's caption, and nothing else — no box around it.
@@ -417,48 +456,40 @@ export function Composer() {
 
       <View style={s.drawer}>
         {/*
-          * Naming stands the pad down so the two keyboards are never up at
-          * once — and left nothing to tap to get it back. On a phone the
-          * return key blurs the field; on the simulator, typing on the Mac's
-          * keyboard, the software keyboard never appears and there is no
-          * return key to press, so the pad was simply gone for good. The
-          * owner hit exactly that.
+          * The pad is always here.
           *
-          * The space the pad left carries a **visible** Done now. An invisible
-          * target in the gap was the first attempt and the owner still could
-          * not find the way back — which is fair: nothing said there was one.
-          * A button says it.
+          * It used to be unmounted while the name had focus, so that two
+          * keyboards were never up at once — and that is exactly what made it
+          * unreachable. The return key blurs the field on a phone, but on the
+          * simulator, typing on the Mac's keyboard, no software keyboard ever
+          * appears and so there is no return key to press. A visible Done was
+          * put in the gap and it still asked for a control to be found where
+          * the wanted one had been.
+          *
+          * Nothing takes its place now. The system keyboard comes up over it
+          * and covers the lower part of the page, which is what a keyboard
+          * does; dismissed — by the figure, by the return key, by the tap
+          * outside — it uncovers a pad that never went anywhere. The sheet
+          * does not lift for it either (`avoidKeyboard`), so nothing on the
+          * page moves in either direction.
           */}
-        {naming ? (
-          <Pressable
-            style={s.dismiss}
-            onPress={() => Keyboard.dismiss()}
-            accessibilityRole="button"
-            accessibilityLabel="Done naming"
-          >
-            <Text style={s.dismissText}>Done</Text>
-          </Pressable>
-        ) : null}
-
-        {!naming ? (
-          <View style={s.pad}>
-            {KEYS.map((k) => (
-              <Pressable
-                key={k}
-                accessibilityRole="button"
-                accessibilityLabel={k === 'back' ? 'Delete' : k}
-                onPress={() => tap(k)}
-                style={s.key}
-              >
-                {k === 'back' ? (
-                  <BackspaceIcon size={sp(24)} color={color.text} />
-                ) : (
-                  <Text style={s.keyText}>{k}</Text>
-                )}
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
+        <View style={s.pad}>
+          {KEYS.map((k) => (
+            <Pressable
+              key={k}
+              accessibilityRole="button"
+              accessibilityLabel={k === 'back' ? 'Delete' : k}
+              onPress={() => tap(k)}
+              style={s.key}
+            >
+              {k === 'back' ? (
+                <BackspaceIcon size={sp(24)} color={color.text} />
+              ) : (
+                <Text style={s.keyText}>{k}</Text>
+              )}
+            </Pressable>
+          ))}
+        </View>
 
         {/*
           * The menu hangs off the chip that opened it and lies over the pad,
@@ -470,7 +501,11 @@ export function Composer() {
           <>
             <Pressable
               style={StyleSheet.absoluteFill}
-              onPress={() => setPicker(null)}
+              onPress={() => {
+                setPicker(null)
+                setCoining(false)
+                setDraft('')
+              }}
               accessibilityLabel="Dismiss"
             />
             <View
@@ -750,24 +785,6 @@ const s = StyleSheet.create({
 
   /* Holds the pad, and is what the menus lie over rather than displace. */
   drawer: { minHeight: DRAWER_H, paddingTop: sp(14) },
-  /* Where the pad was, while the name has the keyboard. */
-  dismiss: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: sp(28),
-  },
-  dismissText: {
-    ...type.chip,
-    ...capTrim(sp(14)),
-    color: color.textSoft,
-    paddingVertical: sp(12),
-    paddingHorizontal: sp(26),
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
-    overflow: 'hidden',
-  },
   pad: { flexDirection: 'row', flexWrap: 'wrap', gap: KEY_GAP },
   key: {
     width: KEY_W,

@@ -422,11 +422,35 @@ These are settled; do not regress them:
   with `onLayout` and sizes from that instead. **Measure the container; it
   cannot disagree with itself.** Same class as the gesture trap below: a
   Modal is not part of the tree you think it is.
-- **Hiding a control on focus needs a way back you can SEE.** The composer's
-  name field stands the number pad down. An invisible tap target in the gap
-  it leaves was the first fix and the owner still could not find the way back
-   — fairly, since nothing said there was one. It is a visible **Done**
-  button now.
+- **Do not hide a control on focus at all.** The composer's name field used to
+  stand the number pad down, so the two keyboards were never up at once. Two
+  fixes were tried for the way back — an invisible tap target in the gap, then
+  a visible **Done** — and both were wrong in the same way: they asked the
+  owner to find a *new* control where the one they wanted had been. The return
+  key blurs the field on a phone, but on the simulator, typing on the Mac's
+  keyboard, no software keyboard appears and there is no return key at all, so
+  the pad could be gone for good.
+
+  **The pad is now mounted the whole time.** The system keyboard rises over it,
+  the way a keyboard does over any screen, and dismissing it uncovers a pad
+  that never moved. The figure is a `Pressable` that dismisses the keyboard —
+  tapping the number is what anyone does when they mean "the amount now" — and
+  a keypress dismisses it too. Nothing is conditional on focus but the
+  caption's own colour.
+- **Android resizes a `Modal`'s window when the keyboard opens.**
+  `ReactModalHostView.kt` sets `SOFT_INPUT_ADJUST_RESIZE` on the dialog window
+  unconditionally, so the window really does become screen-minus-keyboard —
+  and `Sheet.tsx` measures that window to size a page sheet. Measured plainly,
+  the page therefore *shortens* while you type in it: the sheet re-lays out
+  around the keyboard and squeezes the pad it is meant to be holding still.
+  A keyboard does not change how tall the page is, so `frameH` takes its first
+  measurement as given and after that only a **taller** one. First-as-given
+  rather than a max against `Dimensions`, because that module-level read is the
+  thing this state exists to correct on Android. Safe only because the app is
+  locked to portrait.
+
+  Third entry in the same family: **a Modal is not the window you think it
+  is** — not for `Dimensions`, not for gestures, not for its own height.
 - **Gestures inside a `Modal` are dead on Android without their own
   `GestureHandlerRootView`.** A Modal is a separate native window, and the
   root view wrapping the app does not reach into it. iOS works either way —
@@ -501,6 +525,14 @@ of mistake here that kills the app outright rather than looking wrong.
   feedback, the nav — the skills repo enables it, the owner has not asked yet.
 - **The composer has no time field.** It was removed in the rebuild; entries
   default to `'09:00'`. Flagged, not decided.
+- **An unnamed entry is labelled with its category.** The name is optional now
+  (the owner asked; it had been blocking the commit with "Say who it is for").
+  Left blank the entry takes its category — always set, and it is what the
+  entry *is*, so the row reads "Tools / Credit Card" rather than standing a
+  blank line beside its avatar. The brand mark is inferred from that label, so
+  a category named for a brand still picks its mark up. **The fallback is a
+  guess, not a decision** — "Untitled", the direction, or a blank were the
+  alternatives.
 - **"New category" exists for categories but not for payment methods.**
 - **`TILT` is `false` and should stay.** It was built and rejected: the icons
   are flat images with the depth painted in, so a rotation has no side face to

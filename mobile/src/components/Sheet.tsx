@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   Dimensions,
   KeyboardAvoidingView,
@@ -53,6 +53,20 @@ interface SheetProps {
    * up until the light has finished. This does.
    */
   hold?: boolean
+  /**
+   * Whether the panel lifts clear of the system keyboard. On by default.
+   *
+   * A page sheet mostly must not. It is already the height of the page, so
+   * padding it up by the keyboard's height carries its head off the top of
+   * the screen — and the composer's name field, the usual reason a keyboard
+   * is up over it, sits under the figure well above where the keyboard lands.
+   * Everything below that is meant to stay where it is and simply be covered.
+   *
+   * So the composer arms this only for the one field that really does sit at
+   * the keyboard's line: "New category", at the foot of a menu lying over the
+   * pad.
+   */
+  avoidKeyboard?: boolean
 }
 
 /** How far the panel floats off the three edges it sits against. */
@@ -146,11 +160,30 @@ export function Sheet({
   overlay,
   curtain,
   hold,
+  avoidKeyboard = true,
 }: SheetProps) {
   const insets = useSafeAreaInsets()
   const [mounted, setMounted] = useState(open)
-  /* What the Modal actually got, once it has been laid out. */
+  /*
+   * What the Modal actually got, once it has been laid out — at its tallest.
+   *
+   * A page sheet takes its height from this, and Android resizes the Modal's
+   * own window when the keyboard opens: `ReactModalHostView` sets
+   * SOFT_INPUT_ADJUST_RESIZE on it, so the window really does become
+   * screen-minus-keyboard. Measured plainly, that shortens the page
+   * mid-typing — the sheet re-lays out around the keyboard and the pad it is
+   * supposed to be holding still gets squeezed up behind it, which is the one
+   * thing the pad is now mounted all the time to avoid.
+   *
+   * A keyboard does not change how tall the page is. So the first measurement
+   * is taken as given — it has to be, since a module-level `Dimensions` read
+   * disagrees with the Modal's window on Android and that is what this state
+   * exists to correct — and after that only a taller one is taken. Safe
+   * because the app is locked to portrait: the window has one height, and the
+   * keyboard is the only thing that ever takes a piece of it.
+   */
   const [frameH, setFrameH] = useState(WINDOW_H)
+  const measured = useRef(false)
   /* The panel's own height, so it starts exactly its own height below. */
   const [height, setHeight] = useState(0)
   const t = useSharedValue(0)
@@ -206,7 +239,13 @@ export function Sheet({
         style={s.root}
         onLayout={(e) => {
           const next = e.nativeEvent.layout.height
-          setFrameH((prev) => (Math.abs(prev - next) < 1 ? prev : next))
+          /* Read in the handler, not the updater, which React may replay. */
+          const first = !measured.current
+          measured.current = true
+          setFrameH((prev) => {
+            if (first) return next
+            return next > prev + 1 ? next : prev
+          })
         }}
       >
         <Animated.View style={[s.scrim, scrim]}>
@@ -214,7 +253,7 @@ export function Sheet({
         </Animated.View>
 
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={avoidKeyboard && Platform.OS === 'ios' ? 'padding' : undefined}
           style={s.avoider}
         >
           <Animated.View
