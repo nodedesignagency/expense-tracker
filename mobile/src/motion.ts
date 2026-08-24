@@ -85,6 +85,18 @@ export const BLOOM_FADE = [0, 1, 1, 0.75, 0] as const
 export const SAID_IN = 0.34
 export const SAID_OUT = 0.88
 
+/**
+ * Where along the bloom the sheet is dismissed underneath it.
+ *
+ * The point of the whole thing is that the composer is *gone* when the light
+ * clears — seeing it slide away afterwards undoes the illusion, which is
+ * exactly what the owner caught. So the entry is filed and the sheet closed
+ * at this mark, while the veil is at its darkest and the bloom at its
+ * brightest: the slide-out, the page coming back forward and the new row
+ * arriving all happen behind the light. What the light uncovers is home.
+ */
+export const HANDOFF = 0.5
+
 /*
  * The slider waking up when an amount first exists.
  *

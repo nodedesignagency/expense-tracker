@@ -302,10 +302,24 @@ far edge rather than the one it came from. The keyframe track is `BLOOM_AT` /
 - One shared value (`celebrate`, owned by `Composer`) drives every part;
   everything animated is a transform or an opacity, and the bloom is a single
   SVG texture moved and scaled, never redrawn.
-- The composer holds its dispatch for `CELEBRATE` (1500, `motion.ts`), so the
-  bloom plays over the form rather than to a closed curtain. The entry is
-  built at commit time; only its arrival is deferred. **Nothing here is
-  async** — the pause is the payoff, not a wait.
+- **The sheet is dismissed halfway through the bloom, not at the end of it**
+  (`HANDOFF`, 0.5). The whole point is that the composer is *gone* when the
+  light clears; closing it at the end meant you watched it slide away
+  afterwards, which undoes the illusion — the owner caught exactly that. The
+  slide-out, the page coming forward and the new row landing all happen in
+  the stretch where the black veil sits at 0.99 and the bloom is brightest.
+  Arithmetic: dispatch at 750ms, exit done by 1070ms, veil opaque 570–1170ms.
+  What the light uncovers is already home.
+- **A Modal is its own window and its children die with it**, so the sheet
+  takes `hold` — kept true until the celebration ends — or the bloom would
+  vanish at the moment the sheet it lives in closes.
+- The entry is built at commit time; only its arrival is deferred. **Nothing
+  here is async** — the pause is the payoff, not a wait.
+- **Size is what separates light from a disc.** The sprite is 3x the screen's
+  width. At 1.9x it read as "a small circle with a blur on it" — the problem
+  was never the blur, it was that the ramp *ended* on screen, so the eye
+  found the edge and resolved it into a shape. At 3x only the bright middle
+  is on screen: it runs off both sides and fades vertically instead.
 
 Behind all of this, `App.tsx` **recedes the page** — scales it to `RECEDE`,
 rounds its corners, drops it back and dims it. The recede's geometry lives in
@@ -336,6 +350,13 @@ These are settled; do not regress them:
 
 ## Traps that have already cost time
 
+- **Hiding a control on focus needs a way back that does not depend on the
+  keyboard.** Focusing the composer's name field stands the number pad down,
+  so the two keyboards are never up at once — and left nothing to tap to
+  bring it back. On a phone the return key blurs the field; on the simulator,
+  typing on the Mac's keyboard, the software keyboard never appears, there is
+  no return key, and the pad is gone for good. The space the pad leaves is a
+  `Pressable` now. Any "hide X while Y is focused" needs the same.
 - **`flex` and `flexGrow` are separate style keys.** Merging a `{ flex: 1 }`
   over a `{ flexGrow: 0 }` does not replace it — you get a collapsed box and a
   footer sitting on top of the keypad. Spell out `flexGrow/flexShrink/flexBasis`.

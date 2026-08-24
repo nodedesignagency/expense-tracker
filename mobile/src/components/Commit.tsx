@@ -20,11 +20,19 @@ import { CheckIcon } from './Icons'
 const { width: W, height: H } = Dimensions.get('window')
 
 /**
- * The bloom's sprite. Wider than the screen, because at its largest it has to
- * fill the width with the *middle* of the ramp rather than with its dying
- * edge — a bloom you can see the end of reads as a disc, not as light.
+ * The bloom's sprite — three times the width of the screen.
+ *
+ * The first cut was 1.9x and read as a small circle with a blur on it, which
+ * is exactly what the owner said. The problem was never the blur: it was that
+ * the ramp *ended* on screen, so the eye found the edge and resolved the
+ * whole thing into a disc. Light does not have an edge you can find.
+ *
+ * At 3x, the ramp dies about a screen and a half out from its centre, so what
+ * is on screen is only its bright middle: it runs off both sides and fades
+ * vertically instead, which is what the reference does. The hot core stays
+ * small as a fraction of the sprite, so the structure survives the size.
  */
-const BLOOM = W * 1.9
+const BLOOM = W * 3
 
 /** Where the confirmation sits, as a share of the height. */
 const SAID_Y = 0.44
@@ -73,6 +81,23 @@ export function Commit({ progress, tint, label }: CommitProps) {
     opacity: interpolate(progress.get(), [0, 0.16, 0.9, 1], [0, 1, 1, 0], 'clamp'),
   }))
 
+  /*
+   * The black under the light, and it goes almost solid across the middle.
+   *
+   * That stretch is where the sheet is dismissed, the page comes back forward
+   * and the new row lands — all of it underneath. At the wash's original 0.62
+   * you would have watched the composer slide away through it. Near-solid,
+   * with the bloom at its brightest on top, there is nothing to see.
+   */
+  const dark = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      progress.get(),
+      [0, 0.16, 0.38, 0.78, 1],
+      [0, 0.62, 0.99, 0.99, 0],
+      'clamp',
+    ),
+  }))
+
   const bloom = useAnimatedStyle(() => {
     const t = progress.get()
     return {
@@ -119,8 +144,9 @@ export function Commit({ progress, tint, label }: CommitProps) {
           experimentalBlurMethod="dimezisBlurView"
           style={StyleSheet.absoluteFill}
         />
-        <View style={s.wash} />
       </Animated.View>
+
+      <Animated.View style={[s.wash, dark]} pointerEvents="none" />
 
       <Animated.View style={[s.bloom, bloom]}>
         <Bloom tint={tint} />
@@ -151,11 +177,12 @@ function Bloom({ tint }: { tint: BloomTint }) {
           r={BLOOM / 2}
           gradientUnits="userSpaceOnUse"
         >
-          <Stop offset="0" stopColor={tint.core} stopOpacity={0.95} />
-          <Stop offset="0.18" stopColor={tint.core} stopOpacity={0.72} />
-          <Stop offset="0.36" stopColor={tint.mid} stopOpacity={0.5} />
-          <Stop offset="0.58" stopColor={tint.edge} stopOpacity={0.26} />
-          <Stop offset="0.8" stopColor={tint.edge} stopOpacity={0.06} />
+          <Stop offset="0" stopColor={tint.core} stopOpacity={0.96} />
+          <Stop offset="0.08" stopColor={tint.core} stopOpacity={0.82} />
+          <Stop offset="0.17" stopColor={tint.mid} stopOpacity={0.6} />
+          <Stop offset="0.29" stopColor={tint.mid} stopOpacity={0.36} />
+          <Stop offset="0.44" stopColor={tint.edge} stopOpacity={0.17} />
+          <Stop offset="0.63" stopColor={tint.edge} stopOpacity={0.05} />
           <Stop offset="1" stopColor={tint.edge} stopOpacity={0} />
         </RadialGradient>
       </Defs>
@@ -167,7 +194,7 @@ function Bloom({ tint }: { tint: BloomTint }) {
 const s = StyleSheet.create({
   root: { ...StyleSheet.absoluteFillObject, zIndex: 40 },
   /* Over the blur, or the form reads through it at its own brightness. */
-  wash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(6,6,6,0.62)' },
+  wash: { ...StyleSheet.absoluteFillObject, backgroundColor: '#060606' },
   /*
    * Placed by arithmetic, not by alignment: an absolute child with no offsets
    * inside a filled parent is laid out by Yoga's alignment rules, and the

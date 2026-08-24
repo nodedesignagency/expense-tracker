@@ -44,6 +44,15 @@ interface SheetProps {
    * panel's — the commit bloom, which has to leave the sheet entirely.
    */
   curtain?: ReactNode
+  /**
+   * Keeps the Modal mounted even once `open` has gone false.
+   *
+   * A Modal is its own native window and everything in it, the curtain
+   * included, dies with it. The commit bloom outlives the sheet on purpose —
+   * the panel leaves *behind* the light — so something has to keep the window
+   * up until the light has finished. This does.
+   */
+  hold?: boolean
 }
 
 /** How far the panel floats off the three edges it sits against. */
@@ -131,6 +140,7 @@ export function Sheet({
   children,
   overlay,
   curtain,
+  hold,
 }: SheetProps) {
   const insets = useSafeAreaInsets()
   const [mounted, setMounted] = useState(open)
@@ -172,7 +182,7 @@ export function Sheet({
 
   return (
     <Modal
-      visible={mounted}
+      visible={mounted || Boolean(hold)}
       transparent
       animationType="none"
       onRequestClose={onClose}

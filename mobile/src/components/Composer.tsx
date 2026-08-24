@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Dimensions,
+  Keyboard,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,7 +16,7 @@ import { parseAmountToCents } from '../lib/money'
 import type { BrandKey, Category, Direction, Method } from '../lib/types'
 import { createTransaction, useAppState, useCategories, useDispatch, useVisibleLedger } from '../store'
 import { Easing, useSharedValue, withTiming } from 'react-native-reanimated'
-import { CELEBRATE } from '../motion'
+import { CELEBRATE, HANDOFF } from '../motion'
 import { capTrim, color, font, radius, sp, type } from '../theme'
 import { Calendar } from './Calendar'
 import { Commit, type BloomTint } from './Commit'
@@ -241,7 +242,17 @@ export function Composer() {
      */
     setLanded(true)
     celebrate.set(withTiming(1, { duration: CELEBRATE, easing: Easing.linear }))
-    setTimeout(() => dispatch({ type: 'addTransaction', transaction }), CELEBRATE)
+
+    /*
+     * Filed halfway through the bloom, not at the end of it. The sheet's
+     * slide-out, the page coming back forward and the new row arriving all
+     * happen while the veil is at its darkest and the light at its brightest,
+     * so what the bloom uncovers is already home. Waiting until the end meant
+     * the composer reappeared to leave, which is the one thing this is for.
+     */
+    setTimeout(() => dispatch({ type: 'addTransaction', transaction }), CELEBRATE * HANDOFF)
+    /* And the modal is held open past that, or the light dies with it. */
+    setTimeout(() => setLanded(false), CELEBRATE)
     return true
   }
 
@@ -291,6 +302,7 @@ export function Composer() {
           <View style={s.exit} />
         </View>
       }
+      hold={landed}
       curtain={
         landed ? (
           <Commit
@@ -358,6 +370,7 @@ export function Composer() {
             setPicker(null)
           }}
           onBlur={() => setNaming(false)}
+          onSubmitEditing={() => Keyboard.dismiss()}
           returnKeyType="done"
           accessibilityLabel="Who the entry is for"
         />
@@ -398,6 +411,26 @@ export function Composer() {
       </View>
 
       <View style={s.drawer}>
+        {/*
+          * Naming stands the pad down so the two keyboards are never up at
+          * once — and left nothing to tap to get it back. On a phone the
+          * return key blurs the field; on the simulator, typing on the Mac's
+          * keyboard, the software keyboard never appears and there is no
+          * return key to press, so the pad was simply gone for good. The
+          * owner hit exactly that.
+          *
+          * The space the pad left is a target now: tapping anywhere in it
+          * puts the name down and brings the pad back.
+          */}
+        {naming ? (
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => Keyboard.dismiss()}
+            accessibilityRole="button"
+            accessibilityLabel="Done naming"
+          />
+        ) : null}
+
         {!naming ? (
           <View style={s.pad}>
             {KEYS.map((k) => (
