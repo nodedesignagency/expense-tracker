@@ -42,16 +42,16 @@ const DIRECTIONS: { value: Direction; label: string; tint: string; Icon: typeof 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back']
 
 /*
- * The slider's track shades, deep to pale, per direction. Not five tints of
- * the ledger colour: the hue leans across the ramp — the credit run passes
- * through teal on its way to mint, the debit run through ember on its way to
- * blush — which is what makes the drawn-out colour read as light on a surface
- * rather than a bar filling up. The ledger's own colour sits fourth, so the
- * shade nearest the thumb is recognisably the entry's kind.
+ * The slider's trail, transparent to bright, per direction — the owner's
+ * third frame. The far end is transparent so the tail dies into the track
+ * with no edge; the brightest shade rides just behind the thumb. The hue
+ * leans across the run — credit through forest and emerald, debit through
+ * wine and ember — because five stops of one hue is a tint, and what the
+ * frame draws is light.
  */
 const RAMP: Record<Direction, SlideRamp> = {
-  credit: ['#03150D', '#065F46', '#10B981', '#25E063', '#D9FFEC'],
-  debit: ['#1C0507', '#7F1D1D', '#E8433F', '#FF6969', '#FFE1DD'],
+  credit: ['rgba(6,40,26,0)', '#0A3D26', '#0E7A44', '#18C46B', '#4CEC9C'],
+  debit: ['rgba(40,8,10,0)', '#3D0F14', '#8F1B24', '#D8353C', '#FF7A72'],
 }
 
 /** Which list the drawer is showing. Null is the keypad, which is the default. */
@@ -276,7 +276,7 @@ export function Composer() {
       footer={
         <SlideAction
           width={INNER_W}
-          label={`Slide to add to ${scope === 'business' ? 'Business' : 'Personal'}`}
+          label="Swipe to add entry"
           tint={tint}
           ramp={RAMP[direction]}
           onCommit={submit}

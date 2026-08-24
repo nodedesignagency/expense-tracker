@@ -19,7 +19,8 @@ import Animated, {
 } from 'react-native-reanimated'
 import { scheduleOnRN } from 'react-native-worklets'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { EASE_SHEET, RECEDE, SHEET, SHOULDER, recededContentTop } from '../motion'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { EASE_SHEET, SHEET, pageSheetTop } from '../motion'
 import { color, radius, sp, type } from '../theme'
 
 interface SheetProps {
@@ -77,18 +78,11 @@ const WINDOW_H = Dimensions.get('window').height
  */
 function pageHeight(insetTop: number, insetBottom: number) {
   /*
-   * Anchored to the receded page's *content*, not its top edge. The stretch
-   * between the two is the page's own safe-area padding — empty — and the
-   * first cut measured the shoulder from there, which on a notched phone
-   * spent the whole allowance on a slice of nothing. What shows now is the
-   * page's actual top row, scaled the way the page is.
+   * From just under the receded toggle row to the float at the bottom. The
+   * band the page's own padding used to leave on screen is gone — the page
+   * slides up to spend it — so the sheet takes everything under the row.
    */
-  return (
-    WINDOW_H -
-    (recededContentTop(WINDOW_H, insetTop) + RECEDE * sp(SHOULDER)) -
-    insetBottom -
-    FLOAT
-  )
+  return WINDOW_H - pageSheetTop(insetTop) - insetBottom - FLOAT
 }
 
 /*
@@ -178,7 +172,14 @@ export function Sheet({
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <View style={s.root}>
+      {/*
+        * Its own gesture root. A Modal is a separate native window, and on
+        * Android the GestureHandlerRootView wrapping the app does not reach
+        * into it: every gesture inside is silently dead — the slider dragged
+        * on iOS and simply did not respond on the owner's phone. iOS works
+        * either way, which is exactly why it slipped through.
+        */}
+      <GestureHandlerRootView style={s.root}>
         <Animated.View style={[s.scrim, scrim]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
         </Animated.View>
@@ -225,7 +226,7 @@ export function Sheet({
             {overlay}
           </Animated.View>
         </KeyboardAvoidingView>
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   )
 }

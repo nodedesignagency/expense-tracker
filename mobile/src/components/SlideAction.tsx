@@ -20,18 +20,18 @@ import { LinearGradient } from 'expo-linear-gradient'
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg'
 import { CELEBRATE, EASE_ENTER, SPRING_SETTLE } from '../motion'
 import { capTrim, color, font, radius, sp } from '../theme'
-import { CheckIcon } from './Icons'
+import { ArrowRightIcon, CheckIcon } from './Icons'
 
-const TRACK_H = sp(64)
-const PAD = sp(6)
-const THUMB_H = TRACK_H - PAD * 2
 /*
- * A rectangle lying down, not a circle. The reference's handle is half again
- * as wide as it is tall, which is what makes it read as something to push
- * rather than something to tap — and gives the grip somewhere to live.
+ * The owner's own frames this time — section 41:76, three states of one
+ * control. Track 56 tall and fully round; thumb a 72 x 48 pill inset 4,
+ * carrying an arrow; caption centred in the track.
  */
-const THUMB_W = THUMB_H * 1.5
-const THUMB_R = sp(16)
+const TRACK_H = sp(56)
+const PAD = sp(4)
+const THUMB_H = TRACK_H - PAD * 2
+const THUMB_W = sp(72)
+const THUMB_R = THUMB_H / 2
 /** How far along counts as meaning it. */
 const COMMIT = 0.88
 
@@ -42,17 +42,27 @@ const SHEEN_MS = 1400
 const SHEEN_HOLD = 900
 
 /**
- * Five shades, deep to pale, drawn out of the track as the thumb travels.
+ * Five shades, transparent to bright, trailing the thumb.
  *
- * One flat wash was the first cut and it read as a puddle — what the CRED
- * reference does is anchor a whole ramp to the track, so the colour you see
- * at any moment depends on how far you have pulled: the leading edge is
- * always the pale hot end, and the further back toward the start, the deeper
- * the shade. The hue drifts a little across the ramp on purpose; five stops
- * of one hue is a tint, five stops that lean is light.
+ * The owner's third frame settles what this is: not paint filling a bar but
+ * light coming off the handle. The brightest shade rides right behind the
+ * thumb, the deeper ones stretch back over the swept ground, and the far end
+ * dies to nothing before it reaches the start — the first stop is
+ * transparent, so the tail has no left edge at all. Anchored to the track
+ * and revealed by a translate, same as before, so none of it is layout work.
  */
 export type SlideRamp = readonly [string, string, string, string, string]
-const RAMP_STOPS = [0, 0.34, 0.62, 0.85, 1] as const
+const RAMP_STOPS = [0, 0.3, 0.56, 0.82, 1] as const
+
+/**
+ * The bloom off the handle — the second frame's tell. An elliptical glow
+ * that rides with the thumb, spilling a little ahead of it and well behind,
+ * present from the moment the finger lands. This is what makes the trail
+ * read as emitted rather than drawn.
+ */
+const BLOOM_W = sp(190)
+/** How far the bloom spills past the thumb's leading edge. */
+const BLOOM_LEAD = sp(40)
 
 interface SlideActionProps {
   /** The whole control's width, so the travel is known before a finger lands. */
@@ -190,8 +200,29 @@ export function SlideAction({ width, label, tint, ramp, onCommit }: SlideActionP
 
   const thumb = useAnimatedStyle(() => ({
     transform: [{ translateX: x.get() }, { scale: interpolate(held.get(), [0, 1], [1, 1.03]) }],
-    /* Grey at rest, white once it is being carried — the reference's tell. */
-    backgroundColor: interpolateColor(at.get(), [0, 0.25], ['#9A9A9A', '#FFFFFF']),
+    /* Grey at rest, white the moment it is held — the frames' own tell. */
+    backgroundColor: interpolateColor(
+      Math.max(held.get(), Math.min(at.get() * 4, 1)),
+      [0, 1],
+      ['#5C5C5C', '#FFFFFF'],
+    ),
+  }))
+
+  /* One dark arrow throughout: half-strength on grey reads as the first
+     frame's dim glyph, full-strength on white as the second's. */
+  const arrow = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      Math.max(held.get(), Math.min(at.get() * 4, 1)),
+      [0, 1],
+      [0.55, 1],
+    ) * interpolate(boom.get(), [0, 0.25], [1, 0], 'clamp'),
+  }))
+
+  /* The bloom lights on touch, travels with the hand, hands off to the burst. */
+  const bloom = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.get() }],
+    opacity:
+      Math.max(held.get(), Math.min(at.get() * 6, 1)) * (1 - boom.get()),
   }))
 
   /*
@@ -229,12 +260,8 @@ export function SlideAction({ width, label, tint, ramp, onCommit }: SlideActionP
    * gives way to the check.
    */
   const caption = useAnimatedStyle(() => ({
-    color: interpolateColor(at.get(), [0, 0.6], [color.textDim, tint]),
+    color: interpolateColor(at.get(), [0, 0.6], ['#EDEDED', tint]),
     opacity: 1 - boom.get(),
-  }))
-
-  const grips = useAnimatedStyle(() => ({
-    opacity: interpolate(boom.get(), [0, 0.25], [1, 0], 'clamp'),
   }))
 
   /* The check pops in a touch past full size and settles — something landed. */
@@ -278,6 +305,10 @@ export function SlideAction({ width, label, tint, ramp, onCommit }: SlideActionP
             />
           </Animated.View>
 
+          <Animated.View style={[s.bloomBox, bloom]} pointerEvents="none">
+            <BloomTrail tint={ramp[3]} />
+          </Animated.View>
+
           <Animated.View
             style={[s.sheen, { width: width * SHEEN_W }, sheenStyle]}
             pointerEvents="none"
@@ -313,9 +344,8 @@ export function SlideAction({ width, label, tint, ramp, onCommit }: SlideActionP
               end={{ x: 0.5, y: 1 }}
               style={[StyleSheet.absoluteFill, s.gloss]}
             />
-            <Animated.View style={[s.gripRow, grips]}>
-              <View style={s.grip} />
-              <View style={s.grip} />
+            <Animated.View style={[StyleSheet.absoluteFill, s.centre, arrow]}>
+              <ArrowRightIcon size={sp(22)} color="#141414" />
             </Animated.View>
             <Animated.View style={[StyleSheet.absoluteFill, s.centre, check]}>
               <CheckIcon size={sp(22)} color="#0A0A0A" />
@@ -397,6 +427,38 @@ function Spark({
   )
 }
 
+/**
+ * The glow riding with the thumb: an ellipse of the ramp's own colour,
+ * hottest just behind the handle, dead by its far edge. One static texture,
+ * translated — never redrawn.
+ */
+function BloomTrail({ tint }: { tint: string }) {
+  return (
+    <Svg
+      width={BLOOM_W}
+      height={TRACK_H}
+      viewBox={`0 0 ${BLOOM_W} ${TRACK_H}`}
+      style={StyleSheet.absoluteFill}
+    >
+      <Defs>
+        <RadialGradient
+          id="slideBloom"
+          cx={0}
+          cy={0}
+          r={1}
+          gradientUnits="userSpaceOnUse"
+          gradientTransform={`matrix(${BLOOM_W * 0.62}, 0, 0, ${TRACK_H * 0.85}, ${BLOOM_W * 0.72}, ${TRACK_H / 2})`}
+        >
+          <Stop offset="0" stopColor={tint} stopOpacity={0.55} />
+          <Stop offset="0.55" stopColor={tint} stopOpacity={0.22} />
+          <Stop offset="1" stopColor={tint} stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={BLOOM_W} height={TRACK_H} fill="url(#slideBloom)" />
+    </Svg>
+  )
+}
+
 /** The strike: solid light in the middle, gone by half way out. */
 function BurstCore({ size }: { size: number }) {
   return (
@@ -446,7 +508,7 @@ const s = StyleSheet.create({
   frame: { height: TRACK_H },
   track: {
     height: TRACK_H,
-    borderRadius: radius.soft,
+    borderRadius: TRACK_H / 2,
     backgroundColor: 'rgba(255,255,255,0.05)',
     overflow: 'hidden',
     justifyContent: 'center',
@@ -470,15 +532,15 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   gloss: { borderRadius: THUMB_R },
-  gripRow: { flexDirection: 'row', gap: sp(3) },
-  /* Two bars, which is a grip and not an instruction to read. */
-  grip: {
-    width: sp(2),
-    height: sp(14),
-    borderRadius: sp(1),
-    backgroundColor: 'rgba(0,0,0,0.42)',
-  },
   centre: { alignItems: 'center', justifyContent: 'center' },
+  /* Anchored so the glow's hot edge leads the thumb by BLOOM_LEAD at x=0. */
+  bloomBox: {
+    position: 'absolute',
+    left: PAD + THUMB_W + BLOOM_LEAD - BLOOM_W,
+    top: 0,
+    width: BLOOM_W,
+    height: TRACK_H,
+  },
   burst: {
     position: 'absolute',
     top: TRACK_H / 2,

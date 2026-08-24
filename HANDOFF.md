@@ -161,18 +161,20 @@ Three pieces, in order of appearance:
    with a hairline border. Takes `tall`, `overlay` (used by the calendar, which
    sits over the sheet) and `header`.
 
-   **`tall` is a page sheet, not a full page — and its shoulder is anchored to
-   the page's *content*, not its top edge.** The first cut measured the
-   shoulder from the page's top edge, and what that showed was the page's own
-   safe-area padding: an empty strip, dimmed twice over, which on a dark page
-   read as no shoulder at all — the owner circled it. The stop is now
-   `recededContentTop() + RECEDE·sp(SHOULDER)` (`motion.ts`), where `SHOULDER`
-   is the home page's own top row (58: its 20 of air plus the 38 toggle), so
-   what shows behind the sheet is the Business/Personal bar — something the
-   eye knows. The recede also barely dims now (0.92, was 0.72) and the page
-   scrim is 0.12: the two multiply, and at the old strengths they crushed the
-   shoulder to black. The recede's lift hugs the status bar (`recedeLift`)
-   instead of dropping half the inset for no reason.
+   **`tall` is a page sheet whose shoulder is the home page's toggle row,
+   parked just under the status bar.** Two rounds of owner feedback settled
+   the geometry. First: a shoulder cut from the page's *top edge* shows the
+   page's safe-area padding — an empty strip, and on a dark page that reads
+   as no shoulder at all. Second: anchoring below the content still left the
+   padding band on screen *above* the toggle, circled as "blank space". So
+   the receding page now slides **up** until that band is spent off-screen —
+   `recededTop()` in `motion.ts` solves the translate backwards from where
+   the toggle must land (`CHROME_CLEAR` under the status bar), and
+   `pageSheetTop()` puts the sheet `SHEET_CLEAR` under the row. The page's
+   top corners go off-screen; its inset side edges keep it reading as a card,
+   which is exactly Telegram's mini-app look. The recede barely dims (0.92)
+   and the page scrim is 0.12 — the two multiply, and heavier settings
+   crushed the shoulder to black once already.
 3. **`Composer.tsx`** — the entry screen itself. Full-page and flat, following
    the owner's reference: a header (close / Credit–Debit segmented / spacer), a
    middle stage holding **only the figure and its name caption**, one row of
@@ -182,32 +184,28 @@ Three pieces, in order of appearance:
    scroller. The date chip opens `Calendar.tsx`, a Monday-first month grid that
    marks the days already carrying an entry.
 
-**`SlideAction.tsx`** commits the entry. A rectangle lying down (1.5:1, not a
-circle), grey→white as it travels, with haptics at the detent and at the
-result, springing home if released short of 88%. Rebuilt against the owner's
-CRED reference (x.com/60fpsdesign/status/2091055462611616090 — paywalled from
-the container, so built from what CRED's swipe-to-pay is known for; say so if
-the video wants something more specific):
+**`SlideAction.tsx`** commits the entry. Rebuilt to the owner's own Figma
+variants — **section `41:76`, three states, which supersede both the CRED
+tweet and every earlier guess**. Track 56 tall and fully round; thumb a
+72 x 48 pill inset 4, carrying an arrow (dim on grey at rest, black on white
+once held); caption "Swipe to add entry" centred in the track, near-white at
+rest, taking the tint as the colour reaches it. Haptics at the 88% detent
+and at the result; springs home if released short.
 
-- **The fill is a five-shade ramp anchored to the track**, not a wash: one
-  full-width gradient that never resizes, slid in from the left by a
-  translate, revealed by the track's clip. The leading edge is always the
-  pale hot end; pulling further uncovers the deeper shades. The hue leans
-  across the ramp (credit passes through teal, debit through ember) — five
-  stops of one hue is a tint, five that lean is light. Ramps live in
-  `Composer.tsx` (`RAMP`), typed as `SlideRamp`.
-- **A sheen sweeps the track** on a loop — the invitation over the unfilled
-  stretch, light moving on colour over the filled one. `withRepeat` replays
-  its sequence, so the sequence must snap back to 0 at the end or the second
-  pass never moves.
-- **On success it celebrates**: the ramp floods the last stretch, the grip
-  crossfades to a check that pops past full size, and the thumb's final
-  position throws a white strike, an expanding ring of the ramp's colour, and
-  twelve sparks from a fixed table (`SPRAY`) — all driven by the one `boom`
-  value, all transform/opacity. The burst layer sits **outside the track's
-  clip** so the light can leave the control. The composer holds its dispatch
-  for `CELEBRATE` (900, `motion.ts`) so the payoff plays before the sheet
-  falls; the entry is built at commit time, only its arrival is deferred.
+- **The trail is light off the handle, not paint in a bar.** Two layers,
+  both transform-only: a five-stop gradient anchored to the track (first
+  stop transparent, so the tail dies with no left edge; brightest shade
+  riding just behind the thumb — ramps in `Composer.tsx`, `RAMP`), and an
+  elliptical **bloom** that travels with the thumb, lit from the moment the
+  finger lands, spilling `BLOOM_LEAD` ahead of it — the second frame's tell.
+- **A sheen sweeps the track** on a loop — the owner asked to keep it.
+  `withRepeat` replays its sequence, so the sequence must snap back to 0 at
+  the end or the second pass never moves.
+- **On success it celebrates**: flood, arrow→check pop, white strike, an
+  expanding ring of the trail's colour, twelve sparks from a fixed table
+  (`SPRAY`) — all off the one `boom` value, the burst outside the track's
+  clip. The composer holds its dispatch for `CELEBRATE` (900, `motion.ts`);
+  the entry is built at commit time, only its arrival is deferred.
 
 The name under the figure is **plain centred text with no box at all.** It was
 a pill, and a pill has to be some width: too narrow and a real name overruns
@@ -251,6 +249,12 @@ These are settled; do not regress them:
 - **SF Pro Rounded has no glyph at U+232B.** The backspace key is a drawn icon.
 - **A measured inner width must subtract the panel's border**, or a three-column
   keypad wraps to six rows of two.
+- **Gestures inside a `Modal` are dead on Android without their own
+  `GestureHandlerRootView`.** A Modal is a separate native window, and the
+  root view wrapping the app does not reach into it. iOS works either way —
+  which is exactly how the slider shipped dragging on the iPhone simulator
+  and dead on the owner's phone. `Sheet.tsx` wraps its Modal content in its
+  own gesture root; any future Modal must do the same.
 - **Do not lean on Yoga to centre an absolutely-positioned child.** An
   absolute child with no left/top inside a zero-sized anchor, centred with
   `alignItems`, drew nothing at all — and said nothing. The slider's burst

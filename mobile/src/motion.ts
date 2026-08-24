@@ -1,4 +1,5 @@
 import { Easing } from 'react-native-reanimated'
+import { metric, sp } from './theme'
 
 /*
  * Motion values, in one place so they cannot drift apart.
@@ -152,54 +153,42 @@ export const TILT_PERSPECTIVE = 520
 /** How far back the page goes. Enough to read as behind, not as shrunk. */
 export const RECEDE = 0.92
 
+/** Air between the status bar and the toggle row it shows, frame units. */
+const CHROME_CLEAR = 6
+/** Air between the bottom of that row and the sheet's edge, frame units. */
+const SHEET_CLEAR = 12
+
 /**
- * How far the receding page is pushed down.
+ * How far the receding page moves — solved backwards from where its content
+ * must land, not chosen.
  *
- * As little as the status bar allows. The first cut pushed it half the inset
- * plus eight, which on a notched phone parked the page's top edge 12pt below
- * the status bar for no reason anyone could see — and every point it moves
- * down is a point the sheet cannot have. Now the page's top edge lands just
- * under the status bar text, the way iOS parks a parent card, with a small
- * floor for phones whose scale-travel alone already clears it.
+ * The page carries its own safe-area padding and its own breathing room above
+ * the toggle, both scaled with it, and left where the recede first put it
+ * that band sat on screen as a strip of nothing between the status bar and
+ * the toggle — the owner circled it. So the page is slid *up* until the band
+ * is spent above the screen: the toggle row lands just under the status bar,
+ * the way Telegram parks the page behind a mini app, and the sheet gets every
+ * point the band was wasting. The page's top corners go off-screen; its
+ * inset side edges are what keep it reading as a card.
  *
- * Render-time only. This and the two functions below are ordinary functions,
- * so none may be *called* inside a worklet — work the figure out first and
- * let the worklet close over the number.
+ * Render-time only. This and the functions below are ordinary functions, so
+ * none may be *called* inside a worklet — work the figure out first and let
+ * the worklet close over the number.
  */
+export function recededTop(insetTop: number) {
+  return insetTop + sp(CHROME_CLEAR) - RECEDE * (insetTop + metric.rhythm)
+}
+
+/** The translateY that puts the page's top edge there, given the scale. */
 export function recedeLift(insetTop: number, windowH: number) {
-  return Math.max(6, insetTop - 4 - (windowH * (1 - RECEDE)) / 2)
+  return recededTop(insetTop) - (windowH * (1 - RECEDE)) / 2
 }
 
 /**
- * Where the receded page's own top edge lands, measured from the top of the
- * screen. A scale is taken about the centre, so half of what the page gives up
- * comes off the top — which is why this cannot be read off the lift alone.
+ * Where a page sheet's top edge sits: under the status bar's clearance and
+ * the receded toggle row, plus a breath — nothing else. Derived, so the sheet
+ * and the recede cannot drift apart.
  */
-export function recededTop(windowH: number, insetTop: number) {
-  return recedeLift(insetTop, windowH) + (windowH * (1 - RECEDE)) / 2
+export function pageSheetTop(insetTop: number) {
+  return insetTop + sp(CHROME_CLEAR) + RECEDE * metric.control + sp(SHEET_CLEAR)
 }
-
-/**
- * Where the receded page's *content* starts: its own safe-area padding sits
- * inside it, scaled with it. This is the line the sheet must anchor to, not
- * the page's top edge — the strip between the two is empty padding, and a
- * shoulder cut from it shows a slice of nothing. That is exactly what the
- * first cut of the page sheet did, and on a dark page it read as no shoulder
- * at all.
- */
-export function recededContentTop(windowH: number, insetTop: number) {
-  return recededTop(windowH, insetTop) + RECEDE * insetTop
-}
-
-/**
- * How much of the page's *content* stays showing above the sheet, in frame
- * units — scaled by sp() and by the recede, since the content it measures is.
- *
- * 58 is the home page's own top row: its 20 of breathing room plus the 38 of
- * the scope toggle and the round buttons. The shoulder is that row exactly,
- * so what shows behind the sheet is something the eye knows — not an arc of
- * anonymous card. What the row costs in sheet height is the price of the
- * shoulder being legible; a smaller number here buys the sheet back but shows
- * a sliced control, and below ~20 it is back to showing nothing.
- */
-export const SHOULDER = 58

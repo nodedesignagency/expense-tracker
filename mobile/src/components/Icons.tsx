@@ -120,6 +120,20 @@ export function ChevronLeftIcon({ size = 20, color = '#FFFFFF' }: IconProps) {
   )
 }
 
+export function ArrowRightIcon({ size = 20, color = '#FFFFFF' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <Path
+        d="M3.5 10h13m0 0-5-5m5 5-5 5"
+        stroke={color}
+        strokeWidth={1.7}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  )
+}
+
 export function ChevronRightIcon({ size = 20, color = '#FFFFFF' }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
