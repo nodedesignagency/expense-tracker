@@ -315,20 +315,48 @@ These are settled; do not regress them:
   `alignItems`, drew nothing at all — and said nothing. The slider's burst
   places every child by arithmetic: explicit negative `left`/`top` per child.
 - **A worklet can only call another worklet.** A `useAnimatedStyle` body runs
-  on the UI thread. An ordinary function imported from another module gets
-  captured in its closure, and calling it there **aborts the app on the spot** —
-  no red box, no message, Expo Go simply quits, and the bundle builds fine
-  because none of this is exercised until the view mounts. This has now cost a
-  turn once: `recedeLift(insets.top)` was being called inside the page's
-  animated style. Work any such figure out in the component body and let the
-  worklet close over the number. Constants and numbers are safe; functions are
-  not. `motion.ts` says which of its exports are render-time only.
+  on the UI thread. An ordinary function — imported from another module *or
+  declared at the top of the same file* — gets captured in its closure, and
+  calling it there **aborts the app on the spot**: no red box, no message,
+  Expo Go simply quits. The bundle builds clean because none of it is
+  exercised until the view mounts, `tsc` cannot see it, and **the browser
+  cannot either** — react-native-web has no second thread, so the illegal
+  call just works there.
+
+  **This has now shipped twice** — `recedeLift` in `App.tsx`, then `pinLeft`
+  in `SlideAction.tsx` — each time crashing on the owner's device after a
+  clean web check. So there is a check for it now:
+
+  ```
+  npm run worklets      # or: npm run check  (tsc + worklets)
+  ```
+
+  `scripts/check-worklets.mjs` parses every file, finds the worklet bodies
+  (the Reanimated hooks, gesture callbacks, anything with a `'worklet'`
+  directive) and flags calls to functions this project defines or imports
+  relatively. It names the file, the line and the culprit. **Run it before
+  every push that touches an animation** — it catches in a second what
+  otherwise costs a round and a crash.
+
+  The fix is always the same: work the figure out in the component body and
+  let the worklet close over the number. Constants and numbers are safe;
+  functions are not.
 - **A sheet has to travel further than its own height to leave.** The panel
   floats clear of the bottom, so translating it exactly its height leaves that
   float still on screen as a strip of panel at the moment the modal unmounts.
   Add what sits below it.
 - **`git push origin refs/tags/...` is refused by the proxy** ("the remote end
   hung up"). Tags stay local; communicate a recovery point as a commit SHA.
+
+## Before pushing anything that animates
+
+```bash
+cd mobile && npm run check
+```
+
+`tsc --noEmit` plus the worklet check. Neither the browser nor a bundle
+build can see a non-worklet call on the UI thread, and it is the one class
+of mistake here that kills the app outright rather than looking wrong.
 
 ## Recovery points
 

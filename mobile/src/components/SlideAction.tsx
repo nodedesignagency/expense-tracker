@@ -67,9 +67,9 @@ const BORDER = 1
  * flat down the cap. Declared at its largest it can never exceed its box on
  * any axis, whatever clips.
  *
- * The horizontal growth is anchored to the left edge (see `pinLeft` below)
- * rather than spreading from the centre, for the same reason: the left is the
- * only side with no room. Vertically it spreads from the centre and lands
+ * The horizontal growth is anchored to the left edge — the transform below
+ * shifts by half of what the scale gives up — rather than spreading from the
+ * centre, for the same reason: the left is the only side with no room. Vertically it spreads from the centre and lands
  * exactly on the track's height, which is what the frame draws.
  */
 const BOX_W = sp(84)
@@ -81,9 +81,6 @@ const ARROW = sp(28)
 const REST_SCALE = 72 / 84
 /** Its resting width, which is what the travel is measured against. */
 const THUMB_W = sp(72)
-
-/** Half of what the box gives up at rest — the shift that pins its left edge. */
-const pinLeft = (scale: number) => -(BOX_W * (1 - scale)) / 2
 
 /** The two fills, both on the frame's own axis. */
 const THUMB_DEG = 133.494
@@ -385,8 +382,18 @@ export function SlideAction({
      */
     const s0 = interpolate(swell.get(), [0, 1], [REST_SCALE, 1], 'clamp')
     const scale = Math.min(s0 * interpolate(held.get(), [0, 1], [1, 1.02]), 1)
+    /*
+     * Pinning the left edge, written out rather than called out to a helper.
+     * A worklet runs on the UI thread and may only call other worklets; an
+     * ordinary function of this module, referenced here, gets captured in the
+     * closure and calling it kills the app the moment the view mounts. This
+     * exact mistake has now shipped twice — see the trap in HANDOFF.md.
+     */
     return {
-      transform: [{ translateX: x.get() + pinLeft(scale) }, { scale }],
+      transform: [
+        { translateX: x.get() - (BOX_W * (1 - scale)) / 2 },
+        { scale },
+      ],
     }
   })
 
