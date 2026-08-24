@@ -161,6 +161,10 @@ Three pieces, in order of appearance:
    with a hairline border. Takes `tall`, `overlay` (used by the calendar, which
    sits over the sheet) and `header`.
 
+   Takes `curtain` too: drawn over everything at the size of the *screen*
+   rather than the panel, for the commit bloom, which has to leave the sheet
+   entirely. `overlay` is the panel-sized one (the calendar).
+
    **`tall` is a page sheet whose shoulder is the home page's toggle row,
    parked just under the status bar.** Two rounds of owner feedback settled
    the geometry. First: a shoulder cut from the page's *top edge* shows the
@@ -170,11 +174,19 @@ Three pieces, in order of appearance:
    the receding page now slides **up** until that band is spent off-screen —
    `recededTop()` in `motion.ts` solves the translate backwards from where
    the toggle must land (`CHROME_CLEAR` under the status bar), and
-   `pageSheetTop()` puts the sheet `SHEET_CLEAR` under the row. The page's
-   top corners go off-screen; its inset side edges keep it reading as a card,
-   which is exactly Telegram's mini-app look. The recede barely dims (0.92)
-   and the page scrim is 0.12 — the two multiply, and heavier settings
-   crushed the shoulder to black once already.
+   `pageSheetTop()` puts the sheet `SHEET_CLEAR` under the row. The recede
+   barely dims (0.92) and the page scrim is 0.12 — the two multiply, and
+   heavier settings crushed the shoulder to black once already.
+
+   **`RECEDE` is solved, not chosen.** A uniform scale insets the page
+   horizontally by half of what it gives up. At 0.92 that was 15 a side
+   against a sheet floating 6, so the page's edges sat *inside* the sheet's
+   and the shoulder had a black margin down both sides — the owner circled
+   exactly those two strips. It is now `1 - (SHEET_FLOAT * 2) / metric.appW`,
+   so the page recedes precisely as far as the sheet floats and the two share
+   their side edges. Both terms scale with the screen, so the gap is 0.00 at
+   any width — checked at 360 and 393. The recession is small as a result;
+   the depth is carried by the dim, the corners and the sheet in front.
 3. **`Composer.tsx`** — the entry screen itself. Full-page and flat, following
    the owner's reference: a header (close / Credit–Debit segmented / spacer), a
    middle stage holding **only the figure and its name caption**, one row of
@@ -259,14 +271,41 @@ drag:**
 - **A sheen sweeps the track** on a loop — the owner asked to keep it.
   `withRepeat` replays its sequence, so the sequence must snap back to 0 at
   the end or the second pass never moves.
-- **On success it celebrates**: arrow→check pop, white strike, an expanding
-  ring, twelve sparks from a fixed table (`SPRAY`) — all off the one `boom`
-  value, the burst outside every clip. The composer holds its dispatch for
-  `CELEBRATE` (900, `motion.ts`); the entry is built at commit time, only
-  its arrival is deferred.
+- **On success the control only confirms itself** — the arrow crossfades to
+  a check — and hands the moment to `Commit.tsx`. There used to be a ring, a
+  strike and twelve sparks at the thumb; they are gone. Two celebrations
+  firing at once read as a glitch, and the owner's reference puts the payoff
+  on the whole screen, not on the control.
 - **Only the green side is drawn.** `LIGHT` in `Composer.tsx` carries the
   frames' three colours for credit and the same three relationships in the
   ledger's red for debit — flagged, not confirmed.
+
+**`Commit.tsx`** is what happens when the entry lands, built from the owner's
+reference (a Pinterest pin, described from three frames of it — the pin
+itself is not fetchable from the container).
+
+Light ignites below the bottom edge, swells as it rises until it fills the
+screen, then carries on up and shrinks away over the top, leaving the
+confirmation behind. **The thing that makes it read as an event is that it
+passes through** — it never appears and fades in place, and it leaves by the
+far edge rather than the one it came from. The keyframe track is `BLOOM_AT` /
+`BLOOM_Y` / `BLOOM_SCALE` / `BLOOM_FADE` in `motion.ts`, read as one.
+
+- It is the sheet's `curtain`, so it covers the **screen**, not the panel. A
+  bloom that stopped where the sheet stops would read as something happening
+  in the form rather than to the ledger.
+- The core is near-white in both directions (`BLOOM` in `Composer.tsx`), and
+  the colour only arrives on the way out. Starting at the ledger's green
+  reads as a coloured disc, not as something bright happening.
+- The composer goes behind a **static** `BlurView` crossfaded by opacity —
+  animating a blur's intensity re-renders it every frame on Android.
+- One shared value (`celebrate`, owned by `Composer`) drives every part;
+  everything animated is a transform or an opacity, and the bloom is a single
+  SVG texture moved and scaled, never redrawn.
+- The composer holds its dispatch for `CELEBRATE` (1500, `motion.ts`), so the
+  bloom plays over the form rather than to a closed curtain. The entry is
+  built at commit time; only its arrival is deferred. **Nothing here is
+  async** — the pause is the payoff, not a wait.
 
 Behind all of this, `App.tsx` **recedes the page** — scales it to `RECEDE`,
 rounds its corners, drops it back and dims it. The recede's geometry lives in
@@ -367,6 +406,10 @@ These are settled; do not regress them:
   The fix is always the same: work the figure out in the component body and
   let the worklet close over the number. Constants and numbers are safe;
   functions are not.
+
+  **It has since paid for itself**: a third instance — `sp(10)` inside
+  `Commit.tsx`'s animated style — was caught by the check before it ever
+  reached a device.
 - **A sheet has to travel further than its own height to leave.** The panel
   floats clear of the bottom, so translating it exactly its height leaves that
   float still on screen as a strip of panel at the moment the modal unmounts.
