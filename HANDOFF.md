@@ -184,28 +184,49 @@ Three pieces, in order of appearance:
    scroller. The date chip opens `Calendar.tsx`, a Monday-first month grid that
    marks the days already carrying an entry.
 
-**`SlideAction.tsx`** commits the entry. Rebuilt to the owner's own Figma
-variants — **section `41:76`, three states, which supersede both the CRED
-tweet and every earlier guess**. Track 56 tall and fully round; thumb a
-72 x 48 pill inset 4, carrying an arrow (dim on grey at rest, black on white
-once held); caption "Swipe to add entry" centred in the track, near-white at
-rest, taking the tint as the colour reaches it. Haptics at the 88% detent
-and at the result; springs home if released short.
+**`SlideAction.tsx`** commits the entry. Transcribed from the owner's Figma
+— **section `41:76`, nodes `39:26` / `39:48` / `39:58`, which supersede the
+CRED tweet and every earlier guess.** Read those with `get_design_context`,
+not `get_screenshot`: the first passes took a screenshot and invented the
+colours, and the owner rightly rejected them. Every value below is out of
+the frames.
 
-- **The trail is light off the handle, not paint in a bar.** Two layers,
-  both transform-only: a five-stop gradient anchored to the track (first
-  stop transparent, so the tail dies with no left edge; brightest shade
-  riding just behind the thumb — ramps in `Composer.tsx`, `RAMP`), and an
-  elliptical **bloom** that travels with the thumb, lit from the moment the
-  finger lands, spilling `BLOOM_LEAD` ahead of it — the second frame's tell.
+**The three states are three moments in the entry, not three points in one
+drag** — this was the misread that cost a round:
+
+1. **Nothing typed.** Track `#131313`, hairline `rgba(255,255,255,0.1)`,
+   fully round, 56 tall, 4 of horizontal padding. Thumb a 72 x 48 pill on
+   `#7D7D7D → #5A5A5A` at 133.49°, dim arrow, no light. **The gesture is
+   inert** — `active` is false and the pan callbacks return early.
+2. **An amount exists** (`active` flips true). The thumb **swells and
+   settles back** — the frame draws it at 84 x 56, exactly 1.167 on both
+   axes, so it is a scale — arriving white (`#FFFEFE → #A9AEB1`) with a
+   near-black arrow and the light lit.
+3. **Travelling.** The light **swings from the thumb's right to its left**,
+   and the caption takes `#70F1DB`.
+
+- **The light is the frame's five-shadow stack**, `rgb(27,161,103)`, all at
+  y=0: `+2 +8 +17 +30 +47` at rest, `-3 -11 -25 -45 -70` moving, same
+  falling opacities. **That mirroring is the "shadow going right to left"** —
+  a property of the shadow, not a separate sweep. Built as two elliptical
+  SVG sprites crossfaded by travel: RN cannot stack five box-shadows,
+  animating one would be layout work every frame, and Android's `elevation`
+  shadow is flat grey. The moving sprite follows the frame's own
+  `Ellipse 762` (266 wide, heavily blurred) rather than the -70 stack —
+  longer and softer, and it is what the owner drew *to show the motion*.
+  **There is no separate trail layer**: two layers with different falloffs
+  meeting at the pill left a visible step.
 - **A sheen sweeps the track** on a loop — the owner asked to keep it.
   `withRepeat` replays its sequence, so the sequence must snap back to 0 at
   the end or the second pass never moves.
-- **On success it celebrates**: flood, arrow→check pop, white strike, an
-  expanding ring of the trail's colour, twelve sparks from a fixed table
-  (`SPRAY`) — all off the one `boom` value, the burst outside the track's
-  clip. The composer holds its dispatch for `CELEBRATE` (900, `motion.ts`);
-  the entry is built at commit time, only its arrival is deferred.
+- **On success it celebrates**: arrow→check pop, white strike, an expanding
+  ring, twelve sparks from a fixed table (`SPRAY`) — all off the one `boom`
+  value, the burst outside the track's clip. The composer holds its dispatch
+  for `CELEBRATE` (900, `motion.ts`); the entry is built at commit time,
+  only its arrival is deferred.
+- **Only the green side is drawn.** `LIGHT` in `Composer.tsx` carries the
+  frame's pair for credit and the same relationship in the ledger's red for
+  debit — flagged, not confirmed.
 
 The name under the figure is **plain centred text with no box at all.** It was
 a pill, and a pill has to be some width: too narrow and a real name overruns
@@ -249,6 +270,12 @@ These are settled; do not regress them:
 - **SF Pro Rounded has no glyph at U+232B.** The backspace key is a drawn icon.
 - **A measured inner width must subtract the panel's border**, or a three-column
   keypad wraps to six rows of two.
+- **A Figma screenshot is not the design.** `get_screenshot` gives you the
+  look and none of the values; `get_design_context` gives fills, gradient
+  angles, shadow stacks and text colours. The slider was built twice off a
+  screenshot and rejected both times before anyone called the tool that
+  returns the numbers. Load the `figma-design-to-code` skill first — the MCP
+  resource `skill://figma/figma-design-to-code/SKILL.md` — then call it.
 - **Gestures inside a `Modal` are dead on Android without their own
   `GestureHandlerRootView`.** A Modal is a separate native window, and the
   root view wrapping the app does not reach into it. iOS works either way —
