@@ -120,16 +120,22 @@ export function ChevronLeftIcon({ size = 20, color = '#FFFFFF' }: IconProps) {
   )
 }
 
-export function ArrowRightIcon({ size = 20, color = '#FFFFFF' }: IconProps) {
+/*
+ * The slider's arrow, exported from the frame (node 41:79) rather than drawn
+ * by hand — a filled path, not a stroke, and it sits in a 24 box inset
+ * 13.54% across and 21.88% down, which is where the translate comes from.
+ */
+export function ArrowRightIcon({ size = 24, color = '#3E3E3E' }: IconProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <Path
-        d="M3.5 10h13m0 0-5-5m5 5-5 5"
-        stroke={color}
-        strokeWidth={1.7}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <G transform="translate(3.25 5.25)">
+        <Path
+          fillRule="evenodd"
+          clipRule="evenodd"
+          d="M10.2197 0.21967C10.5126 -0.0732233 10.9874 -0.0732233 11.2803 0.21967L17.2803 6.21967C17.5732 6.51256 17.5732 6.98744 17.2803 7.28033L11.2803 13.2803C10.9874 13.5732 10.5126 13.5732 10.2197 13.2803C9.92678 12.9874 9.92678 12.5126 10.2197 12.2197L14.9393 7.5H0.75C0.335786 7.5 0 7.16421 0 6.75C0 6.33579 0.335786 6 0.75 6H14.9393L10.2197 1.28033C9.92678 0.987437 9.92678 0.512563 10.2197 0.21967Z"
+          fill={color}
+        />
+      </G>
     </Svg>
   )
 }

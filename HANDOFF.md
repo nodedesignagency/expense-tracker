@@ -185,57 +185,63 @@ Three pieces, in order of appearance:
    marks the days already carrying an entry.
 
 **`SlideAction.tsx`** commits the entry. Transcribed from the owner's Figma
-— **section `41:76`, nodes `39:26` / `39:48` / `39:58`, which supersede the
-CRED tweet and every earlier guess.** Read those with `get_design_context`,
-not `get_screenshot`: the first passes took a screenshot and invented the
-colours, and the owner rightly rejected them. Every value below is out of
-the frames.
+— **section `41:76`, nodes `39:26` / `39:48` / `39:58`. Those frames are the
+only truth for this control.** Read them with `get_design_context`, never
+`get_screenshot`: three passes were built by eye off a render and all three
+were rejected. Every number and colour below is out of the frames.
 
 **The three states are three moments in the entry, not three points in one
-drag** — this was the misread that cost a round:
+drag:**
 
 1. **Nothing typed.** Track `#131313`, hairline `rgba(255,255,255,0.1)`,
    fully round, 56 tall, 4 of horizontal padding. Thumb a 72 x 48 pill on
-   `#7D7D7D → #5A5A5A` at 133.49°, dim arrow, no light. **The gesture is
+   `#7D7D7D → #5A5A5A` at 133.494°, arrow `#3E3E3E`. **The gesture is
    inert** — `active` is false and the pan callbacks return early.
-2. **An amount exists** (`active` flips true). The thumb **swells and
-   settles back** — the frame draws it at 84 x 56, exactly 1.167 on both
-   axes, so it is a scale — arriving white (`#FFFEFE → #A9AEB1`) with a
-   near-black arrow and the light lit.
-3. **Travelling.** The light **swings from the thumb's right to its left**,
-   and the caption takes `#70F1DB`.
+2. **An amount exists** (`active` flips true). The thumb scales to the
+   frame's 84 x 56 — exactly 1.1667 on both axes, so one pill and not two —
+   and **stays there**, arriving on `#FFFEFE → #A9AEB1` with a `#000403`
+   arrow and the light lit. Sprung (`SPRING_WAKE`, under-damped) so it
+   carries past and settles.
+3. **Travelling.** The light swings from the thumb's right to its left, the
+   trail washes the ground behind, the caption takes `#70F1DB`.
 
-- **The light is the frame's five-shadow stack**, `rgb(27,161,103)`, all at
-  y=0: `+2 +8 +17 +30 +47` at rest, `-3 -11 -25 -45 -70` moving, same
-  falling opacities. **That mirroring is the "shadow going right to left"** —
-  a property of the shadow, not a separate sweep. Built as two elliptical
-  SVG sprites crossfaded by travel: RN cannot stack five box-shadows,
-  animating one would be layout work every frame, and Android's `elevation`
-  shadow is flat grey. The moving sprite follows the frame's own
-  `Ellipse 762` (266 wide, heavily blurred) rather than the -70 stack —
-  longer and softer, and it is what the owner drew *to show the motion*.
-  **There is no separate trail layer**: two layers with different falloffs
-  meeting at the pill left a visible step.
+- **The light is the frame's own `boxShadow`, verbatim.** Five stacked
+  shadows in `rgb(27,161,103)`, all at y=0: `+2 +8 +17 +30 +47` at rest,
+  `-3 -11 -25 -45 -70` moving, same falling opacities. **That mirroring is
+  the "shadow going right to left"** — a property of the shadow, not a sweep
+  laid over it. RN takes the CSS string and composes several from 0.76 on
+  the New Architecture, which SDK 54 is; an earlier pass assumed it could
+  not and substituted an SVG ramp, which is what "you did not use the values
+  from figma" was about. Two casters crossfaded by travel, so the swing
+  itself stays opacity-only.
+- **The trail is a second, deeper green.** `Ellipse 762` on node 39:58: rx
+  133, ry 28, `#00755E`, Gaussian σ 46.45. Collapsing it into the shadow's
+  green is why the colour never looked right. Blurred that hard against a 28
+  half-height it is all falloff — peak alpha ≈ `erf(28/46.45√2)` ≈ 0.45, and
+  near-uniform vertically across a 56 track — so it is drawn as a horizontal
+  ramp sampled from that convolution, not a radial one. It is **broad**:
+  centred 99 left of the thumb's leading edge and spent ~300 either side.
+- **Casters inside the track's clip, pill outside it.** Sounds backwards; it
+  is the only arrangement that works. The stack's inner layers blur wider
+  than they offset, so unclipped the glow wraps the pill and spills over the
+  track's top and bottom — the frame does not show that because the track
+  clips it. But clipping the *pill* flattens its cap, which the owner
+  caught. `castAnchor` sits one unit in on both axes, because an absolute
+  child of the track is laid out against its padding box while the pill
+  outside is laid out against the frame.
+- **The arrow is the exported asset** (node 41:79) — a filled path, not a
+  stroke, in a 24 box inset 13.54% / 21.88%. Hand-drawing it was wrong.
 - **A sheen sweeps the track** on a loop — the owner asked to keep it.
   `withRepeat` replays its sequence, so the sequence must snap back to 0 at
   the end or the second pass never moves.
 - **On success it celebrates**: arrow→check pop, white strike, an expanding
   ring, twelve sparks from a fixed table (`SPRAY`) — all off the one `boom`
-  value, the burst outside the track's clip. The composer holds its dispatch
-  for `CELEBRATE` (900, `motion.ts`); the entry is built at commit time,
-  only its arrival is deferred.
+  value, the burst outside every clip. The composer holds its dispatch for
+  `CELEBRATE` (900, `motion.ts`); the entry is built at commit time, only
+  its arrival is deferred.
 - **Only the green side is drawn.** `LIGHT` in `Composer.tsx` carries the
-  frame's pair for credit and the same relationship in the ledger's red for
-  debit — flagged, not confirmed.
-
-The name under the figure is **plain centred text with no box at all.** It was
-a pill, and a pill has to be some width: too narrow and a real name overruns
-it, too wide and an empty one is a large blank outline under the figure —
-either way a second shape competing with the only thing on the screen that
-matters. Set as a caption it is stretched to the full width, so the box never
-changes size as the name grows and a long name simply runs inside the line.
-Android's own TextInput padding and vertical alignment are turned off or it
-does not sit where a `Text` would.
+  frames' three colours for credit and the same three relationships in the
+  ledger's red for debit — flagged, not confirmed.
 
 Behind all of this, `App.tsx` **recedes the page** — scales it to `RECEDE`,
 rounds its corners, drops it back and dims it. The recede's geometry lives in
@@ -270,6 +276,11 @@ These are settled; do not regress them:
 - **SF Pro Rounded has no glyph at U+232B.** The backspace key is a drawn icon.
 - **A measured inner width must subtract the panel's border**, or a three-column
   keypad wraps to six rows of two.
+- **`boxShadow` works, and takes the CSS string.** Multiple comma-separated
+  shadows, from RN 0.76 on the New Architecture — SDK 54 qualifies, Android
+  9+ for outset. So a Figma shadow stack goes in as-is; do not substitute an
+  SVG gradient that resembles it. It cannot be animated per frame, but two
+  static casters crossfaded by opacity covers every case so far.
 - **A Figma screenshot is not the design.** `get_screenshot` gives you the
   look and none of the values; `get_design_context` gives fills, gradient
   angles, shadow stacks and text colours. The slider was built twice off a

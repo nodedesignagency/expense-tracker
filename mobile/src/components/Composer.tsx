@@ -44,14 +44,18 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back']
 /*
  * The slider's light, per direction.
  *
- * Credit is the frame's own pair, read out of node 39:48 — the shadow stack's
- * `rgb(27,161,103)` and the lit caption's `#70F1DB`. Debit is that same
- * relationship carried into the ledger's red, since the frame only draws the
- * one side and a green glow under a red figure would say the wrong thing.
+ * Three colours, not one, because the frames use three: the shadow stack
+ * around the thumb is `rgb(27,161,103)`, the trail ellipse behind it is the
+ * deeper `#00755E`, and the lit caption is `#70F1DB`. Collapsing them into a
+ * single green is why the earlier passes never looked like the design.
+ *
+ * Credit is the frames', exactly. Debit is the same three relationships
+ * carried into the ledger's red — the frames only draw the one side, and a
+ * green glow under a red figure would say the wrong thing.
  */
-const LIGHT: Record<Direction, { glow: string; caption: string }> = {
-  credit: { glow: '27,161,103', caption: '#70F1DB' },
-  debit: { glow: '198,58,52', caption: '#FFB0A6' },
+const LIGHT: Record<Direction, { glow: string; trail: string; caption: string }> = {
+  credit: { glow: '27,161,103', trail: '0,117,94', caption: '#70F1DB' },
+  debit: { glow: '198,58,52', trail: '117,16,12', caption: '#FFB0A6' },
 }
 
 /** Which list the drawer is showing. Null is the keypad, which is the default. */
@@ -279,6 +283,7 @@ export function Composer() {
           label="Swipe to add entry"
           active={(parseAmountToCents(amount) ?? 0) > 0}
           glow={LIGHT[direction].glow}
+          trail={LIGHT[direction].trail}
           captionLit={LIGHT[direction].caption}
           onCommit={submit}
         />

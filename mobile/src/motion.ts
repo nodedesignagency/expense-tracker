@@ -67,10 +67,14 @@ export const CELEBRATE = 900
 
 /**
  * The slider waking up when an amount first exists — the swell from the
- * frame's first state to its second. Long enough to be seen as a movement
- * rather than a flicker, short enough that it is over before the next digit.
+ * frame's first state to its second.
+ *
+ * Sprung rather than timed. The swell is a control coming alive, and a curve
+ * arrives at its size and stops dead where a spring carries a little past and
+ * settles. Under-damped on purpose: this is the one moment on the screen that
+ * is allowed to be pleased with itself.
  */
-export const WAKE = 420
+export const SPRING_WAKE = { duration: 620, dampingRatio: 0.58 } as const
 
 /** Press feedback wants to land almost before you notice it. */
 export const PRESS = 120
