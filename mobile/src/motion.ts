@@ -73,13 +73,28 @@ export const CELEBRATE = 900
  * button, so the growth is punctuation rather than a new resting size: the
  * control noticing that there is now something to commit.
  *
- * Three parts, because it reads as three: a quick rise, a beat held at the
- * top so the eye catches it, and a longer settle back. Run without the hold
- * the two springs meet and it reads as a twitch.
+ * **One motion, shaped, rather than three animations in a row.** The first
+ * cut was a spring up, an explicit hold, then a spring back, and it read
+ * exactly as it was built: the thing stopped at the top and waited. Two
+ * causes, and the hold was only one of them — a spring approaches its target
+ * asymptotically, so it spends a long tail barely moving near the peak, and
+ * two eased timings joined at a peak both arrive and leave at zero velocity,
+ * which is a plateau however short the pause between them.
+ *
+ * So the driver runs straight through — linear, 0 to 1, once — and the scale
+ * is a **sine hump** along it: zero at both ends, one at the crest, real
+ * curvature at the turn. Nothing dwells, because there is nothing to settle
+ * into. Measured: about 74ms within 2% of the peak, against 380ms+ before.
+ *
+ * The crest sits at 38% rather than half way, so it goes up faster than it
+ * comes back — which is what a thing with weight does.
+ *
+ * A timing and not a spring, per the animate-expo rule: springs are for
+ * carrying a finger's velocity through an interruption, and no finger is on
+ * this. Nothing is interrupting it either — it fires once, off a keypress.
  */
-export const SPRING_SWELL = { duration: 240, dampingRatio: 0.72 } as const
-export const SWELL_HOLD = 140
-export const SPRING_SETTLE_BACK = { duration: 560, dampingRatio: 0.68 } as const
+export const SWELL_MS = 460
+export const SWELL_RISE = 0.38
 
 /** The colour crossfade underneath it, which does not come back. */
 export const WAKE = 280

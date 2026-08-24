@@ -198,12 +198,20 @@ drag:**
    `#7D7D7D → #5A5A5A` at 133.494°, arrow `#3E3E3E`. **The gesture is
    inert** — `active` is false and the pan callbacks return early.
 2. **An amount exists** (`active` flips true). The thumb **swells to the
-   frame's 84 x 56 and comes back** — rise, a beat held at the top
-   (`SWELL_HOLD`), then a longer settle, all in `motion.ts`. It rests at
-   72 x 48 in *both* states; the larger size is punctuation, not a new
-   resting size. What stays is the colour (`#FFFEFE → #A9AEB1`, `#000403`
-   arrow) and the light. Run without the hold, the two springs meet and it
-   reads as a twitch.
+   frame's 84 x 56 and comes back**. It rests at 72 x 48 in *both* states;
+   the larger size is punctuation, not a new resting size. What stays is the
+   colour (`#FFFEFE → #A9AEB1`, `#000403` arrow) and the light.
+
+   **One motion, shaped — not three animations in a row.** The first cut was
+   a spring up, an explicit hold, then a spring back, and the owner said it
+   stopped at the top and waited. The hold was only half of it: a spring
+   approaches asymptotically so it barely moves near its target, and two
+   eased timings joined at a peak both arrive *and* leave at zero velocity.
+   Now a linear driver runs 0→1 once (`SWELL_MS`) and the scale is a **sine
+   hump** along it — zero at both ends, one at the crest, real curvature at
+   the turn, crest at `SWELL_RISE` (38%) so it rises faster than it falls.
+   Measured on device-width in the browser: peak exactly 1.167x, ~74ms
+   within 2% of the crest against 380ms+ before, returning exactly to idle.
 3. **Travelling.** The light swings from the thumb's right to its left, the
    trail washes the ground behind, the caption takes `#70F1DB`.
 
@@ -266,7 +274,18 @@ rounds its corners, drops it back and dims it. The recede's geometry lives in
 
 ## Animation rules now being followed
 
-From the skills repo the owner supplied (`emilkowalski/skills`, `animate-expo`).
+From the skills repo the owner supplied — `github.com/emilkowalski/skills`,
+`skills/animate-expo/SKILL.md` and its `RECIPES.md`. **Clone and read it before
+touching motion**; it is short, and it settles most of the questions that
+otherwise get guessed at. Its own curve table is where `EASE_ENTER` comes from
+(`Easing.bezier(0.23, 1, 0.32, 1)`), and its spring table quotes Apple's two
+designer parameters, which is the form `SPRING_SETTLE` uses.
+
+The rule that has mattered most here: **a spring is for carrying a finger's
+velocity through an interruption — everything without a finger on it uses a
+timing.** The slider's swell had been sprung and it dwelled; the drag is
+sprung and it should stay that way.
+
 These are settled; do not regress them:
 
 - **Never `PanResponder`.** `Gesture.Pan()` from gesture-handler.
@@ -290,6 +309,13 @@ These are settled; do not regress them:
   shape. Carry Figma's `gradientTransform` matrix instead.
 - **`absoluteFill` fills the padding box, not the border box.** A fill sized to
   the border box and positioned with it loses its right and bottom edges.
+  **This has now bitten twice.** The second time: the slider's thumb carried
+  the frame's 1-unit `rgba(255,255,255,0.1)` hairline as its own `borderWidth`,
+  so its gradient children stopped one unit inside it and that ring showed 10%
+  white over the near-black track behind — a dark outline round a white pill,
+  heaviest at the corners, where a rounded ring is widest. If a rounded, filled
+  thing needs a hairline, **draw the hairline as a sibling over the fill**
+  (`pillEdge` in `SlideAction.tsx`), not as the container's border.
 - **SF Pro Rounded has no glyph at U+232B.** The backspace key is a drawn icon.
 - **A measured inner width must subtract the panel's border**, or a three-column
   keypad wraps to six rows of two.

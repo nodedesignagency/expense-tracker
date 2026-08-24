@@ -22,9 +22,8 @@ import {
   CELEBRATE,
   EASE_ENTER,
   SPRING_SETTLE,
-  SPRING_SETTLE_BACK,
-  SPRING_SWELL,
-  SWELL_HOLD,
+  SWELL_MS,
+  SWELL_RISE,
   WAKE,
 } from '../motion'
 import { axisFor, capTrim, font, sp } from '../theme'
@@ -313,16 +312,16 @@ export function SlideAction({
     wake.set(withTiming(active ? 1 : 0, { duration: WAKE, easing: EASE_ENTER }))
 
     if (active) {
-      /* Rise, hold a beat at the top, settle back. */
-      swell.set(
-        withSequence(
-          withSpring(1, SPRING_SWELL),
-          withDelay(SWELL_HOLD, withSpring(0, SPRING_SETTLE_BACK)),
-        ),
-      )
+      /*
+       * A straight run from 0 to 1; the *shape* of the swell is the hump the
+       * transform reads off it, not the timing of this. Reset first, or a
+       * second wake starts from 1 and never moves.
+       */
+      swell.set(0)
+      swell.set(withTiming(1, { duration: SWELL_MS, easing: Easing.linear }))
       return
     }
-    swell.set(withTiming(0, { duration: WAKE, easing: EASE_ENTER }))
+    swell.set(0)
     x.set(withSpring(0, SPRING_SETTLE))
   }, [active, swell, wake, x])
 
@@ -380,7 +379,20 @@ export function SlideAction({
      * pill would leave the box that exists to stop it being clipped — so the
      * bounce is spent on the way back down, where there is room for it.
      */
-    const s0 = interpolate(swell.get(), [0, 1], [REST_SCALE, 1], 'clamp')
+    /*
+     * The sine hump: zero at both ends of the run, one at the crest, with the
+     * crest at SWELL_RISE so it goes up faster than it comes back. Written
+     * out here rather than called out to a helper — a worklet may only call
+     * other worklets, and an ordinary function of this module aborts the app
+     * on the spot. `npm run worklets` catches that; it has shipped twice.
+     */
+    const t = swell.get()
+    const warped =
+      t < SWELL_RISE
+        ? (t / SWELL_RISE) * 0.5
+        : 0.5 + ((t - SWELL_RISE) / (1 - SWELL_RISE)) * 0.5
+    const hump = Math.sin(Math.PI * warped)
+    const s0 = REST_SCALE + (1 - REST_SCALE) * hump
     const scale = Math.min(s0 * interpolate(held.get(), [0, 1], [1, 1.02]), 1)
     /*
      * Pinning the left edge, written out rather than called out to a helper.
@@ -556,6 +568,8 @@ export function SlideAction({
             <Animated.View style={[StyleSheet.absoluteFill, s.centre, check]}>
               <CheckIcon size={sp(22)} color={ARROW_LIVE} />
             </Animated.View>
+
+            <View style={s.pillEdge} pointerEvents="none" />
           </View>
         </Animated.View>
 
@@ -713,11 +727,26 @@ const s = StyleSheet.create({
   pill: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: THUMB_R,
-    borderWidth: BORDER,
-    borderColor: TRACK_EDGE,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  /*
+   * The frame's hairline, drawn *over* the fill rather than as the pill's own
+   * border.
+   *
+   * `absoluteFill` fills the padding box, not the border box — so with the
+   * border on the pill itself the gradients stopped one unit inside it, and
+   * that ring showed 10% white over the near-black track behind. On a white
+   * pill it read as a dark outline, heaviest at the corners where a rounded
+   * ring is widest. The owner caught it twice. This is already a trap in
+   * HANDOFF.md and it went in again anyway.
+   */
+  pillEdge: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: THUMB_R,
+    borderWidth: BORDER,
+    borderColor: TRACK_EDGE,
   },
   centre: { alignItems: 'center', justifyContent: 'center' },
   burst: { position: 'absolute', top: TRACK_H / 2, width: 0, height: 0 },
