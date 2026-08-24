@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import * as Haptics from 'expo-haptics'
-import { StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
   Easing,
@@ -18,20 +18,54 @@ import Animated, {
 import { scheduleOnRN } from 'react-native-worklets'
 import { LinearGradient } from 'expo-linear-gradient'
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg'
-import { CELEBRATE, EASE_ENTER, SPRING_SETTLE } from '../motion'
-import { capTrim, color, font, radius, sp } from '../theme'
+import { CELEBRATE, EASE_ENTER, SPRING_SETTLE, WAKE } from '../motion'
+import { axisFor, capTrim, font, sp } from '../theme'
 import { ArrowRightIcon, CheckIcon } from './Icons'
 
 /*
- * The owner's own frames this time — section 41:76, three states of one
- * control. Track 56 tall and fully round; thumb a 72 x 48 pill inset 4,
- * carrying an arrow; caption centred in the track.
+ * Transcribed from the owner's own frames — section 41:76, nodes 39:26,
+ * 39:48 and 39:58. Every number and colour below is read out of those, not
+ * chosen: the track is 56 tall with 4 of horizontal padding and a 51.2
+ * radius (which on a box this deep is the full round), the thumb is a 72 x 48
+ * pill, and the caption is 18pt medium.
  */
 const TRACK_H = sp(56)
 const PAD = sp(4)
-const THUMB_H = TRACK_H - PAD * 2
 const THUMB_W = sp(72)
+const THUMB_H = sp(48)
 const THUMB_R = THUMB_H / 2
+const CAPTION = sp(18)
+
+/** The track's own surface and hairline, from the frame. */
+const TRACK_BG = '#131313'
+const TRACK_EDGE = 'rgba(255,255,255,0.1)'
+
+/*
+ * The two thumb fills, both at the frame's own 133.49deg.
+ *
+ * Idle is a mid grey pair and active is very nearly white — which is the
+ * whole of the disabled/enabled tell, and the reason the arrow needs two
+ * colours rather than one at two opacities.
+ */
+const THUMB_DEG = 133.494
+const THUMB_IDLE = ['#7D7D7D', '#5A5A5A'] as const
+const THUMB_LIVE = ['#FFFEFE', '#A9AEB1'] as const
+
+/** The arrow, dim on the grey pill and near-black on the white one. */
+const ARROW_IDLE = '#9A9A9A'
+const ARROW_LIVE = '#141414'
+
+/**
+ * What the thumb does the moment an amount exists.
+ *
+ * The frame draws the live thumb at 84 x 56 against the idle one's 72 x 48 —
+ * the same 1.167 on both axes, so it is a scale and not a resize. It is a
+ * pulse rather than a new resting size: it swells and comes back, and what
+ * stays is the colour and the light. Applied to the whole thumb, so the arrow
+ * rides it and the frame's 24 -> 28 glyph comes out of the same number.
+ */
+const WAKE_SCALE = 84 / 72
+
 /** How far along counts as meaning it. */
 const COMMIT = 0.88
 
@@ -41,37 +75,64 @@ const SHEEN_W = 0.42
 const SHEEN_MS = 1400
 const SHEEN_HOLD = 900
 
-/**
- * Five shades, transparent to bright, trailing the thumb.
+/*
+ * The glow, which is the part that was being guessed before.
  *
- * The owner's third frame settles what this is: not paint filling a bar but
- * light coming off the handle. The brightest shade rides right behind the
- * thumb, the deeper ones stretch back over the swept ground, and the far end
- * dies to nothing before it reaches the start — the first stop is
- * transparent, so the tail has no left edge at all. Anchored to the track
- * and revealed by a translate, same as before, so none of it is layout work.
+ * The frame gives it as five stacked shadows, all at y=0, in one green — and
+ * the two live states differ only in which way they lean:
+ *
+ *   at rest   +2 +8 +17 +30 +47, blurs 4 8 10 12 13
+ *   moving    -3 -11 -25 -45 -70, blurs 6 11 15 18 20
+ *
+ * Same colour, same falling opacities, mirrored and reaching further. So the
+ * light spills to the *right* of the thumb while it waits and trails to the
+ * *left* once it is going — which is the "shadow going right to left" the
+ * owner asked for, and it is a property of the shadow, not a separate sweep.
+ *
+ * Built as two elliptical sprites rather than as box shadows. React Native
+ * cannot stack five of them, animating one would be layout work every frame,
+ * and Android's own shadow is a flat grey drawn from elevation — no use for
+ * coloured light. Two static textures crossfading is transform and opacity
+ * only, which is the rule for anything running per frame.
  */
-export type SlideRamp = readonly [string, string, string, string, string]
-const RAMP_STOPS = [0, 0.3, 0.56, 0.82, 1] as const
+/*
+ * At rest the reach is the stack's own: the outermost shadow sits at +47 with
+ * 13 of blur, so the light is spent by 62. Its falloff is the stack's too —
+ * each layer's opacity at its offset as a fraction of that reach.
+ */
+const SPILL_REST = sp(62)
+const REST_STOPS = [0, 0.13, 0.27, 0.48, 0.76, 1] as const
+const REST_ALPHA = [0.95, 0.82, 0.48, 0.15, 0.02, 0] as const
 
-/**
- * The bloom off the handle — the second frame's tell. An elliptical glow
- * that rides with the thumb, spilling a little ahead of it and well behind,
- * present from the moment the finger lands. This is what makes the trail
- * read as emitted rather than drawn.
+/*
+ * Travelling, the frame stops describing it as a shadow and draws it: the
+ * `Ellipse 762` on node 39:58, 266 wide against a 56 track and blurred far
+ * past its own box. That is much longer and much softer than the -70 stack
+ * suggests, and it is the one the owner drew *to show the animation*, so it
+ * is the one to follow. It also removes a seam: the swept ground and the
+ * halo were two layers with different falloffs meeting at the pill, and the
+ * step between them was visible. There is one light now, and no trail layer.
  */
-const BLOOM_W = sp(190)
-/** How far the bloom spills past the thumb's leading edge. */
-const BLOOM_LEAD = sp(40)
+const SPILL_MOVE = sp(232)
+const MOVE_STOPS = [0, 0.16, 0.36, 0.6, 0.82, 1] as const
+const MOVE_ALPHA = [0.82, 0.6, 0.34, 0.15, 0.04, 0] as const
+
+/** How tightly the light hugs the pill vertically. */
+const GLOW_RY = 0.58
 
 interface SlideActionProps {
   /** The whole control's width, so the travel is known before a finger lands. */
   width: number
   label: string
-  /** What the caption takes on — the ledger's own red or green. */
-  tint: string
-  /** The five track shades, deep to pale. */
-  ramp: SlideRamp
+  /**
+   * Whether there is anything to commit. False is the frame's first state:
+   * the thumb sits grey and the gesture does nothing.
+   */
+  active: boolean
+  /** The glow's colour, as `r,g,b`. */
+  glow: string
+  /** What the caption becomes once the light reaches it. */
+  captionLit: string
   /**
    * Called once the thumb has been carried far enough and let go. Return false
    * to refuse: the thumb springs home and the caller says why. Return true and
@@ -106,12 +167,17 @@ const SPRAY = [
 const RING_SIZE = THUMB_H * 1.6
 
 /**
- * Slide to add.
+ * Swipe to add entry.
  *
- * A tap is one event and this one writes to the ledger, so it asks for a
- * gesture with some length in it. Carrying the thumb across draws the ramp
- * out of the track in the direction's own colour, so the confirmation says
- * which kind of entry it is while it is being given rather than after.
+ * Three states, and they are three moments in the entry rather than three
+ * points in one drag — which is what the first cut of this got wrong:
+ *
+ *   1. Nothing typed. The thumb is grey and the track is dead.
+ *   2. An amount exists. The thumb swells and settles back, now white, with
+ *      the green light spilling to its right.
+ *   3. Travelling. That light swings around and trails to the left, the
+ *      ground it has covered keeps a dark wash of the same green, and the
+ *      caption takes the lit colour as the light reaches it.
  *
  * On Gesture.Pan rather than PanResponder. PanResponder hands every move back
  * to the React runtime, which is one render per frame for the length of the
@@ -122,13 +188,15 @@ const RING_SIZE = THUMB_H * 1.6
  * Springs home rather than easing home, for the same reason: let go mid-flick
  * and a curve throws the velocity away and restarts from nothing, where the
  * spring carries it through.
- *
- * On success it does not simply stop: the ramp floods the last stretch, the
- * grip becomes a check, and the thumb throws a ring of light and a spray of
- * sparks — the entry going in is the biggest thing this screen does, and the
- * control that took the gesture is where the payoff belongs.
  */
-export function SlideAction({ width, label, tint, ramp, onCommit }: SlideActionProps) {
+export function SlideAction({
+  width,
+  label,
+  active,
+  glow,
+  captionLit,
+  onCommit,
+}: SlideActionProps) {
   const travel = Math.max(width - THUMB_W - PAD * 2, 1)
   const x = useSharedValue(0)
   const held = useSharedValue(0)
@@ -138,8 +206,13 @@ export function SlideAction({ width, label, tint, ramp, onCommit }: SlideActionP
   const boom = useSharedValue(0)
   /** The sheen's own clock, sweeping whether or not a finger is down. */
   const sheen = useSharedValue(0)
+  /** 0 idle, 1 live. The pulse is shaped along it rather than run beside it. */
+  const wake = useSharedValue(active ? 1 : 0)
 
   const at = useDerivedValue(() => x.get() / travel)
+
+  /* How far the light has swung from resting to trailing. */
+  const swung = useDerivedValue(() => Math.min(at.get() * 6, 1))
 
   useEffect(() => {
     /*
@@ -158,6 +231,11 @@ export function SlideAction({ width, label, tint, ramp, onCommit }: SlideActionP
     )
   }, [sheen])
 
+  useEffect(() => {
+    wake.set(withTiming(active ? 1 : 0, { duration: WAKE, easing: EASE_ENTER }))
+    if (!active) x.set(withSpring(0, SPRING_SETTLE))
+  }, [active, wake, x])
+
   const commit = () => {
     if (onCommit()) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
@@ -170,10 +248,12 @@ export function SlideAction({ width, label, tint, ramp, onCommit }: SlideActionP
 
   const pan = Gesture.Pan()
     .onBegin(() => {
+      if (boom.get() > 0 || wake.get() < 1) return
       held.set(withTiming(1, { duration: 120, easing: EASE_ENTER }))
     })
     .onUpdate((e) => {
-      if (boom.get() > 0) return
+      /* Dead until there is something to commit — the frame's first state. */
+      if (boom.get() > 0 || wake.get() < 1) return
       x.set(Math.min(Math.max(e.translationX, 0), travel))
       /*
        * The detent, felt as it is crossed rather than on release — a haptic
@@ -189,7 +269,7 @@ export function SlideAction({ width, label, tint, ramp, onCommit }: SlideActionP
     .onEnd((e) => {
       held.set(withTiming(0, { duration: 160, easing: EASE_ENTER }))
       armed.set(0)
-      if (boom.get() > 0) return
+      if (boom.get() > 0 || wake.get() < 1) return
       if (x.get() / travel >= COMMIT) {
         x.set(withSpring(travel, { ...SPRING_SETTLE, velocity: e.velocityX }))
         scheduleOnRN(commit)
@@ -198,115 +278,112 @@ export function SlideAction({ width, label, tint, ramp, onCommit }: SlideActionP
       x.set(withSpring(0, { ...SPRING_SETTLE, velocity: e.velocityX }))
     })
 
-  const thumb = useAnimatedStyle(() => ({
-    transform: [{ translateX: x.get() }, { scale: interpolate(held.get(), [0, 1], [1, 1.03]) }],
-    /* Grey at rest, white the moment it is held — the frames' own tell. */
-    backgroundColor: interpolateColor(
-      Math.max(held.get(), Math.min(at.get() * 4, 1)),
-      [0, 1],
-      ['#5C5C5C', '#FFFFFF'],
-    ),
-  }))
-
-  /* One dark arrow throughout: half-strength on grey reads as the first
-     frame's dim glyph, full-strength on white as the second's. */
-  const arrow = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      Math.max(held.get(), Math.min(at.get() * 4, 1)),
-      [0, 1],
-      [0.55, 1],
-    ) * interpolate(boom.get(), [0, 0.25], [1, 0], 'clamp'),
-  }))
-
-  /* The bloom lights on touch, travels with the hand, hands off to the burst. */
-  const bloom = useAnimatedStyle(() => ({
-    transform: [{ translateX: x.get() }],
-    opacity:
-      Math.max(held.get(), Math.min(at.get() * 6, 1)) * (1 - boom.get()),
-  }))
-
   /*
-   * The ramp is one full-width gradient that never changes size — it slides
-   * in from the left, and the track's clip reveals it. What shows at the
-   * leading edge is therefore always the ramp's pale end, and pulling further
-   * uncovers the deeper shades behind it, which is what anchors the colours
-   * to the track instead of stretching them with the fill. A width animated
-   * here instead would be layout work every frame; a translate is free.
-   *
-   * On the flood, the last half-thumb of hidden ramp comes through, so the
-   * colour meets the track's end wall.
+   * The thumb. The swell is shaped along `wake` rather than sprung beside it,
+   * so it cannot drift out of step with the colour it arrives with — and it
+   * runs both ways, so clearing the amount hands the light back.
    */
-  const ledge = PAD + THUMB_W / 2
-  const fill = useAnimatedStyle(() => ({
+  const thumb = useAnimatedStyle(() => ({
     transform: [
-      { translateX: -width + ledge + x.get() + boom.get() * (width - ledge - travel) },
+      { translateX: x.get() },
+      {
+        scale:
+          interpolate(wake.get(), [0, 0.5, 1], [1, WAKE_SCALE, 1]) *
+          interpolate(held.get(), [0, 1], [1, 1.03]),
+      },
     ],
-    opacity: interpolate(at.get(), [0, 0.05], [0, 1], 'clamp'),
   }))
 
-  /* The sheen sweeps the track; over the unfilled stretch it reads as the
-     invitation, over the filled stretch as light moving on the colour. */
-  const sheenStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: interpolate(sheen.get(), [0, 1], [-width * SHEEN_W, width]) },
-    ],
-    opacity: 1 - boom.get(),
+  const live = useAnimatedStyle(() => ({ opacity: wake.get() }))
+  const idleArrow = useAnimatedStyle(() => ({
+    opacity: (1 - wake.get()) * interpolate(boom.get(), [0, 0.25], [1, 0], 'clamp'),
+  }))
+  const liveArrow = useAnimatedStyle(() => ({
+    opacity: wake.get() * interpolate(boom.get(), [0, 0.25], [1, 0], 'clamp'),
   }))
 
   /*
-   * The caption stays and takes the colour on rather than fading out. The
-   * reference keeps it legible the whole way across, which is what lets you
-   * read what you are committing to while committing to it. On success it
-   * gives way to the check.
+   * The two halves of the light. Both ride with the thumb; which one is
+   * showing is the whole difference between the frame's second and third
+   * states, so it is one crossfade rather than two animations.
+   */
+  const glowRest = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.get() }],
+    opacity: wake.get() * (1 - swung.get()) * (1 - boom.get()),
+  }))
+  const glowMove = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.get() }],
+    opacity: wake.get() * swung.get() * (1 - boom.get()),
+  }))
+
+  const sheenStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: interpolate(sheen.get(), [0, 1], [-width * SHEEN_W, width]) }],
+    opacity: (1 - boom.get()) * interpolate(at.get(), [0, 0.3], [1, 0], 'clamp'),
+  }))
+
+  /*
+   * The caption keeps its place and takes the colour on rather than fading
+   * out, which is what lets you read what you are committing to while
+   * committing to it. The lit colour is the frame's own.
    */
   const caption = useAnimatedStyle(() => ({
-    color: interpolateColor(at.get(), [0, 0.6], ['#EDEDED', tint]),
-    opacity: 1 - boom.get(),
+    color: interpolateColor(at.get(), [0, 0.6], ['#F1F1F1', captionLit]),
+    opacity: (1 - boom.get()) * interpolate(wake.get(), [0, 1], [0.55, 1]),
   }))
 
-  /* The check pops in a touch past full size and settles — something landed. */
+  /* The check pops a touch past full size and settles — something landed. */
   const check = useAnimatedStyle(() => ({
     opacity: interpolate(boom.get(), [0.1, 0.35], [0, 1], 'clamp'),
-    transform: [
-      { scale: interpolate(boom.get(), [0.1, 0.45, 0.7], [0.4, 1.18, 1], 'clamp') },
-    ],
+    transform: [{ scale: interpolate(boom.get(), [0.1, 0.45, 0.7], [0.4, 1.18, 1], 'clamp') }],
   }))
 
-  /* The ring of light off the thumb's final position. */
   const ring = useAnimatedStyle(() => ({
     opacity: interpolate(boom.get(), [0, 0.12, 0.9], [0, 1, 0], 'clamp'),
     transform: [{ scale: interpolate(boom.get(), [0, 1], [0.3, 2.8]) }],
   }))
 
-  /* A white core, gone almost at once — the strike the ring expands from. */
   const flash = useAnimatedStyle(() => ({
     opacity: interpolate(boom.get(), [0, 0.08, 0.3], [0, 0.85, 0], 'clamp'),
     transform: [{ scale: interpolate(boom.get(), [0, 0.3], [0.4, 1.3], 'clamp') }],
   }))
 
-  /* The whole control takes the landing: a small kick, then settled. */
   const pulse = useAnimatedStyle(() => ({
     transform: [{ scale: interpolate(boom.get(), [0, 0.25, 0.7], [1, 1.03, 1], 'clamp') }],
   }))
 
-  const sparkColors = [ramp[2], ramp[3], ramp[4]]
+  const thumbAxis = axisFor(THUMB_DEG, THUMB_W, THUMB_H)
+  const sparkColors = [0.55, 0.8, 1].map((a) => `rgba(${glow},${a})`)
 
   return (
     <GestureDetector gesture={pan}>
       <Animated.View style={[s.frame, { width }, pulse]}>
         <View style={[s.track, { width }]}>
-          <Animated.View style={[s.fill, { width }, fill]} pointerEvents="none">
-            <LinearGradient
-              colors={ramp}
-              locations={RAMP_STOPS}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 1, y: 0.5 }}
-              style={StyleSheet.absoluteFill}
+          {/* Spilling right, off the waiting thumb — the second frame. */}
+          <Animated.View
+            style={[s.glow, { left: PAD + THUMB_W, width: SPILL_REST }, glowRest]}
+            pointerEvents="none"
+          >
+            <Spill
+              width={SPILL_REST}
+              rgb={glow}
+              hot="left"
+              stops={REST_STOPS}
+              alpha={REST_ALPHA}
             />
           </Animated.View>
 
-          <Animated.View style={[s.bloomBox, bloom]} pointerEvents="none">
-            <BloomTrail tint={ramp[3]} />
+          {/* Trailing left, behind the travelling one — the third. */}
+          <Animated.View
+            style={[s.glow, { left: PAD - SPILL_MOVE, width: SPILL_MOVE }, glowMove]}
+            pointerEvents="none"
+          >
+            <Spill
+              width={SPILL_MOVE}
+              rgb={glow}
+              hot="right"
+              stops={MOVE_STOPS}
+              alpha={MOVE_ALPHA}
+            />
           </Animated.View>
 
           <Animated.View
@@ -314,7 +391,7 @@ export function SlideAction({ width, label, tint, ramp, onCommit }: SlideActionP
             pointerEvents="none"
           >
             <LinearGradient
-              colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.14)', 'rgba(255,255,255,0)']}
+              colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.12)', 'rgba(255,255,255,0)']}
               start={{ x: 0, y: 0.5 }}
               end={{ x: 1, y: 0.5 }}
               style={StyleSheet.absoluteFill}
@@ -332,23 +409,30 @@ export function SlideAction({ width, label, tint, ramp, onCommit }: SlideActionP
           </Animated.Text>
 
           <Animated.View style={[s.thumb, thumb]} pointerEvents="none">
-            {/*
-              * Lit from above and shaded at the foot, which is the whole of the
-              * depth: a flat fill at this size reads as a sticker, and a shadow
-              * would be Android elevation re-rendering every frame of the drag.
-              */}
             <LinearGradient
-              colors={['rgba(255,255,255,0.62)', 'rgba(255,255,255,0)', 'rgba(0,0,0,0.20)']}
-              locations={[0, 0.52, 1]}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={[StyleSheet.absoluteFill, s.gloss]}
+              colors={THUMB_IDLE}
+              start={thumbAxis.start}
+              end={thumbAxis.end}
+              style={StyleSheet.absoluteFill}
             />
-            <Animated.View style={[StyleSheet.absoluteFill, s.centre, arrow]}>
-              <ArrowRightIcon size={sp(22)} color="#141414" />
+            <Animated.View style={[StyleSheet.absoluteFill, live]}>
+              <LinearGradient
+                colors={THUMB_LIVE}
+                start={thumbAxis.start}
+                end={thumbAxis.end}
+                style={StyleSheet.absoluteFill}
+              />
             </Animated.View>
+
+            <Animated.View style={[StyleSheet.absoluteFill, s.centre, idleArrow]}>
+              <ArrowRightIcon size={sp(24)} color={ARROW_IDLE} />
+            </Animated.View>
+            <Animated.View style={[StyleSheet.absoluteFill, s.centre, liveArrow]}>
+              <ArrowRightIcon size={sp(24)} color={ARROW_LIVE} />
+            </Animated.View>
+
             <Animated.View style={[StyleSheet.absoluteFill, s.centre, check]}>
-              <CheckIcon size={sp(22)} color="#0A0A0A" />
+              <CheckIcon size={sp(22)} color={ARROW_LIVE} />
             </Animated.View>
           </Animated.View>
         </View>
@@ -356,25 +440,18 @@ export function SlideAction({ width, label, tint, ramp, onCommit }: SlideActionP
         {/*
           * The celebration lives outside the track's clip, so the light and
           * the sparks can leave the control — a burst that stops dead at the
-          * border it came from reads as a glitch, not a payoff. Centred on
-          * where the thumb ends its run.
+          * border it came from reads as a glitch, not a payoff. Every child
+          * here is placed by arithmetic off the anchor: an absolute child
+          * with no offsets in a zero-sized box, centred by alignItems, draws
+          * nothing at all and says nothing about it.
           */}
-        {/*
-          * Everything in here is placed by arithmetic off the anchor point —
-          * an explicit negative left/top per child. The first cut leaned on
-          * the anchor's alignItems to centre its absolute children, and Yoga
-          * quietly declined: nothing drew at all, and nothing said so.
-          */}
-        <View
-          style={[s.burst, { left: width - PAD - THUMB_W / 2 }]}
-          pointerEvents="none"
-        >
+        <View style={[s.burst, { left: width - PAD - THUMB_W / 2 }]} pointerEvents="none">
           <Animated.View style={[s.ringBox, flash]}>
             <BurstCore size={RING_SIZE} />
           </Animated.View>
 
           <Animated.View style={[s.ringBox, ring]}>
-            <BurstRing size={RING_SIZE} tint={ramp[3]} />
+            <BurstRing size={RING_SIZE} rgb={glow} />
           </Animated.View>
 
           {SPRAY.map((p, i) => (
@@ -383,6 +460,63 @@ export function SlideAction({ width, label, tint, ramp, onCommit }: SlideActionP
         </View>
       </Animated.View>
     </GestureDetector>
+  )
+}
+
+/**
+ * One side of the glow: an ellipse of the frame's green, solid where it meets
+ * the pill and dead at its far edge, with the shadow stack's own falloff.
+ *
+ * Written as a transform on a unit circle rather than as rx/ry — those are
+ * real attributes on a rect and not on a gradient, so react-native-svg hands
+ * them to the DOM, the browser drops them, and the ramp floods the box.
+ */
+function Spill({
+  width,
+  rgb,
+  hot,
+  stops,
+  alpha,
+}: {
+  width: number
+  rgb: string
+  hot: 'left' | 'right'
+  stops: readonly number[]
+  alpha: readonly number[]
+}) {
+  const id = `spill${hot}${Math.round(width)}`
+  const cx = hot === 'left' ? 0 : width
+  const ry = TRACK_H * GLOW_RY
+
+  return (
+    <Svg
+      width={width}
+      height={TRACK_H}
+      viewBox={`0 0 ${width} ${TRACK_H}`}
+      style={StyleSheet.absoluteFill}
+      pointerEvents="none"
+    >
+      <Defs>
+        <RadialGradient
+          id={id}
+          cx={0}
+          cy={0}
+          r={1}
+          gradientUnits="userSpaceOnUse"
+          gradientTransform={`matrix(${width}, 0, 0, ${ry}, ${cx}, ${TRACK_H / 2})`}
+        >
+          {stops.map((offset, i) => (
+            <Stop
+              key={offset}
+              offset={offset}
+              stopColor={`rgb(${rgb})`}
+              stopOpacity={alpha[i]}
+            />
+          ))}
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={width} height={TRACK_H} fill={`url(#${id})`} />
+    </Svg>
   )
 }
 
@@ -427,38 +561,6 @@ function Spark({
   )
 }
 
-/**
- * The glow riding with the thumb: an ellipse of the ramp's own colour,
- * hottest just behind the handle, dead by its far edge. One static texture,
- * translated — never redrawn.
- */
-function BloomTrail({ tint }: { tint: string }) {
-  return (
-    <Svg
-      width={BLOOM_W}
-      height={TRACK_H}
-      viewBox={`0 0 ${BLOOM_W} ${TRACK_H}`}
-      style={StyleSheet.absoluteFill}
-    >
-      <Defs>
-        <RadialGradient
-          id="slideBloom"
-          cx={0}
-          cy={0}
-          r={1}
-          gradientUnits="userSpaceOnUse"
-          gradientTransform={`matrix(${BLOOM_W * 0.62}, 0, 0, ${TRACK_H * 0.85}, ${BLOOM_W * 0.72}, ${TRACK_H / 2})`}
-        >
-          <Stop offset="0" stopColor={tint} stopOpacity={0.55} />
-          <Stop offset="0.55" stopColor={tint} stopOpacity={0.22} />
-          <Stop offset="1" stopColor={tint} stopOpacity={0} />
-        </RadialGradient>
-      </Defs>
-      <Rect x={0} y={0} width={BLOOM_W} height={TRACK_H} fill="url(#slideBloom)" />
-    </Svg>
-  )
-}
-
 /** The strike: solid light in the middle, gone by half way out. */
 function BurstCore({ size }: { size: number }) {
   return (
@@ -482,7 +584,7 @@ function BurstCore({ size }: { size: number }) {
 }
 
 /** The ring: a radial ramp that is nothing in the middle and light at the rim. */
-function BurstRing({ size, tint }: { size: number; tint: string }) {
+function BurstRing({ size, rgb }: { size: number; rgb: string }) {
   return (
     <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       <Defs>
@@ -493,9 +595,9 @@ function BurstRing({ size, tint }: { size: number; tint: string }) {
           r={size / 2}
           gradientUnits="userSpaceOnUse"
         >
-          <Stop offset="0.45" stopColor={tint} stopOpacity={0} />
-          <Stop offset="0.78" stopColor={tint} stopOpacity={0.85} />
-          <Stop offset="1" stopColor={tint} stopOpacity={0} />
+          <Stop offset="0.45" stopColor={`rgb(${rgb})`} stopOpacity={0} />
+          <Stop offset="0.78" stopColor={`rgb(${rgb})`} stopOpacity={0.85} />
+          <Stop offset="1" stopColor={`rgb(${rgb})`} stopOpacity={0} />
         </RadialGradient>
       </Defs>
       <Rect x={0} y={0} width={size} height={size} fill="url(#slideBurst)" />
@@ -509,16 +611,18 @@ const s = StyleSheet.create({
   track: {
     height: TRACK_H,
     borderRadius: TRACK_H / 2,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: TRACK_BG,
+    borderWidth: 1,
+    borderColor: TRACK_EDGE,
     overflow: 'hidden',
     justifyContent: 'center',
   },
-  fill: { position: 'absolute', left: 0, top: 0, bottom: 0 },
+  glow: { position: 'absolute', top: 0, height: TRACK_H },
   sheen: { position: 'absolute', left: 0, top: 0, bottom: 0 },
   caption: {
     fontFamily: font.r500,
-    fontSize: sp(16),
-    ...capTrim(sp(16)),
+    fontSize: CAPTION,
+    ...capTrim(CAPTION),
     textAlign: 'center',
   },
   thumb: {
@@ -527,26 +631,14 @@ const s = StyleSheet.create({
     width: THUMB_W,
     height: THUMB_H,
     borderRadius: THUMB_R,
+    borderWidth: 1,
+    borderColor: TRACK_EDGE,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  gloss: { borderRadius: THUMB_R },
   centre: { alignItems: 'center', justifyContent: 'center' },
-  /* Anchored so the glow's hot edge leads the thumb by BLOOM_LEAD at x=0. */
-  bloomBox: {
-    position: 'absolute',
-    left: PAD + THUMB_W + BLOOM_LEAD - BLOOM_W,
-    top: 0,
-    width: BLOOM_W,
-    height: TRACK_H,
-  },
-  burst: {
-    position: 'absolute',
-    top: TRACK_H / 2,
-    width: 0,
-    height: 0,
-  },
+  burst: { position: 'absolute', top: TRACK_H / 2, width: 0, height: 0 },
   ringBox: {
     position: 'absolute',
     left: -RING_SIZE / 2,

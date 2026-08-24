@@ -18,7 +18,7 @@ import { CELEBRATE } from '../motion'
 import { capTrim, color, font, radius, sp, type } from '../theme'
 import { Calendar } from './Calendar'
 import { CloseIcon } from './Icons'
-import { SlideAction, type SlideRamp } from './SlideAction'
+import { SlideAction } from './SlideAction'
 import {
   ArrowLeftDownIcon,
   ArrowRightUpIcon,
@@ -42,16 +42,16 @@ const DIRECTIONS: { value: Direction; label: string; tint: string; Icon: typeof 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back']
 
 /*
- * The slider's trail, transparent to bright, per direction — the owner's
- * third frame. The far end is transparent so the tail dies into the track
- * with no edge; the brightest shade rides just behind the thumb. The hue
- * leans across the run — credit through forest and emerald, debit through
- * wine and ember — because five stops of one hue is a tint, and what the
- * frame draws is light.
+ * The slider's light, per direction.
+ *
+ * Credit is the frame's own pair, read out of node 39:48 — the shadow stack's
+ * `rgb(27,161,103)` and the lit caption's `#70F1DB`. Debit is that same
+ * relationship carried into the ledger's red, since the frame only draws the
+ * one side and a green glow under a red figure would say the wrong thing.
  */
-const RAMP: Record<Direction, SlideRamp> = {
-  credit: ['rgba(6,40,26,0)', '#0A3D26', '#0E7A44', '#18C46B', '#4CEC9C'],
-  debit: ['rgba(40,8,10,0)', '#3D0F14', '#8F1B24', '#D8353C', '#FF7A72'],
+const LIGHT: Record<Direction, { glow: string; caption: string }> = {
+  credit: { glow: '27,161,103', caption: '#70F1DB' },
+  debit: { glow: '198,58,52', caption: '#FFB0A6' },
 }
 
 /** Which list the drawer is showing. Null is the keypad, which is the default. */
@@ -277,8 +277,9 @@ export function Composer() {
         <SlideAction
           width={INNER_W}
           label="Swipe to add entry"
-          tint={tint}
-          ramp={RAMP[direction]}
+          active={(parseAmountToCents(amount) ?? 0) > 0}
+          glow={LIGHT[direction].glow}
+          captionLit={LIGHT[direction].caption}
           onCommit={submit}
         />
       }

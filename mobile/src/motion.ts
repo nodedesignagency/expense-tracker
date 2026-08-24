@@ -65,6 +65,13 @@ export const SWAP = 260
  */
 export const CELEBRATE = 900
 
+/**
+ * The slider waking up when an amount first exists — the swell from the
+ * frame's first state to its second. Long enough to be seen as a movement
+ * rather than a flicker, short enough that it is over before the next digit.
+ */
+export const WAKE = 420
+
 /** Press feedback wants to land almost before you notice it. */
 export const PRESS = 120
 
