@@ -20,7 +20,7 @@ import Animated, {
 import { scheduleOnRN } from 'react-native-worklets'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
-import { EASE_SHEET, SHEET, pageSheetTop } from '../motion'
+import { EASE_SHEET, SHEET, SHEET_FLOAT, pageSheetTop } from '../motion'
 import { color, radius, sp, type } from '../theme'
 
 interface SheetProps {
@@ -39,10 +39,15 @@ interface SheetProps {
    * scroller would be clipped by it and would push the form around.
    */
   overlay?: ReactNode
+  /**
+   * Drawn over everything, at the full size of the screen rather than the
+   * panel's — the commit bloom, which has to leave the sheet entirely.
+   */
+  curtain?: ReactNode
 }
 
 /** How far the panel floats off the three edges it sits against. */
-const FLOAT = sp(6)
+const FLOAT = sp(SHEET_FLOAT)
 
 /*
  * How tall it may get, in points rather than as a share of the parent. As a
@@ -125,6 +130,7 @@ export function Sheet({
   tall,
   children,
   overlay,
+  curtain,
 }: SheetProps) {
   const insets = useSafeAreaInsets()
   const [mounted, setMounted] = useState(open)
@@ -226,6 +232,8 @@ export function Sheet({
             {overlay}
           </Animated.View>
         </KeyboardAvoidingView>
+
+        {curtain}
       </GestureHandlerRootView>
     </Modal>
   )

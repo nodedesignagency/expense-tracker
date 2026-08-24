@@ -14,9 +14,11 @@ import { addDays, formatDateHeading } from '../lib/dates'
 import { parseAmountToCents } from '../lib/money'
 import type { BrandKey, Category, Direction, Method } from '../lib/types'
 import { createTransaction, useAppState, useCategories, useDispatch, useVisibleLedger } from '../store'
+import { Easing, useSharedValue, withTiming } from 'react-native-reanimated'
 import { CELEBRATE } from '../motion'
 import { capTrim, color, font, radius, sp, type } from '../theme'
 import { Calendar } from './Calendar'
+import { Commit, type BloomTint } from './Commit'
 import { CloseIcon } from './Icons'
 import { SlideAction } from './SlideAction'
 import {
@@ -56,6 +58,19 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back']
 const LIGHT: Record<Direction, { glow: string; trail: string; caption: string }> = {
   credit: { glow: '27,161,103', trail: '0,117,94', caption: '#70F1DB' },
   debit: { glow: '198,58,52', trail: '117,16,12', caption: '#FFB0A6' },
+}
+
+/*
+ * The light the whole screen fills with once the entry lands.
+ *
+ * Near-white at the core in both cases — light is white before it is any
+ * colour, and a bloom that starts at the ledger's own green reads as a
+ * coloured disc rather than as something bright happening. The colour only
+ * arrives on the way out.
+ */
+const BLOOM: Record<Direction, BloomTint> = {
+  credit: { core: '#EAFFF6', mid: '#3BE39A', edge: '#00553F' },
+  debit: { core: '#FFF1EE', mid: '#FF8A7E', edge: '#5E100C' },
 }
 
 /** Which list the drawer is showing. Null is the keypad, which is the default. */
@@ -128,6 +143,9 @@ export function Composer() {
   const [coining, setCoining] = useState(false)
   const [draft, setDraft] = useState('')
   const [dating, setDating] = useState(false)
+  /* 0 to 1 across the celebration. Owned here, since it covers the screen. */
+  const celebrate = useSharedValue(0)
+  const [landed, setLanded] = useState(false)
 
   /*
    * The chooser has already asked which side this is, so the sheet opens on
@@ -144,7 +162,9 @@ export function Composer() {
     setCoining(false)
     setDraft('')
     setError(null)
-  }, [composerOpen, composerDirection])
+    setLanded(false)
+    celebrate.set(0)
+  }, [composerOpen, composerDirection, celebrate])
 
   const close = () => {
     setError(null)
@@ -213,6 +233,14 @@ export function Composer() {
       },
       transactions,
     )
+    /*
+     * The screen fills with light before the sheet goes anywhere. The entry
+     * is built now, against the ledger as it stands; only its arrival waits,
+     * so the bloom plays out over the composer rather than to a closed
+     * curtain. Nothing here is async — the pause is the payoff, not a wait.
+     */
+    setLanded(true)
+    celebrate.set(withTiming(1, { duration: CELEBRATE, easing: Easing.linear }))
     setTimeout(() => dispatch({ type: 'addTransaction', transaction }), CELEBRATE)
     return true
   }
@@ -262,6 +290,15 @@ export function Composer() {
 
           <View style={s.exit} />
         </View>
+      }
+      curtain={
+        landed ? (
+          <Commit
+            progress={celebrate}
+            tint={BLOOM[direction]}
+            label={direction === 'credit' ? 'Credit added' : 'Debit added'}
+          />
+        ) : null
       }
       overlay={
         dating ? (

@@ -1,0 +1,207 @@
+import { Dimensions, StyleSheet, Text, View } from 'react-native'
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  type SharedValue,
+} from 'react-native-reanimated'
+import { BlurView } from 'expo-blur'
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg'
+import {
+  BLOOM_AT,
+  BLOOM_FADE,
+  BLOOM_SCALE,
+  BLOOM_Y,
+  SAID_IN,
+  SAID_OUT,
+} from '../motion'
+import { capTrim, color, font, sp } from '../theme'
+import { CheckIcon } from './Icons'
+
+const { width: W, height: H } = Dimensions.get('window')
+
+/**
+ * The bloom's sprite. Wider than the screen, because at its largest it has to
+ * fill the width with the *middle* of the ramp rather than with its dying
+ * edge — a bloom you can see the end of reads as a disc, not as light.
+ */
+const BLOOM = W * 1.9
+
+/** Where the confirmation sits, as a share of the height. */
+const SAID_Y = 0.44
+/** How far it rises into place. Worked out here: a worklet cannot call sp(). */
+const SAID_RISE = sp(10)
+
+export interface BloomTint {
+  /** The hot middle, near-white so it reads as light and not as paint. */
+  core: string
+  /** The colour it becomes on the way out. */
+  mid: string
+  /** The deep edge, where it dies into the black. */
+  edge: string
+}
+
+interface CommitProps {
+  /** 0 to 1 across the whole celebration. Owned by the composer. */
+  progress: SharedValue<number>
+  tint: BloomTint
+  label: string
+}
+
+/**
+ * What happens when the entry lands.
+ *
+ * Built from the owner's reference: light ignites below the bottom edge,
+ * swells as it rises until it fills the screen, then carries on up and
+ * shrinks away over the top, leaving the confirmation behind. The thing that
+ * makes it read as an event rather than as a flourish is that it **passes
+ * through** — it never appears and fades in place, and it leaves by the far
+ * edge rather than by the one it came from.
+ *
+ * It is drawn over the whole screen rather than inside the sheet: the sheet
+ * stops short of the top, and a bloom that stopped with it would read as
+ * something happening *in the form* rather than to the ledger.
+ *
+ * One shared value drives every part, so nothing can drift out of step, and
+ * every animated property is a transform or an opacity. The bloom itself is a
+ * single static texture — an SVG ramp — moved and scaled, never redrawn. The
+ * blur behind it is static too and crossfaded by opacity: animating a
+ * `BlurView`'s intensity re-renders the blur every frame on Android.
+ */
+export function Commit({ progress, tint, label }: CommitProps) {
+  /* The form going away: blurred back, so the light is the only thing left. */
+  const veil = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.get(), [0, 0.16, 0.9, 1], [0, 1, 1, 0], 'clamp'),
+  }))
+
+  const bloom = useAnimatedStyle(() => {
+    const t = progress.get()
+    return {
+      opacity: interpolate(t, BLOOM_AT as unknown as number[], BLOOM_FADE as unknown as number[], 'clamp'),
+      transform: [
+        {
+          translateY:
+            interpolate(t, BLOOM_AT as unknown as number[], BLOOM_Y as unknown as number[], 'clamp') * H -
+            BLOOM / 2,
+        },
+        {
+          scale: interpolate(
+            t,
+            BLOOM_AT as unknown as number[],
+            BLOOM_SCALE as unknown as number[],
+            'clamp',
+          ),
+        },
+      ],
+    }
+  })
+
+  /*
+   * The confirmation arrives as the light passes it and leaves before the
+   * light does, so the screen is never holding two things at once.
+   */
+  const said = useAnimatedStyle(() => {
+    const t = progress.get()
+    return {
+      opacity: interpolate(t, [SAID_IN, SAID_IN + 0.12, SAID_OUT, 1], [0, 1, 1, 0], 'clamp'),
+      transform: [
+        { translateY: interpolate(t, [SAID_IN, SAID_IN + 0.16], [SAID_RISE, 0], 'clamp') },
+        { scale: interpolate(t, [SAID_IN, SAID_IN + 0.16], [0.94, 1], 'clamp') },
+      ],
+    }
+  })
+
+  return (
+    <View style={s.root} pointerEvents="none">
+      <Animated.View style={[StyleSheet.absoluteFill, veil]}>
+        <BlurView
+          intensity={44}
+          tint="dark"
+          experimentalBlurMethod="dimezisBlurView"
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={s.wash} />
+      </Animated.View>
+
+      <Animated.View style={[s.bloom, bloom]}>
+        <Bloom tint={tint} />
+      </Animated.View>
+
+      <Animated.View style={[s.said, said]}>
+        <View style={s.mark}>
+          <CheckIcon size={sp(13)} color="#0A0A0A" />
+        </View>
+        <Text style={s.saidText}>{label}</Text>
+      </Animated.View>
+    </View>
+  )
+}
+
+/**
+ * The light itself: white at the core, the entry's colour through the middle,
+ * dying to nothing well inside the sprite's edge so it never shows a rim.
+ */
+function Bloom({ tint }: { tint: BloomTint }) {
+  return (
+    <Svg width={BLOOM} height={BLOOM} viewBox={`0 0 ${BLOOM} ${BLOOM}`}>
+      <Defs>
+        <RadialGradient
+          id="commitBloom"
+          cx={BLOOM / 2}
+          cy={BLOOM / 2}
+          r={BLOOM / 2}
+          gradientUnits="userSpaceOnUse"
+        >
+          <Stop offset="0" stopColor={tint.core} stopOpacity={0.95} />
+          <Stop offset="0.18" stopColor={tint.core} stopOpacity={0.72} />
+          <Stop offset="0.36" stopColor={tint.mid} stopOpacity={0.5} />
+          <Stop offset="0.58" stopColor={tint.edge} stopOpacity={0.26} />
+          <Stop offset="0.8" stopColor={tint.edge} stopOpacity={0.06} />
+          <Stop offset="1" stopColor={tint.edge} stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={BLOOM} height={BLOOM} fill="url(#commitBloom)" />
+    </Svg>
+  )
+}
+
+const s = StyleSheet.create({
+  root: { ...StyleSheet.absoluteFillObject, zIndex: 40 },
+  /* Over the blur, or the form reads through it at its own brightness. */
+  wash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(6,6,6,0.62)' },
+  /*
+   * Placed by arithmetic, not by alignment: an absolute child with no offsets
+   * inside a filled parent is laid out by Yoga's alignment rules, and the
+   * transform below assumes it starts at the top-left of the screen.
+   */
+  bloom: {
+    position: 'absolute',
+    left: (W - BLOOM) / 2,
+    top: 0,
+    width: BLOOM,
+    height: BLOOM,
+  },
+  said: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: H * SAID_Y,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: sp(8),
+  },
+  mark: {
+    width: sp(20),
+    height: sp(20),
+    borderRadius: sp(10),
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saidText: {
+    fontFamily: font.r500,
+    fontSize: sp(17),
+    ...capTrim(sp(17)),
+    color: color.text,
+  },
+})

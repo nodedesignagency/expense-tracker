@@ -182,30 +182,15 @@ const TRAIL_ALPHA = [0, 0.005, 0.07, 0.277, 0.427, 0.451, 0.427, 0.277, 0.07, 0.
 const SWING = 0.3
 
 /*
- * The burst. A dozen sparks off the thumb's final position, each with its own
- * direction, reach, size and start, all driven by the one `boom` value so the
- * whole thing is a single UI-thread animation. The table is fixed rather than
- * rolled per mount: the spray reads as random at speed, and a fixed table
- * keeps every value plain data for the worklet to close over.
+ * The payoff is not here any more.
+ *
+ * There was a burst at the thumb — a ring, a strike and a dozen sparks. It is
+ * replaced by the full-screen bloom in `Commit.tsx`, which is what the
+ * owner's reference actually does: the light leaves the control entirely and
+ * crosses the screen. Two celebrations firing at once read as a glitch, so
+ * this one now does only what a control should — confirm itself, the arrow
+ * becoming a check — and hand the moment on.
  */
-const SPRAY = [
-  { ang: -2.921, dist: 64, size: 4, delay: 0.0, hue: 0 },
-  { ang: -2.792, dist: 108, size: 5, delay: 0.08, hue: 1 },
-  { ang: -2.232, dist: 96, size: 6, delay: 0.16, hue: 2 },
-  { ang: -2.403, dist: 88, size: 7, delay: 0.04, hue: 0 },
-  { ang: -1.766, dist: 82, size: 4, delay: 0.12, hue: 1 },
-  { ang: -1.769, dist: 72, size: 5, delay: 0.0, hue: 2 },
-  { ang: -1.494, dist: 66, size: 6, delay: 0.08, hue: 0 },
-  { ang: -1.05, dist: 112, size: 7, delay: 0.16, hue: 1 },
-  { ang: -1.171, dist: 102, size: 4, delay: 0.04, hue: 2 },
-  { ang: -0.502, dist: 94, size: 5, delay: 0.12, hue: 0 },
-  { ang: -0.608, dist: 86, size: 6, delay: 0.0, hue: 1 },
-  { ang: -0.19, dist: 78, size: 7, delay: 0.08, hue: 2 },
-] as const
-
-/** The ring's canvas. Named so its centring is arithmetic, not Yoga's. */
-const RING_SIZE = sp(48) * 1.6
-
 interface SlideActionProps {
   /** The whole control's width, so the travel is known before a finger lands. */
   width: number
@@ -456,16 +441,6 @@ export function SlideAction({
     transform: [{ scale: interpolate(boom.get(), [0.1, 0.45, 0.7], [0.4, 1.18, 1], 'clamp') }],
   }))
 
-  const ring = useAnimatedStyle(() => ({
-    opacity: interpolate(boom.get(), [0, 0.12, 0.9], [0, 1, 0], 'clamp'),
-    transform: [{ scale: interpolate(boom.get(), [0, 1], [0.3, 2.8]) }],
-  }))
-
-  const flash = useAnimatedStyle(() => ({
-    opacity: interpolate(boom.get(), [0, 0.08, 0.3], [0, 0.85, 0], 'clamp'),
-    transform: [{ scale: interpolate(boom.get(), [0, 0.3], [0.4, 1.3], 'clamp') }],
-  }))
-
   const pulse = useAnimatedStyle(() => ({
     transform: [{ scale: interpolate(boom.get(), [0, 0.25, 0.7], [1, 1.03, 1], 'clamp') }],
   }))
@@ -477,7 +452,6 @@ export function SlideAction({
     string,
     ...string[],
   ]
-  const sparkColors = [0.55, 0.8, 1].map((a) => `rgba(${glow},${a})`)
 
   return (
     <GestureDetector gesture={pan}>
@@ -573,112 +547,8 @@ export function SlideAction({
           </View>
         </Animated.View>
 
-        {/*
-          * The celebration, outside every clip, so the light and the sparks
-          * can leave the control — a burst that stops dead at the border it
-          * came from reads as a glitch, not a payoff. Every child here is
-          * placed by arithmetic off the anchor: an absolute child with no
-          * offsets in a zero-sized box, centred by alignItems, draws nothing
-          * at all and says nothing about it.
-          */}
-        <View style={[s.burst, { left: width - PAD - THUMB_W / 2 }]} pointerEvents="none">
-          <Animated.View style={[s.ringBox, flash]}>
-            <BurstCore size={RING_SIZE} />
-          </Animated.View>
-          <Animated.View style={[s.ringBox, ring]}>
-            <BurstRing size={RING_SIZE} rgb={glow} />
-          </Animated.View>
-          {SPRAY.map((p, i) => (
-            <Spark key={i} boom={boom} spec={p} color={sparkColors[p.hue]} />
-          ))}
-        </View>
       </Animated.View>
     </GestureDetector>
-  )
-}
-
-/** One spark: out along its own line, shrinking and dying as it goes. */
-function Spark({
-  boom,
-  spec,
-  color: sparkColor,
-}: {
-  boom: { get: () => number }
-  spec: (typeof SPRAY)[number]
-  color: string
-}) {
-  const style = useAnimatedStyle(() => {
-    const t = interpolate(boom.get(), [spec.delay, 1], [0, 1], 'clamp')
-    return {
-      opacity: interpolate(t, [0, 0.15, 1], [0, 1, 0]),
-      transform: [
-        { translateX: Math.cos(spec.ang) * spec.dist * t },
-        { translateY: Math.sin(spec.ang) * spec.dist * t },
-        { scale: interpolate(t, [0, 1], [1, 0.3]) },
-      ],
-    }
-  })
-
-  const d = sp(spec.size)
-  return (
-    <Animated.View
-      style={[
-        s.spark,
-        {
-          width: d,
-          height: d,
-          borderRadius: d / 2,
-          left: -d / 2,
-          top: -d / 2,
-          backgroundColor: sparkColor,
-        },
-        style,
-      ]}
-    />
-  )
-}
-
-/** The strike: solid light in the middle, gone by half way out. */
-function BurstCore({ size }: { size: number }) {
-  return (
-    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <Defs>
-        <RadialGradient
-          id="slideFlash"
-          cx={size / 2}
-          cy={size / 2}
-          r={size / 2}
-          gradientUnits="userSpaceOnUse"
-        >
-          <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.9} />
-          <Stop offset="0.5" stopColor="#FFFFFF" stopOpacity={0.3} />
-          <Stop offset="1" stopColor="#FFFFFF" stopOpacity={0} />
-        </RadialGradient>
-      </Defs>
-      <Rect x={0} y={0} width={size} height={size} fill="url(#slideFlash)" />
-    </Svg>
-  )
-}
-
-/** The ring: a radial ramp that is nothing in the middle and light at the rim. */
-function BurstRing({ size, rgb }: { size: number; rgb: string }) {
-  return (
-    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <Defs>
-        <RadialGradient
-          id="slideBurst"
-          cx={size / 2}
-          cy={size / 2}
-          r={size / 2}
-          gradientUnits="userSpaceOnUse"
-        >
-          <Stop offset="0.45" stopColor={`rgb(${rgb})`} stopOpacity={0} />
-          <Stop offset="0.78" stopColor={`rgb(${rgb})`} stopOpacity={0.85} />
-          <Stop offset="1" stopColor={`rgb(${rgb})`} stopOpacity={0} />
-        </RadialGradient>
-      </Defs>
-      <Rect x={0} y={0} width={size} height={size} fill="url(#slideBurst)" />
-    </Svg>
   )
 }
 
@@ -749,13 +619,4 @@ const s = StyleSheet.create({
     borderColor: TRACK_EDGE,
   },
   centre: { alignItems: 'center', justifyContent: 'center' },
-  burst: { position: 'absolute', top: TRACK_H / 2, width: 0, height: 0 },
-  ringBox: {
-    position: 'absolute',
-    left: -RING_SIZE / 2,
-    top: -RING_SIZE / 2,
-    width: RING_SIZE,
-    height: RING_SIZE,
-  },
-  spark: { position: 'absolute' },
 })

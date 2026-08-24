@@ -63,7 +63,27 @@ export const SWAP = 260
  * The slider animates its own pieces inside this window and the composer
  * waits it out before dispatching.
  */
-export const CELEBRATE = 900
+export const CELEBRATE = 1500
+
+/*
+ * The commit bloom — the owner's reference, described from three frames of it.
+ *
+ * Light ignites below the bottom edge, swells as it rises until it fills the
+ * screen, then carries on up and shrinks away over the top, leaving the
+ * confirmation behind. The whole point is that it *passes through* the screen
+ * rather than appearing and fading in place.
+ *
+ * Positions are fractions of the screen's height, measured to the bloom's own
+ * centre; scales are of its sprite. Read them as one keyframe track.
+ */
+export const BLOOM_AT = [0, 0.18, 0.52, 0.86, 1] as const
+export const BLOOM_Y = [1.18, 0.92, 0.46, -0.04, -0.22] as const
+export const BLOOM_SCALE = [0.5, 0.82, 1.18, 0.72, 0.5] as const
+export const BLOOM_FADE = [0, 1, 1, 0.75, 0] as const
+
+/** Where the confirmation shows itself, along the same track. */
+export const SAID_IN = 0.34
+export const SAID_OUT = 0.88
 
 /*
  * The slider waking up when an amount first exists.
@@ -184,8 +204,26 @@ export const TILT_PERSPECTIVE = 520
  * exists to leave.
  */
 
-/** How far back the page goes. Enough to read as behind, not as shrunk. */
-export const RECEDE = 0.92
+/** How far the sheet floats off each of its three edges, in frame units. */
+export const SHEET_FLOAT = 6
+
+/**
+ * How far back the page goes — solved, not chosen.
+ *
+ * A uniform scale insets the page horizontally by half of what it gives up.
+ * At 0.92 that was 15 a side against a sheet floating only 6, so the page's
+ * edges sat *inside* the sheet's and the shoulder above it had a black margin
+ * down both sides. The owner circled exactly those two strips.
+ *
+ * So the page recedes precisely as far as the sheet floats: 12 frame units of
+ * width, 6 a side, and the two share their side edges. The only black left is
+ * the margin the sheet already has. Both terms scale with the screen, so this
+ * holds at any width — checked at 360 and 393, gap 0.00 on each.
+ *
+ * It is a small recession as a result. The depth is carried by the dim, the
+ * rounded corners and the sheet in front of it, not by shrinking the page.
+ */
+export const RECEDE = 1 - (SHEET_FLOAT * 2) / metric.appW
 
 /** Air between the status bar and the toggle row it shows, frame units. */
 const CHROME_CLEAR = 6
