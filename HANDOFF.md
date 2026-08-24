@@ -215,20 +215,23 @@ Three pieces, in order of appearance:
    any width — checked at 360 and 393. The recession is small as a result;
    the depth is carried by the dim, the corners and the sheet in front.
 3. **`Composer.tsx`** — the entry screen itself. Full-page and flat, following
-   the owner's reference: a header (close / Credit–Debit segmented / **date**),
-   a middle stage holding **only the figure and its name caption**, one row of
-   **two** chips (category / method) sitting on the keypad, a custom numeric
-   keypad, and the slider.
+   the owner's reference: a header (close / Credit–Debit segmented / spacer), a
+   middle stage holding **only the figure and its name caption**, a row of three
+   chips with **the date on one side and category/method on the other**, a
+   custom numeric keypad, and the slider.
 
-   **The date used to be the third chip** and the header's right-hand slot was
-   an empty disc holding the segmented control in the middle. An empty disc
-   reads as a control that has lost its glyph and the owner circled it as
-   exactly that, so the date moved up into it. It is *filled* like the way out
-   beside it rather than outlined like the chips below, so the header's two
-   controls read as a pair. The segmented control is now centred **against the
-   header** rather than sitting between its neighbours — they are no longer the
-   same width — which means an absolute child over the full width, so it takes
-   `pointerEvents="box-none"` or it swallows the taps meant for both. Category and method open **anchored menus**
+   **The header's right-hand slot is empty on purpose, and must have no fill.**
+   It once reused the way-out's own style, background included, which drew a
+   disc standing empty — a control that had lost its glyph, as the owner read
+   it. The date was tried in that slot for a turn and sent back down. `hold` is
+   the spacer: the same room, nothing drawn.
+
+   **The three chips stay direct children of their row.** `Stat` reports its
+   own `layout.x` to place the menu that hangs off it, and that x is measured
+   against its parent — grouping category and method into a box of their own to
+   push them right would measure against the box and hang both menus in the
+   wrong place. A `flexGrow` spring between the date and the other two does the
+   same job with the parentage intact. Category and method open **anchored menus**
    over the pad; the category menu has a pinned "New category" row outside its
    scroller. The date chip opens `Calendar.tsx`, a Monday-first month grid that
    marks the days already carrying an entry.
@@ -240,11 +243,51 @@ its seat from below, smeared while it moves and sharp once it stops. Only the
 digit just typed does this — the ones already set are still, which is what
 makes each keystroke its own event instead of the whole number twitching.
 
-- **There is no per-view blur in React Native.** `expo-blur` blurs what is
-  *behind* a view, not the view itself, so the smear is drawn: `LAND_GHOSTS`
-  copies of the glyph trailing the real one down its path, each faint, all
-  collapsing into it as it slows. That is what a motion blur is, and it costs
-  nothing but transforms and opacities.
+- **The blur is real, and it is `filter`, not `expo-blur`.** `expo-blur` blurs
+  what is *behind* a view rather than the view itself, so it is no use here.
+  React Native takes a **`filter` style prop** from 0.76 on the New
+  Architecture — SDK 54 qualifies, the same footing `boxShadow` is on — and its
+  `blur` is a standard deviation exactly like CSS. Android applies it through
+  `View.setRenderEffect`, gated at **API 31**; below that it is a silent no-op,
+  which here degrades to a clean fade rather than to anything wrong.
+
+  **It cannot be animated per frame** — it is not a transform or an opacity — so
+  it is not. Three layers of the same glyph carry *fixed* blurs (14, 5, sharp)
+  and only their opacities move, which is the same trick the commit bloom uses
+  for its `BlurView`.
+
+  **A `RenderEffect` is clipped to the view it is set on,** so a blurred glyph
+  in a box its own size comes out as a blurred rectangle with cut edges. Each
+  layer is padded by three standard deviations — where a gaussian is spent —
+  and pulled back by the same amount, leaving the glyph where it was.
+
+- **The first cut faked the blur by stacking offset copies, and it was wrong.**
+  Rendered beside a true gaussian at matched times (`scratchpad/blurfit.html`,
+  screenshot it with the bundled Chromium), nine gaussian-weighted copies
+  showed **concentric ridges** — each copy's edge compositing over the last.
+  Alpha compositing is not addition; you cannot build a blur out of copies.
+  That was half of what the owner called clunky.
+
+- **The figures are tabular, and that is not cosmetic.** SF Pro Rounded's
+  proportional digits are not one width — a `1` is 0.467em against a `0` at
+  0.638em — so a number set in them changes width by a different amount per
+  keystroke and visibly jitters as it is typed. The font carries `tnum`; under
+  it every digit is exactly **0.631348em** (`,` and `.` are 0.269043em).
+
+- **The figure glides as it re-centres**, and the glide is *solved*, not
+  measured. The amount is centred, so a character added on the right takes half
+  its width off the left; unanimated that is a jump on every keystroke, and it
+  was the other half of the clunk. `Figure.tsx` knows the advances above, so it
+  sets the glide in the same tick as the character. Measuring with `onLayout`
+  would paint one frame at the new position before correcting it — a flicker,
+  not a fix. Backspace glides too, being the same motion in reverse.
+
+- **Nothing scales.** Scaled text rasterises at its laid-out size and stretches
+  from there, softening exactly the glyph this is trying to sharpen.
+
+- The sign and the currency mark live **inside** `Figure`, not beside it, so
+  the glide moves the whole group. Sliding only the digits leaves the "−$"
+  standing still and pulls the amount apart.
 - **One `Text` cannot animate a digit on its own,** so the figure is a cell per
   character. Which loses `adjustsFontSizeToFit` — and does not need it back:
   the keypad caps the figure at seven digits, the most the hero can set without
@@ -263,11 +306,6 @@ makes each keystroke its own event instead of the whole number twitching.
   figure grows** — so backspacing is instant and the digit underneath does not
   re-announce itself.
 - A timing curve, not a spring: nothing here has had a finger on it.
-
-Known and left alone: the figure is centred, so adding a digit shifts what is
-already there. That reflow is not animated. Smoothing it means measuring the
-row and easing a `translateX` against it, which is a change worth making only
-if it reads badly on the phone.
 
 **`SlideAction.tsx`** commits the entry. Transcribed from the owner's Figma
 — **section `41:76`, nodes `39:26` / `39:48` / `39:58`. Those frames are the
@@ -487,6 +525,11 @@ These are settled; do not regress them:
   thing needs a hairline, **draw the hairline as a sibling over the fill**
   (`pillEdge` in `SlideAction.tsx`), not as the container's border.
 - **SF Pro Rounded has no glyph at U+232B.** The backspace key is a drawn icon.
+- **Widths come out of the font file.** `scratchpad/ttf.py` reads `hmtx`
+  advances through `cmap`, and follows the `GSUB` `tnum` lookups for the
+  tabular set. This file was referenced for the nav's label widths and had gone
+  missing; it is back. Estimating a glyph width has never once been the thing
+  that settled an argument here.
 - **A measured inner width must subtract the panel's border**, or a three-column
   keypad wraps to six rows of two.
 - **`boxShadow` works, and takes the CSS string.** Multiple comma-separated

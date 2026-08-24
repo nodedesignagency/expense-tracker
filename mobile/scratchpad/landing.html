@@ -1,84 +1,68 @@
 <title>Digit Landing</title>
 <style>
-  :root {
-    --bg: #141414;
-    --ink: #FFFFFF;
-    --dim: #8A8A8A;
-    --page: #0A0A0A;
-  }
+  @font-face { font-family: SFR; src: url('../assets/fonts/sf-pro-rounded-600.ttf'); font-weight: 600; }
+  :root { --bg:#141414; --ink:#fff; --dim:#8A8A8A; --page:#0A0A0A; }
   body {
-    margin: 0;
-    background: var(--page);
-    color: var(--ink);
-    font-family: -apple-system, "SF Pro Rounded", "SF Pro Display", system-ui, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 18px;
-    padding: 28px 16px 40px;
-    min-height: 100vh;
-    box-sizing: border-box;
+    margin:0; background:var(--page); color:var(--ink);
+    font-family:-apple-system, system-ui, sans-serif;
+    display:flex; flex-direction:column; align-items:center; gap:16px;
+    padding:26px 16px 40px; min-height:100vh; box-sizing:border-box;
   }
-  h1 { font-size: 15px; font-weight: 600; margin: 0; letter-spacing: -0.2px; }
-  p.note {
-    margin: 0; max-width: 460px; text-align: center;
-    font-size: 12.5px; line-height: 1.55; color: var(--dim);
-  }
+  h1 { font-size:15px; font-weight:600; margin:0; letter-spacing:-.2px }
+  p.note { margin:0; max-width:470px; text-align:center; font-size:12.5px;
+           line-height:1.55; color:var(--dim) }
   .panel {
-    width: min(393px, 100%);
-    background: var(--bg);
-    border: 1px solid rgba(255,255,255,0.09);
-    border-radius: 28px;
-    padding: 34px 18px 26px;
-    box-sizing: border-box;
-    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    width:min(393px,100%); background:var(--bg);
+    border:1px solid rgba(255,255,255,.09); border-radius:28px;
+    padding:34px 18px 26px; box-sizing:border-box;
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    overflow:hidden;
   }
-  .amount { display: flex; align-items: center; gap: 3px; height: 84px; }
-  .sign { font-size: 36px; font-weight: 600; color: #FF6969; }
-  .cur  { font-size: 36px; font-weight: 600; color: var(--dim); }
-  .row  { display: flex; align-items: center; }
-  .cell { position: relative; }
+  .amount { display:flex; align-items:center; gap:3px; height:84px; }
+  .sign { font-size:36px; font-weight:600; color:#25E063; font-family:SFR,system-ui }
+  .cur  { font-size:36px; font-weight:600; color:var(--dim); font-family:SFR,system-ui }
+  .row  { display:flex; align-items:center }
+  .cell { position:relative }
   .glyph {
-    font-size: 60px; font-weight: 600; letter-spacing: -1.4px;
-    line-height: 1.12; color: var(--ink); white-space: pre;
+    font-family:SFR, system-ui; font-size:60px; font-weight:600;
+    letter-spacing:-1.4px; line-height:1.12; color:var(--ink);
+    white-space:pre; font-variant-numeric:tabular-nums;
+    font-feature-settings:"tnum" 1;
   }
-  .ghost { position: absolute; left: 0; top: 0; }
-  .cap { font-size: 16px; font-weight: 500; color: var(--dim); margin-top: 2px; }
-  .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; margin-top: 20px; }
-  .key {
-    height: 52px; border: 0; border-radius: 16px;
-    background: rgba(255,255,255,0.09); color: var(--ink);
-    font: inherit; font-size: 24px; font-weight: 500; cursor: pointer;
-  }
-  .key:active { background: rgba(255,255,255,0.18); }
-  .bar { display: flex; gap: 10px; }
-  .bar button {
-    border: 1px solid rgba(255,255,255,0.18); background: transparent;
-    color: var(--ink); font: inherit; font-size: 12.5px; font-weight: 500;
-    border-radius: 999px; padding: 8px 16px; cursor: pointer;
-  }
-  .bar button:hover { background: rgba(255,255,255,0.08); }
-  .slow { color: #FFD479; }
+  .layer { position:absolute; left:0; top:0 }
+  .cap { font-size:16px; font-weight:500; color:var(--dim) }
+  .pad { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; width:100%; margin-top:20px }
+  .key { height:52px; border:0; border-radius:16px; background:rgba(255,255,255,.09);
+         color:var(--ink); font:inherit; font-size:24px; font-weight:500; cursor:pointer }
+  .key:active { background:rgba(255,255,255,.18) }
+  .bar { display:flex; gap:10px; flex-wrap:wrap; justify-content:center }
+  .bar button { border:1px solid rgba(255,255,255,.18); background:transparent;
+    color:var(--ink); font:inherit; font-size:12.5px; font-weight:500;
+    border-radius:999px; padding:8px 16px; cursor:pointer }
+  .bar button:hover { background:rgba(255,255,255,.08) }
+  .on { color:#FFD479 }
 </style>
 
-<h1>Digit landing — the maths, at speed</h1>
+<h1>Digit landing — blur in, by character</h1>
 <p class="note">
-  The same numbers the app uses: rises <b>44</b> from below over <b>380ms</b> on
-  <code>cubic-bezier(.23,1,.32,1)</code>, with <b>3</b> trailing copies at
-  <b>0.22</b> spread across a <b>30</b> smear, scaling up from <b>0.84</b>.
-  Only the digit just typed moves. This is a browser standing in for the maths —
-  it is not the app, and it cannot tell you how it feels on the phone.
+  The numbers the app now uses: rises <b>18</b> over <b>340ms</b> on
+  <code>cubic-bezier(.23,1,.32,1)</code>, handed from <b>blur 14</b> to
+  <b>blur 5</b> to sharp by opacity alone. Figures are <b>tabular</b>, and the
+  group glides as it re-centres. React Native's <code>filter: blur</code> is the
+  same gaussian as the browser's, so this is the real thing — but it is still a
+  browser, and it cannot tell you how it feels on the phone.
 </p>
 
 <div class="bar">
-  <button id="play">Type 1 2 3 4</button>
+  <button id="play">Type 1 2 3 4 5</button>
   <button id="slowmo">Slow motion: <span id="slowlabel">off</span></button>
+  <button id="noglide">Glide: <span id="glidelabel">on</span></button>
   <button id="clear">Clear</button>
 </div>
 
 <div class="panel">
-  <div class="amount">
-    <span class="sign">−</span><span class="cur">$</span>
+  <div class="amount" id="amount">
+    <span class="sign">+</span><span class="cur">$</span>
     <div class="row" id="row"></div>
   </div>
   <div class="cap">Who's it for?</div>
@@ -86,119 +70,128 @@
 </div>
 
 <script>
-  const LAND_MS = 380, RISE = 44, SMEAR = 30, GHOSTS = 3, ALPHA = 0.22, FROM = 0.84;
-  let slow = 1;
+  const LAND_MS = 340, RISE = 18, BLURS = [14, 5, 0], GLIDE_MS = 340;
+  const EM_DIGIT = 0.631348, EM_PUNCT = 0.269043, SIZE = 60, TRACK = -1.4;
+  let slow = 1, glideOn = true;
 
-  // cubic-bezier(.23,1,.32,1), solved the way a browser does.
-  function bezier(x1, y1, x2, y2) {
-    const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx;
-    const cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
-    const fx = t => ((ax * t + bx) * t + cx) * t;
-    const dx = t => (3 * ax * t + 2 * bx) * t + cx;
-    return function (x) {
-      let t = x;
-      for (let i = 0; i < 8; i++) {
-        const e = fx(t) - x; if (Math.abs(e) < 1e-6) break;
-        const d = dx(t); if (Math.abs(d) < 1e-6) break;
-        t -= e / d;
-      }
-      return ((ay * t + by) * t + cy) * t;
-    };
+  function bezier(x1,y1,x2,y2){
+    const cx=3*x1,bx=3*(x2-x1)-cx,ax=1-cx-bx, cy=3*y1,by=3*(y2-y1)-cy,ay=1-cy-by;
+    const fx=t=>((ax*t+bx)*t+cx)*t, dx=t=>(3*ax*t+2*bx)*t+cx;
+    return x=>{let t=x;for(let i=0;i<8;i++){const e=fx(t)-x;if(Math.abs(e)<1e-6)break;
+      const d=dx(t);if(Math.abs(d)<1e-6)break;t-=e/d;}return ((ay*t+by)*t+cy)*t;};
   }
-  const ease = bezier(0.23, 1, 0.32, 1);
+  const ease = bezier(0.23,1,0.32,1);
+  const clamp = (v,a,b)=>v<a?a:v>b?b:v;
+  const lerp2 = (p,xs,ys)=>{
+    if(p<=xs[0])return ys[0];
+    for(let i=0;i<xs.length-1;i++) if(p<=xs[i+1]){
+      const k=(p-xs[i])/(xs[i+1]-xs[i]); return ys[i]+(ys[i+1]-ys[i])*k;
+    }
+    return ys[ys.length-1];
+  };
 
-  const row = document.getElementById('row');
+  const span = s => [...s].reduce((w,ch)=>w+((ch===','||ch==='.')?EM_PUNCT:EM_DIGIT)*SIZE+TRACK,0);
+
+  const row = document.getElementById('row'), amount = document.getElementById('amount');
   let value = '0';
 
-  function group(raw) {
-    if (!raw) return '0';
-    const [w, p] = raw.split('.');
-    const g = (w || '0').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    return p === undefined ? g : g + '.' + p;
+  function group(raw){
+    if(!raw) return '0';
+    const [w,p] = raw.split('.');
+    const g = (w||'0').replace(/\B(?=(\d{3})+(?!\d))/g,',');
+    return p===undefined ? g : g+'.'+p;
   }
 
-  function makeCell(ch) {
-    const cell = document.createElement('div');
-    cell.className = 'cell';
-    const ghosts = [];
-    for (let i = 1; i <= GHOSTS; i++) {
-      const g = document.createElement('span');
-      g.className = 'glyph ghost';
-      g.textContent = ch;
-      cell.appendChild(g);
-      ghosts.push({ el: g, k: i / GHOSTS });
-    }
-    const main = document.createElement('span');
-    main.className = 'glyph';
-    main.textContent = ch;
-    cell.appendChild(main);
-    return { cell, main, ghosts };
+  function makeCell(ch){
+    const cell = document.createElement('div'); cell.className='cell';
+    const gauge = document.createElement('span');
+    gauge.className='glyph'; gauge.textContent=ch; gauge.style.opacity=0;
+    cell.appendChild(gauge);
+    const layers = BLURS.map(b=>{
+      const g=document.createElement('span');
+      g.className='glyph layer'; g.textContent=ch;
+      if(b) g.style.filter=`blur(${b}px)`;
+      cell.appendChild(g); return g;
+    });
+    return { cell, layers };
   }
 
-  function settle(parts, p) {
-    const away = 1 - p;
-    parts.main.style.opacity = p;
-    parts.main.style.transform =
-      `translateY(${away * RISE}px) scale(${FROM + (1 - FROM) * p})`;
-    for (const g of parts.ghosts) {
-      g.el.style.opacity = away * ALPHA;
-      g.el.style.transform =
-        `translateY(${away * (RISE + SMEAR * g.k)}px) scale(${FROM + (1 - FROM) * p})`;
-    }
-  }
-
-  function render(next, animateLast) {
-    row.innerHTML = '';
-    const chars = next.split('');
-    chars.forEach((ch, i) => {
-      const parts = makeCell(ch);
-      row.appendChild(parts.cell);
-      if (i === chars.length - 1 && animateLast) {
-        settle(parts, 0);
-        const t0 = performance.now();
-        (function step(now) {
-          const p = Math.min(1, (now - t0) / (LAND_MS * slow));
-          settle(parts, ease(p));
-          if (p < 1) requestAnimationFrame(step);
-        })(t0);
-      } else {
-        settle(parts, 1);
-      }
+  function settle(layers,p){
+    const fade = lerp2(p,[0,0.45],[0,1]);
+    const share = [
+      lerp2(p,[0,0.35],[1,0]),
+      lerp2(p,[0,0.35,0.7],[0,1,0]),
+      lerp2(p,[0.35,0.7],[0,1]),
+    ];
+    layers.forEach((g,i)=>{
+      g.style.opacity = fade*clamp(share[i],0,1);
+      g.style.transform = `translateY(${(1-p)*RISE}px)`;
     });
   }
 
-  function type(k) {
-    const raw = value === '0' ? '' : value.replace(/,/g, '');
+  function render(next, animateLast){
+    row.innerHTML='';
+    const chars = next.split('');
+    chars.forEach((ch,i)=>{
+      const parts = makeCell(ch);
+      row.appendChild(parts.cell);
+      if(i===chars.length-1 && animateLast){
+        settle(parts.layers,0);
+        const t0=performance.now();
+        (function step(now){
+          const p=Math.min(1,(now-t0)/(LAND_MS*slow));
+          settle(parts.layers,ease(p));
+          if(p<1) requestAnimationFrame(step);
+        })(t0);
+      } else settle(parts.layers,1);
+    });
+  }
+
+  function glide(d){
+    if(!glideOn || !d) return;
+    const t0=performance.now();
+    (function step(now){
+      const p=Math.min(1,(now-t0)/(GLIDE_MS*slow));
+      amount.style.transform=`translateX(${d*(1-ease(p))}px)`;
+      if(p<1) requestAnimationFrame(step); else amount.style.transform='';
+    })(t0);
+  }
+
+  function type(k){
+    const raw = value==='0' ? '' : value.replace(/,/g,'');
     let nextRaw;
-    if (k === '<') nextRaw = raw.slice(0, -1);
-    else if (k === '.') nextRaw = raw.includes('.') ? raw : (raw || '0') + '.';
-    else nextRaw = raw.replace('.', '').length >= 7 ? raw : raw + k;
+    if(k==='<') nextRaw = raw.slice(0,-1);
+    else if(k==='.') nextRaw = raw.includes('.') ? raw : (raw||'0')+'.';
+    else nextRaw = raw.replace('.','').length>=7 ? raw : raw+k;
     const next = group(nextRaw);
-    const grew = next.length > value.length;
+    if(next===value) return;
+    const grew = next.length>value.length;
+    glide((span(next)-span(value))/2);
     value = next;
     render(next, grew);
   }
 
-  const pad = document.getElementById('pad');
-  ['1','2','3','4','5','6','7','8','9','.','0','<'].forEach(k => {
-    const b = document.createElement('button');
-    b.className = 'key'; b.textContent = k;
-    b.onclick = () => type(k);
-    pad.appendChild(b);
+  const pad=document.getElementById('pad');
+  ['1','2','3','4','5','6','7','8','9','.','0','<'].forEach(k=>{
+    const b=document.createElement('button'); b.className='key'; b.textContent=k;
+    b.onclick=()=>type(k); pad.appendChild(b);
   });
 
-  document.getElementById('play').onclick = () => {
-    value = '0'; render('0', false);
-    ['1','2','3','4'].forEach((k, i) =>
-      setTimeout(() => type(k), 260 * slow * (i + 1)));
+  document.getElementById('play').onclick=()=>{
+    value='0'; render('0',false); amount.style.transform='';
+    ['1','2','3','4','5'].forEach((k,i)=>setTimeout(()=>type(k), 300*slow*(i+1)));
   };
-  document.getElementById('clear').onclick = () => { value = '0'; render('0', false); };
-  document.getElementById('slowmo').onclick = () => {
-    slow = slow === 1 ? 5 : 1;
-    const l = document.getElementById('slowlabel');
-    l.textContent = slow === 1 ? 'off' : '5x';
-    l.className = slow === 1 ? '' : 'slow';
+  document.getElementById('clear').onclick=()=>{ value='0'; render('0',false); amount.style.transform=''; };
+  document.getElementById('slowmo').onclick=()=>{
+    slow = slow===1?5:1;
+    const l=document.getElementById('slowlabel');
+    l.textContent = slow===1?'off':'5x'; l.className = slow===1?'':'on';
+  };
+  document.getElementById('noglide').onclick=()=>{
+    glideOn=!glideOn;
+    const l=document.getElementById('glidelabel');
+    l.textContent = glideOn?'on':'off'; l.className = glideOn?'':'on';
   };
 
-  render('0', false);
+  render('0',false);
 </script>

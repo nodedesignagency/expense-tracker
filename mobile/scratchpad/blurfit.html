@@ -1,0 +1,122 @@
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: SFR; src: url('../assets/fonts/sf-pro-rounded-600.ttf'); }
+  body { margin:0; background:#141414; color:#fff;
+         font-family: -apple-system, system-ui, sans-serif; padding:18px 20px; }
+  h2 { font-size:13px; font-weight:600; margin:0 0 2px; letter-spacing:.2px }
+  .sub { font-size:11px; color:#8a8a8a; margin:0 0 10px }
+  .strip { display:flex; gap:10px; margin-bottom:22px }
+  .frame { width:104px; height:104px; position:relative; background:#101010;
+           border:1px solid rgba(255,255,255,.08); border-radius:10px; overflow:hidden }
+  .frame span.lbl { position:absolute; left:6px; top:4px; font-size:9px; color:#6f6f6f;
+                    font-family:-apple-system,system-ui,sans-serif; z-index:5 }
+  .g { position:absolute; left:0; right:0; top:26px; text-align:center;
+       font-family:SFR, system-ui; font-size:60px; font-weight:600; line-height:1;
+       letter-spacing:-1.4px; color:#fff; }
+</style>
+<body>
+<h2>A — true gaussian blur (the reference)</h2>
+<p class="sub">CSS filter: blur(σ·(1−t)), opacity t, translateY 16·(1−t). σ₀ = 12</p>
+<div class="strip" id="a"></div>
+
+<h2>B — 9 stacked copies, gaussian weights, crossfading to a sharp glyph</h2>
+<p class="sub">taps at ±2σ, w ∝ exp(−c²/2); stack opacity t(1−t)·k, sharp opacity t²</p>
+<div class="strip" id="b"></div>
+
+<h2>D — three STATIC blur levels, crossfaded by opacity only</h2>
+<p class="sub">blur(14) / blur(5) / sharp, each a fixed layer; only their opacities move</p>
+<div class="strip" id="d"></div>
+
+<h2>C — no blur at all: opacity t, translateY 16·(1−t)</h2>
+<p class="sub">the honest fallback</p>
+<div class="strip" id="c"></div>
+
+<script>
+const TS = [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1];
+const CH = '3', SIG = 12, RISE = 16, N = 9, BOOST = 2.1;
+
+const C = [], W = [];
+for (let i = 0; i < N; i++) {
+  const c = (i / (N - 1) - 0.5) * 4;          // spans ±2σ
+  C.push(c); W.push(Math.exp(-c * c / 2));
+}
+const SUM = W.reduce((a, b) => a + b, 0);
+for (let i = 0; i < N; i++) W[i] /= SUM;
+
+function frame(t, build) {
+  const f = document.createElement('div');
+  f.className = 'frame';
+  const l = document.createElement('span');
+  l.className = 'lbl'; l.textContent = 't=' + t.toFixed(2);
+  f.appendChild(l);
+  build(f, t);
+  return f;
+}
+const A = document.getElementById('a'), B = document.getElementById('b'),
+      Cc = document.getElementById('c'), D = document.getElementById('d');
+
+/* Three fixed layers. Each owns a stretch of the run and hands over. */
+const LEVELS = [14, 5, 0];
+const STOPS  = [[0, 0.42], [0.18, 0.78], [0.55, 1]];   // [fadeIn done, fadeOut start]
+function levelAlpha(i, t) {
+  const [a, b] = STOPS[i];
+  if (i === LEVELS.length - 1) return t <= a ? 0 : Math.min(1, (t - a) / (b - a));
+  const up = t <= 0 ? 0 : Math.min(1, t / Math.max(a, 0.001));
+  const down = t < b ? 1 : 0;
+  return (i === 0 ? 1 : up) * (t < b ? 1 : 0) * (t >= b ? 0 : 1);
+}
+
+TS.forEach(t => {
+  A.appendChild(frame(t, (f, t) => {
+    const g = document.createElement('div');
+    g.className = 'g'; g.textContent = CH;
+    g.style.filter = `blur(${SIG * (1 - t)}px)`;
+    g.style.opacity = t;
+    g.style.transform = `translateY(${RISE * (1 - t)}px)`;
+    f.appendChild(g);
+  }));
+
+  B.appendChild(frame(t, (f, t) => {
+    const s = SIG * (1 - t);
+    for (let i = 0; i < N; i++) {
+      const g = document.createElement('div');
+      g.className = 'g'; g.textContent = CH;
+      g.style.opacity = W[i] * t * (1 - t) * BOOST;
+      g.style.transform = `translateY(${RISE * (1 - t) + C[i] * s}px)`;
+      f.appendChild(g);
+    }
+    const m = document.createElement('div');
+    m.className = 'g'; m.textContent = CH;
+    m.style.opacity = t * t;
+    m.style.transform = `translateY(${RISE * (1 - t)}px)`;
+    f.appendChild(m);
+  }));
+
+  D.appendChild(frame(t, (f, t) => {
+    LEVELS.forEach((lv, i) => {
+      const g = document.createElement('div');
+      g.className = 'g'; g.textContent = CH;
+      if (lv) g.style.filter = `blur(${lv}px)`;
+      // simple sequential crossfade across the three layers
+      const seg = 1 / LEVELS.length;
+      const lo = i * seg, hi = (i + 1) * seg;
+      let a;
+      if (t < lo) a = i === 0 ? 1 : 0;
+      else if (t > hi) a = i === LEVELS.length - 1 ? 1 : 0;
+      else a = i === LEVELS.length - 1 ? (t - lo) / seg : 1 - (t - lo) / seg;
+      if (i === 0 && t < lo) a = 1;
+      g.style.opacity = a * t;
+      g.style.transform = `translateY(${RISE * (1 - t)}px)`;
+      f.appendChild(g);
+    });
+  }));
+
+  Cc.appendChild(frame(t, (f, t) => {
+    const g = document.createElement('div');
+    g.className = 'g'; g.textContent = CH;
+    g.style.opacity = t;
+    g.style.transform = `translateY(${RISE * (1 - t)}px)`;
+    f.appendChild(g);
+  }));
+});
+</script>

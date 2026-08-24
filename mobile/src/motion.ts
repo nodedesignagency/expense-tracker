@@ -99,30 +99,50 @@ export const BLOB: Blob = 'blob'
 /*
  * A digit landing in the amount.
  *
- * The owner's reference: the figure does not simply appear, it arrives —
- * rising into its seat from below, smeared while it is moving and sharp once
- * it has stopped. Only the digit just typed does this. The ones already set
- * are still, which is what makes each keystroke read as its own event rather
- * than as the whole number twitching.
+ * The owner's reference is MagicUI's "blur in by character": the character
+ * fades up out of a blur and sharpens into place. Only the digit just typed
+ * does it — the ones already set stay still, so each keystroke is its own
+ * event rather than the whole number twitching.
  *
- * There is no per-view blur in React Native — `expo-blur` blurs what is
- * *behind* a view, not the view itself — so the smear is drawn: a few copies
- * of the glyph trailing the real one down its path, each faint, all collapsing
- * into it as it slows. That is what a motion blur is anyway, and it costs
- * nothing but transforms and opacities.
+ * **The blur is real.** The first cut faked it by stacking copies of the glyph
+ * along its path, and the copies read as copies: rendered side by side against
+ * a true gaussian at matched times, the stack showed concentric ridges where
+ * each one's edge composited over the last. That was the "clunky".
  *
- * Distances are frame units; scale them at the point of use.
+ * React Native takes a `filter` style from 0.76 on the New Architecture, which
+ * SDK 54 is, and its `blur` is a standard deviation exactly like CSS. It
+ * cannot be animated per frame — it is not a transform or an opacity — so it
+ * is not: three layers of the same glyph carry *fixed* blurs and only their
+ * opacities move, the same trick the commit bloom uses for its `BlurView`.
+ *
+ * Android applies it through `setRenderEffect`, which is API 31 and up; below
+ * that the layers are simply unblurred copies of one another crossfading in
+ * place, which degrades to a clean fade rather than to anything wrong.
+ *
+ * Distances and sigmas are frame units; scale them at the point of use.
  */
-export const LAND_MS = 380
-/** How far below its seat the digit starts. */
-export const LAND_RISE = 44
-/** How long the trail runs behind it at full speed. */
-export const LAND_SMEAR = 30
-/** How many copies make the smear, and how strongly each one prints. */
-export const LAND_GHOSTS = 3
-export const LAND_GHOST_ALPHA = 0.22
-/** How small it starts. Small enough to read as arriving, not as a zoom. */
-export const LAND_FROM = 0.84
+export const LAND_MS = 340
+/** How far below its seat the character starts. */
+export const LAND_RISE = 18
+/** The two fixed blurs, as standard deviations. The third layer is sharp. */
+export const LAND_BLUR_FAR = 14
+export const LAND_BLUR_NEAR = 5
+
+/*
+ * The figure re-centring under a new character.
+ *
+ * The amount is centred, so a character added on the right moves everything
+ * already there half its width to the left. Unanimated that is a jump on every
+ * keystroke, and it was the other half of the "clunky" — the landing was
+ * smooth and the number under it snapped.
+ *
+ * It is not measured. `Figure.tsx` reads the advance widths out of the shipped
+ * font (`scratchpad/ttf.py`) and knows exactly how wide the figure is about to
+ * be, so the glide is set in the same tick as the character — measuring with
+ * `onLayout` would paint one frame at the new position before correcting it,
+ * which is a flicker rather than a fix.
+ */
+export const GLIDE_MS = 340
 
 /** Where the confirmation shows itself, along the same track. */
 export const SAID_IN = 0.34

@@ -352,9 +352,14 @@ export function Composer() {
       header={
         /*
          * The reference's own header: the way out on the left, what kind of
-         * entry this is in the middle, and the date on the right. The title is
-         * gone — a screen that is one enormous number does not need to be told
-         * it is a new entry.
+         * entry this is in the middle, and on the right nothing but the room
+         * to hold the middle in the middle. The title is gone — a screen that
+         * is one enormous number does not need to be told it is a new entry.
+         *
+         * The date sat here for a turn and went back down to the chips. What
+         * holds this side now is a spacer with **no fill**: the version before
+         * it reused the way-out's own style, background and all, so it drew a
+         * disc standing empty — which the owner circled, fairly.
          */
         <View style={s.header}>
           <Pressable
@@ -366,56 +371,25 @@ export function Composer() {
             <CloseIcon size={sp(17)} color={color.text} />
           </Pressable>
 
-          {/*
-            * Centred against the header rather than sat between its two
-            * neighbours, because they are no longer the same width — the date
-            * on the right is a chip and the way out on the left is a circle.
-            * `box-none` so it does not swallow the taps meant for either.
-            */}
-          <View style={s.middle} pointerEvents="box-none">
-            <View style={s.segment}>
-              {DIRECTIONS.map((d) => {
-                const on = direction === d.value
-                return (
-                  <Pressable
-                    key={d.value}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected: on }}
-                    onPress={() => setDirection(d.value)}
-                    style={[s.segmentOption, on ? s.segmentOn : null]}
-                  >
-                    <d.Icon size={sp(16)} color={on ? d.tint : color.textDim} />
-                    <Text style={[s.segmentText, on ? null : s.segmentTextOff]}>
-                      {d.label}
-                    </Text>
-                  </Pressable>
-                )
-              })}
-            </View>
+          <View style={s.segment}>
+            {DIRECTIONS.map((d) => {
+              const on = direction === d.value
+              return (
+                <Pressable
+                  key={d.value}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: on }}
+                  onPress={() => setDirection(d.value)}
+                  style={[s.segmentOption, on ? s.segmentOn : null]}
+                >
+                  <d.Icon size={sp(16)} color={on ? d.tint : color.textDim} />
+                  <Text style={[s.segmentText, on ? null : s.segmentTextOff]}>{d.label}</Text>
+                </Pressable>
+              )
+            })}
           </View>
 
-          {/*
-            * The date, which used to sit in the row of chips below and left an
-            * empty disc up here holding the middle in place. An empty disc
-            * reads as a control that has lost its glyph, and the owner called
-            * it out as exactly that. It is filled rather than outlined, like
-            * the way out beside it, so the header's two controls belong to
-            * each other. The chips below are a set of two now, not three.
-            */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Date, ${dayLabel(date)}`}
-            onPress={() => {
-              setPicker(null)
-              setDating(true)
-            }}
-            style={[s.when, dating ? s.whenOn : null]}
-          >
-            <CalendarIcon size={sp(15)} color={color.text} />
-            <Text style={s.whenText} numberOfLines={1}>
-              {dayLabel(date)}
-            </Text>
-          </Pressable>
+          <View style={s.hold} />
         </View>
       }
       hold={landed}
@@ -465,14 +439,15 @@ export function Composer() {
           * what was ever between the two.
           */}
         <Pressable
-          style={s.amount}
           onPress={() => Keyboard.dismiss()}
           accessibilityRole="button"
           accessibilityLabel="Edit amount"
         >
-          <Text style={[s.sign, { color: tint }]}>{direction === 'debit' ? '−' : '+'}</Text>
-          <Text style={s.currency}>$</Text>
-          <Figure value={display(amount)} />
+          <Figure
+            value={display(amount)}
+            sign={direction === 'debit' ? '−' : '+'}
+            tint={tint}
+          />
         </Pressable>
 
         {/*
@@ -511,6 +486,32 @@ export function Composer() {
         * empty. Down here they annotate the number instead of crowding it.
         */}
       <View style={s.chips}>
+        {/*
+          * The date leads, and the two that say what the entry *is* are pushed
+          * to the far side. They stay direct children of this row with a
+          * spacer between rather than being grouped into a box of their own:
+          * `Stat` reports its `layout.x` to place the menu that hangs off it,
+          * and that x is measured against its parent — nesting them would
+          * measure against the box instead and hang both menus in the wrong
+          * place.
+          */}
+        <Stat
+          label={dayLabel(date)}
+          Icon={CalendarIcon}
+          on={dating}
+          onPress={() => {
+            setPicker(null)
+            setDating(true)
+          }}
+          onAnchor={() => {}}
+        />
+
+        {/*
+          * Spelled out rather than `flex: 1`. `flex` and `flexGrow` are
+          * separate keys to the style merger, and the shorthand has collapsed
+          * a box in this project before.
+          */}
+        <View style={s.spring} />
 
         <Stat
           label={category}
@@ -748,20 +749,6 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: sp(6),
   },
-  /*
-   * The middle, pinned to the header rather than sharing a row with its two
-   * neighbours. Spelled with all four edges: an absolute child left to find
-   * its own box has drawn nothing at all in this project before.
-   */
-  middle: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: sp(6),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   exit: {
     width: sp(38),
     height: sp(38),
@@ -771,22 +758,11 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.07)',
   },
   /*
-   * The date, up in the header. Filled like the way out beside it rather than
-   * outlined like the chips below, so the two header controls read as a pair
-   * and the chips stay their own set.
+   * The same room as the way out, and **no fill**. It reused `exit` wholesale
+   * once, background included, which drew a disc standing empty on the right
+   * of the header — a control that had lost its glyph, as the owner read it.
    */
-  when: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: sp(6),
-    height: sp(38),
-    paddingLeft: sp(11),
-    paddingRight: sp(13),
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-  },
-  whenOn: { backgroundColor: 'rgba(255,255,255,0.16)' },
-  whenText: { ...type.chip, ...capTrim(sp(14)), color: color.text },
+  hold: { width: sp(38), height: sp(38) },
   segment: {
     flexDirection: 'row',
     padding: sp(3),
@@ -822,14 +798,6 @@ const s = StyleSheet.create({
     gap: sp(6),
     minHeight: sp(140),
   },
-  amount: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: sp(3),
-  },
-  sign: { fontFamily: font.r600, fontSize: sp(36) },
-  currency: { fontFamily: font.r600, fontSize: sp(36), color: color.textDim },
 
   /*
    * Centred text under the figure, with no chrome of its own.
@@ -858,17 +826,18 @@ const s = StyleSheet.create({
   nameOn: { color: color.text },
 
   /*
-   * Two now: what it is, and what it was paid with. The date used to be the
-   * third and has gone up to the header, where it fills a disc that was
-   * standing empty. Two hug the middle with room to spare, where three were
-   * solved to fit a line (85 + 120 + 90 against the 339 there is).
+   * Three again, but no longer huddled in the middle: the date on one side and
+   * what the entry is on the other. They were solved to fit a line together
+   * (85 + 120 + 90 against the 339 there is) and still do — the spring in the
+   * middle takes whatever is left over.
    */
   chips: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    alignItems: 'center',
     gap: sp(7),
     paddingBottom: sp(14),
   },
+  spring: { flexGrow: 1, flexShrink: 1, flexBasis: 0 },
   stat: {
     flexDirection: 'row',
     alignItems: 'center',
