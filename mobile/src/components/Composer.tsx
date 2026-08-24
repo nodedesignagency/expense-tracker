@@ -64,14 +64,19 @@ const LIGHT: Record<Direction, { glow: string; trail: string; caption: string }>
 /*
  * The light the whole screen fills with once the entry lands.
  *
- * Near-white at the core in both cases — light is white before it is any
- * colour, and a bloom that starts at the ledger's own green reads as a
- * coloured disc rather than as something bright happening. The colour only
- * arrives on the way out.
+ * **Not** near-white at the core. That was the first cut, and it put a small
+ * hard disc of white in the middle of the screen — the owner rejected it. The
+ * core is a light tint of the entry's own colour now, peaking well under 1,
+ * with a long ramp out of it.
+ *
+ * `wash` is a second light, offset and broader, in a hue the first does not
+ * have — violet under the reds, teal under the greens. The reference is not
+ * one colour, and that off-centre pairing is what makes a blur read as
+ * atmosphere rather than as a circle.
  */
 const BLOOM: Record<Direction, BloomTint> = {
-  credit: { core: '#EAFFF6', mid: '#3BE39A', edge: '#00553F' },
-  debit: { core: '#FFF1EE', mid: '#FF8A7E', edge: '#5E100C' },
+  credit: { core: '#B9F2DA', mid: '#2FD693', edge: '#00553F', wash: '#1C7FB0' },
+  debit: { core: '#FFCFC6', mid: '#FF7C6E', edge: '#5E100C', wash: '#7A3BB5' },
 }
 
 /** Which list the drawer is showing. Null is the keypad, which is the default. */
@@ -419,16 +424,20 @@ export function Composer() {
           * return key to press, so the pad was simply gone for good. The
           * owner hit exactly that.
           *
-          * The space the pad left is a target now: tapping anywhere in it
-          * puts the name down and brings the pad back.
+          * The space the pad left carries a **visible** Done now. An invisible
+          * target in the gap was the first attempt and the owner still could
+          * not find the way back — which is fair: nothing said there was one.
+          * A button says it.
           */}
         {naming ? (
           <Pressable
-            style={StyleSheet.absoluteFill}
+            style={s.dismiss}
             onPress={() => Keyboard.dismiss()}
             accessibilityRole="button"
             accessibilityLabel="Done naming"
-          />
+          >
+            <Text style={s.dismissText}>Done</Text>
+          </Pressable>
         ) : null}
 
         {!naming ? (
@@ -741,6 +750,24 @@ const s = StyleSheet.create({
 
   /* Holds the pad, and is what the menus lie over rather than displace. */
   drawer: { minHeight: DRAWER_H, paddingTop: sp(14) },
+  /* Where the pad was, while the name has the keyboard. */
+  dismiss: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: sp(28),
+  },
+  dismissText: {
+    ...type.chip,
+    ...capTrim(sp(14)),
+    color: color.textSoft,
+    paddingVertical: sp(12),
+    paddingHorizontal: sp(26),
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    overflow: 'hidden',
+  },
   pad: { flexDirection: 'row', flexWrap: 'wrap', gap: KEY_GAP },
   key: {
     width: KEY_W,

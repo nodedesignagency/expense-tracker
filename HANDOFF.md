@@ -294,9 +294,14 @@ far edge rather than the one it came from. The keyframe track is `BLOOM_AT` /
 - It is the sheet's `curtain`, so it covers the **screen**, not the panel. A
   bloom that stopped where the sheet stops would read as something happening
   in the form rather than to the ledger.
-- The core is near-white in both directions (`BLOOM` in `Composer.tsx`), and
-  the colour only arrives on the way out. Starting at the ledger's green
-  reads as a coloured disc, not as something bright happening.
+- **No white core, and two hues.** A near-white middle at 0.96 put a small
+  hard disc of white in the centre of the screen — rejected. The core is a
+  light tint of the entry's own colour, peaking well under 1, with a long
+  ramp out of it. And a second, broader, offset light sits under it in a hue
+  the first does not have (violet under the reds, teal under the greens):
+  the reference is not one colour, and that off-centre pairing is what makes
+  a blur read as atmosphere rather than as a circle. Both in `BLOOM` in
+  `Composer.tsx`.
 - The composer goes behind a **static** `BlurView` crossfaded by opacity —
   animating a blur's intensity re-renders it every frame on Android.
 - One shared value (`celebrate`, owned by `Composer`) drives every part;
@@ -350,13 +355,6 @@ These are settled; do not regress them:
 
 ## Traps that have already cost time
 
-- **Hiding a control on focus needs a way back that does not depend on the
-  keyboard.** Focusing the composer's name field stands the number pad down,
-  so the two keyboards are never up at once — and left nothing to tap to
-  bring it back. On a phone the return key blurs the field; on the simulator,
-  typing on the Mac's keyboard, the software keyboard never appears, there is
-  no return key, and the pad is gone for good. The space the pad leaves is a
-  `Pressable` now. Any "hide X while Y is focused" needs the same.
 - **`flex` and `flexGrow` are separate style keys.** Merging a `{ flex: 1 }`
   over a `{ flexGrow: 0 }` does not replace it — you get a collapsed box and a
   footer sitting on top of the keypad. Spell out `flexGrow/flexShrink/flexBasis`.
@@ -390,6 +388,18 @@ These are settled; do not regress them:
   screenshot and rejected both times before anyone called the tool that
   returns the numbers. Load the `figma-design-to-code` skill first — the MCP
   resource `skill://figma/figma-design-to-code/SKILL.md` — then call it.
+- **A `Modal` does not agree with `Dimensions.get('window')` on Android.** A
+  Modal is its own window, and sizing a sheet from a module-level `Dimensions`
+  read put the panel short and too high on Android — the ledger showed
+  underneath it — while iOS looked correct. `Sheet.tsx` measures its own root
+  with `onLayout` and sizes from that instead. **Measure the container; it
+  cannot disagree with itself.** Same class as the gesture trap below: a
+  Modal is not part of the tree you think it is.
+- **Hiding a control on focus needs a way back you can SEE.** The composer's
+  name field stands the number pad down. An invisible tap target in the gap
+  it leaves was the first fix and the owner still could not find the way back
+   — fairly, since nothing said there was one. It is a visible **Done**
+  button now.
 - **Gestures inside a `Modal` are dead on Android without their own
   `GestureHandlerRootView`.** A Modal is a separate native window, and the
   root view wrapping the app does not reach into it. iOS works either way —

@@ -66,7 +66,6 @@ const FLOAT = sp(SHEET_FLOAT)
  * the bottom it was meant to be against. Read once at module load, the way the
  * scale is: the app is locked to portrait.
  */
-const MAX_H = Dimensions.get('window').height * 0.86
 
 /*
  * A page rather than a panel takes a height, not a cap on one.
@@ -90,13 +89,19 @@ const WINDOW_H = Dimensions.get('window').height
  * Derived from the recede rather than given as its own figure, so the two
  * cannot drift: move the page back further and the sheet follows it down.
  */
-function pageHeight(insetTop: number, insetBottom: number) {
+function pageHeight(frameH: number, insetTop: number, insetBottom: number) {
   /*
-   * From just under the receded toggle row to the float at the bottom. The
-   * band the page's own padding used to leave on screen is gone — the page
-   * slides up to spend it — so the sheet takes everything under the row.
+   * From just under the receded toggle row to the float at the bottom.
+   *
+   * `frameH` is the Modal's **own measured height**, not a module-level read
+   * of `Dimensions`. That read is what put the sheet in the wrong place on
+   * Android: a Modal is its own window, and `Dimensions.get('window')` there
+   * does not agree with the window the Modal actually gets — so the panel
+   * came out short, sat too high, and left the ledger showing underneath it
+   * while iOS looked right. Measuring the container cannot disagree with the
+   * container.
    */
-  return WINDOW_H - pageSheetTop(insetTop) - insetBottom - FLOAT
+  return frameH - pageSheetTop(insetTop) - insetBottom - FLOAT
 }
 
 /*
@@ -144,6 +149,8 @@ export function Sheet({
 }: SheetProps) {
   const insets = useSafeAreaInsets()
   const [mounted, setMounted] = useState(open)
+  /* What the Modal actually got, once it has been laid out. */
+  const [frameH, setFrameH] = useState(WINDOW_H)
   /* The panel's own height, so it starts exactly its own height below. */
   const [height, setHeight] = useState(0)
   const t = useSharedValue(0)
@@ -169,7 +176,7 @@ export function Sheet({
    * screen as a strip of the panel, right as the modal unmounts. Add what sits
    * below it. Until it has been measured, a screenful is far enough.
    */
-  const exit = (height || WINDOW_H) + insets.bottom + FLOAT
+  const exit = (height || frameH) + insets.bottom + FLOAT
 
   const panel = useAnimatedStyle(() => ({
     transform: [{ translateY: interpolate(t.get(), [0, 1], [exit, 0]) }],
@@ -195,7 +202,13 @@ export function Sheet({
         * on iOS and simply did not respond on the owner's phone. iOS works
         * either way, which is exactly why it slipped through.
         */}
-      <GestureHandlerRootView style={s.root}>
+      <GestureHandlerRootView
+        style={s.root}
+        onLayout={(e) => {
+          const next = e.nativeEvent.layout.height
+          setFrameH((prev) => (Math.abs(prev - next) < 1 ? prev : next))
+        }}
+      >
         <Animated.View style={[s.scrim, scrim]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
         </Animated.View>
@@ -210,9 +223,9 @@ export function Sheet({
               tall
                 ? {
                     marginBottom: insets.bottom + FLOAT,
-                    height: pageHeight(insets.top, insets.bottom),
+                    height: pageHeight(frameH, insets.top, insets.bottom),
                   }
-                : { marginBottom: insets.bottom + FLOAT, maxHeight: MAX_H },
+                : { marginBottom: insets.bottom + FLOAT, maxHeight: frameH * 0.86 },
               panel,
             ]}
             onLayout={onLayout}

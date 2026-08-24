@@ -40,12 +40,14 @@ const SAID_Y = 0.44
 const SAID_RISE = sp(10)
 
 export interface BloomTint {
-  /** The hot middle, near-white so it reads as light and not as paint. */
+  /** The middle. Tinted, not white — see the note on `Bloom` below. */
   core: string
   /** The colour it becomes on the way out. */
   mid: string
   /** The deep edge, where it dies into the black. */
   edge: string
+  /** A second light, off to one side, in a hue the first one does not have. */
+  wash: string
 }
 
 interface CommitProps {
@@ -163,13 +165,41 @@ export function Commit({ progress, tint, label }: CommitProps) {
 }
 
 /**
- * The light itself: white at the core, the entry's colour through the middle,
- * dying to nothing well inside the sprite's edge so it never shows a rim.
+ * The light itself — two of them, and neither has a white middle.
+ *
+ * The first cut ran to near-white at 0.96 over the innermost 8%, which put a
+ * small hard disc of white in the centre of the screen: the owner called it
+ * out as not good, and it is the same mistake as the slider's tight bloom in
+ * a different guise. Real light of this kind has no hot spot you can point
+ * at. So the core is a *tint* of the entry's colour rather than white, it
+ * peaks well under 1, and the ramp out of it is long.
+ *
+ * And there are two, because the reference is not one colour: a second,
+ * broader light sits off to one side in a hue the first does not have —
+ * violet under the reds, teal under the greens. That off-centre pairing is
+ * what makes a blur read as atmosphere rather than as a circle. It is drawn
+ * first, so the entry's own colour stays on top and the direction still
+ * reads at a glance.
  */
 function Bloom({ tint }: { tint: BloomTint }) {
+  /* How far the second light sits off the first, as a share of the sprite. */
+  const off = BLOOM * 0.14
   return (
     <Svg width={BLOOM} height={BLOOM} viewBox={`0 0 ${BLOOM} ${BLOOM}`}>
       <Defs>
+        <RadialGradient
+          id="commitWash"
+          cx={BLOOM / 2 - off}
+          cy={BLOOM / 2 + off * 0.6}
+          r={BLOOM / 2}
+          gradientUnits="userSpaceOnUse"
+        >
+          <Stop offset="0" stopColor={tint.wash} stopOpacity={0.4} />
+          <Stop offset="0.22" stopColor={tint.wash} stopOpacity={0.3} />
+          <Stop offset="0.46" stopColor={tint.wash} stopOpacity={0.14} />
+          <Stop offset="0.7" stopColor={tint.wash} stopOpacity={0.04} />
+          <Stop offset="1" stopColor={tint.wash} stopOpacity={0} />
+        </RadialGradient>
         <RadialGradient
           id="commitBloom"
           cx={BLOOM / 2}
@@ -177,15 +207,16 @@ function Bloom({ tint }: { tint: BloomTint }) {
           r={BLOOM / 2}
           gradientUnits="userSpaceOnUse"
         >
-          <Stop offset="0" stopColor={tint.core} stopOpacity={0.96} />
-          <Stop offset="0.08" stopColor={tint.core} stopOpacity={0.82} />
-          <Stop offset="0.17" stopColor={tint.mid} stopOpacity={0.6} />
-          <Stop offset="0.29" stopColor={tint.mid} stopOpacity={0.36} />
-          <Stop offset="0.44" stopColor={tint.edge} stopOpacity={0.17} />
-          <Stop offset="0.63" stopColor={tint.edge} stopOpacity={0.05} />
+          <Stop offset="0" stopColor={tint.core} stopOpacity={0.7} />
+          <Stop offset="0.13" stopColor={tint.core} stopOpacity={0.6} />
+          <Stop offset="0.25" stopColor={tint.mid} stopOpacity={0.46} />
+          <Stop offset="0.4" stopColor={tint.mid} stopOpacity={0.27} />
+          <Stop offset="0.57" stopColor={tint.edge} stopOpacity={0.13} />
+          <Stop offset="0.76" stopColor={tint.edge} stopOpacity={0.035} />
           <Stop offset="1" stopColor={tint.edge} stopOpacity={0} />
         </RadialGradient>
       </Defs>
+      <Rect x={0} y={0} width={BLOOM} height={BLOOM} fill="url(#commitWash)" />
       <Rect x={0} y={0} width={BLOOM} height={BLOOM} fill="url(#commitBloom)" />
     </Svg>
   )
