@@ -1,0 +1,36 @@
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: SFR; src: url('../assets/fonts/sf-pro-rounded-600.ttf'); }
+  body { margin:0; background:#141414; color:#fff; font-family:-apple-system,system-ui,sans-serif; padding:16px }
+  h2 { font-size:12px; margin:0 0 8px; font-weight:600 }
+  .strip { display:flex; gap:6px; margin-bottom:16px }
+  .f { width:92px; height:118px; position:relative; background:#101010;
+       border:1px solid rgba(255,255,255,.08); border-radius:8px; overflow:hidden }
+  .lbl { position:absolute; left:5px; top:3px; font-size:8.5px; color:#707070; z-index:3 }
+  .g { position:absolute; left:0; right:0; top:34px; text-align:center;
+       font-family:SFR,system-ui; font-size:56px; font-weight:600; line-height:1; color:#fff }
+</style>
+<body>
+<h2>NEW — linear driver, cubic-out shape, fade over 62% of real time (ms of a 420ms run)</h2>
+<div class="strip" id="a"></div>
+<h2>OLD — cubic-EASED driver (what "not an animation" looks like: over by 160ms)</h2>
+<div class="strip" id="b"></div>
+<script>
+const RISE=24, FROM=0.82, FADE=0.62, MS=420;
+const TS=[0,.08,.16,.24,.33,.45,.6,.8,1];
+function cell(strip, ms, op, ty, sc){
+  const f=document.createElement('div'); f.className='f';
+  const l=document.createElement('span'); l.className='lbl'; l.textContent=ms+'ms';
+  const g=document.createElement('div'); g.className='g'; g.textContent='5';
+  g.style.opacity=op; g.style.transform=`translateY(${ty}px) scale(${sc})`;
+  f.appendChild(l); f.appendChild(g); strip.appendChild(f);
+}
+const A=document.getElementById('a'), B=document.getElementById('b');
+TS.forEach(p=>{
+  const e=1-(1-p)**3;
+  cell(A, Math.round(p*MS), Math.min(1,p/FADE), (1-e)*RISE, FROM+(1-FROM)*e);
+  // old: driver itself eased, opacity read against the eased value
+  const q=1-(1-p)**3;
+  cell(B, Math.round(p*MS), Math.min(1,q/0.55), (1-q)*RISE, FROM+(1-FROM)*q);
+});
+</script>

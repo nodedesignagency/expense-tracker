@@ -1,21 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { StyleSheet, Text, View, type TextStyle } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import Animated, {
+  Easing,
   Extrapolation,
   interpolate,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-  type SharedValue,
 } from 'react-native-reanimated'
-import {
-  EASE_ENTER,
-  GLIDE_MS,
-  LAND_BLUR_FAR,
-  LAND_BLUR_NEAR,
-  LAND_MS,
-  LAND_RISE,
-} from '../motion'
+import { EASE_LAND, GLIDE_MS, LAND_FADE, LAND_FROM, LAND_MS, LAND_RISE } from '../motion'
 import { color, font, sp } from '../theme'
 
 /*
@@ -26,23 +19,6 @@ import { color, font, sp } from '../theme'
 const SIZE = sp(60)
 const TRACK = sp(-1.4)
 const RISE = sp(LAND_RISE)
-
-/*
- * The three layers, from softest to sharp. Each carries a *fixed* blur; only
- * their opacities are ever animated, because `filter` is neither a transform
- * nor an opacity and cannot be driven per frame.
- */
-const BLURS = [sp(LAND_BLUR_FAR), sp(LAND_BLUR_NEAR), 0]
-
-/*
- * Room for the blur to fall off in.
- *
- * A `RenderEffect` is clipped to the view it is set on, so a blurred glyph in
- * a box its own size comes out as a blurred rectangle with cut edges. Three
- * standard deviations is where a gaussian is spent, so each layer is given
- * that much padding and pulled back by it, leaving the glyph where it was.
- */
-const PAD = sp(LAND_BLUR_FAR * 3)
 
 /*
  * Advance widths, in ems, read out of `sf-pro-rounded-600.ttf` itself by
@@ -75,51 +51,27 @@ interface FigureProps {
 }
 
 /**
- * One character, arriving.
+ * The character just typed, arriving.
  *
- * Three copies of the same glyph at three fixed blurs, handed from the softest
- * to the sharp one by opacity alone while all three rise together. Rendered
- * against a true gaussian at matched times this is very close; the stack of
- * offset copies it replaces was not, and showed its seams.
+ * It rises into its seat, grows the last of the way into full size, and fades
+ * up as it goes. **Transform and opacity, and nothing else.**
  *
- * Nothing scales. Scaled text rasterises at its laid-out size and is stretched
- * from there, which softens exactly the glyph this is trying to sharpen.
- */
-function Layer({ t, i, ch }: { t: SharedValue<number>; i: number; ch: string }) {
-  const style = useAnimatedStyle(() => {
-    const p = t.get()
-    /* Still fading in while the blur resolves, the way the reference does. */
-    const fade = interpolate(p, [0, 0.45], [0, 1], Extrapolation.CLAMP)
-    const share =
-      i === 0
-        ? interpolate(p, [0, 0.35], [1, 0], Extrapolation.CLAMP)
-        : i === 1
-          ? interpolate(p, [0, 0.35, 0.7], [0, 1, 0], Extrapolation.CLAMP)
-          : interpolate(p, [0.35, 0.7], [0, 1], Extrapolation.CLAMP)
-    return {
-      opacity: fade * share,
-      transform: [{ translateY: (1 - p) * RISE }],
-    }
-  })
-
-  return (
-    <Animated.View style={[s.layer, BLUR[i], style]} pointerEvents="none">
-      <Text style={s.padded} numberOfLines={1}>
-        {ch}
-      </Text>
-    </Animated.View>
-  )
-}
-
-/**
- * The character just typed.
+ * There is no blur in here and there is not going to be one. Faking it by
+ * stacking offset copies showed the copies as ridges; React Native's own
+ * `filter: [{ blur }]` drew a solid grey rectangle the size of the view on the
+ * owner's simulator, with no glyph in it at all. Both bundled clean and both
+ * were only caught on a device. What is left is the reference's motion minus
+ * the one part of it the platform cannot be trusted to draw — and it cannot
+ * glitch, because there is nothing in it to decline.
  *
- * Holds its own driver and replays it whenever `token` changes, which the
- * parent bumps only when the figure has grown. Backspacing hands this the
- * character underneath without touching the token, so deleting is instant and
- * the character revealed does not re-announce itself.
+ * The scale is small and it ends at exactly 1: text rasterises at its
+ * laid-out size and is stretched from there, so anything still scaled at rest
+ * is a permanently soft glyph.
  *
- * A timing curve, not a spring: nothing here has had a finger on it.
+ * A timing curve, not a spring — nothing here has had a finger on it. The
+ * driver runs **linear** and the cubic ease-out is applied along it, so the
+ * fade is measured against real time rather than against an eased value that
+ * would have finished it inside ninety milliseconds.
  */
 function Landing({ ch, token }: { ch: string; token: number }) {
   const t = useSharedValue(1)
@@ -132,19 +84,27 @@ function Landing({ ch, token }: { ch: string; token: number }) {
       return
     }
     t.set(0)
-    t.set(withTiming(1, { duration: LAND_MS, easing: EASE_ENTER }))
+    /* Linear; the shape is applied along it below. See `LAND_FADE`. */
+    t.set(withTiming(1, { duration: LAND_MS, easing: Easing.linear }))
   }, [token, t])
 
+  const style = useAnimatedStyle(() => {
+    const p = t.get()
+    /* Cubic ease-out, applied along a linear run rather than baked into it. */
+    const e = 1 - (1 - p) * (1 - p) * (1 - p)
+    return {
+      opacity: interpolate(p, [0, LAND_FADE], [0, 1], Extrapolation.CLAMP),
+      transform: [
+        { translateY: (1 - e) * RISE },
+        { scale: LAND_FROM + (1 - LAND_FROM) * e },
+      ],
+    }
+  })
+
   return (
-    <View style={s.cell}>
-      {/* Sizes the cell and is never seen; the three layers are all absolute. */}
-      <Text style={[s.glyph, s.gauge]} numberOfLines={1}>
-        {ch}
-      </Text>
-      {BLURS.map((_, i) => (
-        <Layer key={i} t={t} i={i} ch={ch} />
-      ))}
-    </View>
+    <Animated.Text style={[s.glyph, style]} numberOfLines={1}>
+      {ch}
+    </Animated.Text>
   )
 }
 
@@ -159,10 +119,10 @@ function Landing({ ch, token }: { ch: string; token: number }) {
  * that the glide below moves the whole group. Sliding only the digits would
  * leave the "−$" standing still and pull the amount apart.
  *
- * **No cell ever animates its width.** Android measures a string against its
- * box and elides it to fit, which is how the Add button once drew as "A…" on
- * the phone; a cell is sized by the character in flow inside it and everything
- * animated is a transform or an opacity.
+ * **Nothing here animates a width.** Android measures a string against its box
+ * and elides it to fit, which is how the Add button once drew as "A…" on the
+ * phone; every character is sized by itself and everything animated is a
+ * transform or an opacity.
  *
  * `adjustsFontSizeToFit` went with the single `Text` and is not needed back:
  * the keypad caps the figure at seven digits, the most the hero can set
@@ -190,7 +150,7 @@ export function Figure({ value, sign, tint }: FigureProps) {
     const d = (span(value) - span(before)) / 2
     if (d !== 0) {
       shift.set(d)
-      shift.set(withTiming(0, { duration: GLIDE_MS, easing: EASE_ENTER }))
+      shift.set(withTiming(0, { duration: GLIDE_MS, easing: EASE_LAND }))
     }
     if (value.length > before.length) setToken((n) => n + 1)
   }, [value, shift])
@@ -224,16 +184,11 @@ export function Figure({ value, sign, tint }: FigureProps) {
   )
 }
 
-/* Built once: a fixed blur is a static style, and must never be animated. */
-const BLUR: (TextStyle | null)[] = BLURS.map((b) => (b ? { filter: [{ blur: b }] } : null))
-
 const s = StyleSheet.create({
   amount: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: sp(3) },
   sign: { fontFamily: font.r600, fontSize: sp(36) },
   currency: { fontFamily: font.r600, fontSize: sp(36), color: color.textDim },
   row: { flexDirection: 'row', alignItems: 'center' },
-  /* Hugs the character in flow; the three layers hang off it without sizing it. */
-  cell: { justifyContent: 'center' },
   glyph: {
     fontFamily: font.r600,
     fontSize: SIZE,
@@ -241,16 +196,5 @@ const s = StyleSheet.create({
     letterSpacing: TRACK,
     /* Tabular, so the figure does not change width per digit as it is typed. */
     fontVariant: ['tabular-nums'],
-  },
-  gauge: { opacity: 0 },
-  /* Pulled back by the padding its own blur needs, so the glyph lands at 0. */
-  layer: { position: 'absolute', left: -PAD, top: -PAD },
-  padded: {
-    fontFamily: font.r600,
-    fontSize: SIZE,
-    color: color.text,
-    letterSpacing: TRACK,
-    fontVariant: ['tabular-nums'],
-    padding: PAD,
   },
 })

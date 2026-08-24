@@ -99,50 +99,70 @@ export const BLOB: Blob = 'blob'
 /*
  * A digit landing in the amount.
  *
- * The owner's reference is MagicUI's "blur in by character": the character
- * fades up out of a blur and sharpens into place. Only the digit just typed
- * does it — the ones already set stay still, so each keystroke is its own
- * event rather than the whole number twitching.
+ * The owner's reference is MagicUI's "blur in by character". **The blur is not
+ * in this.** Two attempts at it were built and both were wrong on a device:
  *
- * **The blur is real.** The first cut faked it by stacking copies of the glyph
- * along its path, and the copies read as copies: rendered side by side against
- * a true gaussian at matched times, the stack showed concentric ridges where
- * each one's edge composited over the last. That was the "clunky".
+ *   1. Stacking offset copies of the glyph to fake the smear. Rendered beside
+ *      a true gaussian at matched times (`scratchpad/blurfit.html`), nine
+ *      gaussian-weighted copies showed concentric ridges where each one's edge
+ *      composited over the last. Alpha compositing is not addition; a blur
+ *      cannot be built out of copies.
+ *   2. React Native's own `filter: [{ blur }]` style. It typechecks, it
+ *      bundles, and on the owner's iPhone simulator it drew **a solid grey
+ *      rectangle the size of the view's bounds** — no glyph at all, just a box
+ *      sliding across the screen where the digit should have been. Caught only
+ *      because the owner sent a screen recording.
  *
- * React Native takes a `filter` style from 0.76 on the New Architecture, which
- * SDK 54 is, and its `blur` is a standard deviation exactly like CSS. It
- * cannot be animated per frame — it is not a transform or an opacity — so it
- * is not: three layers of the same glyph carry *fixed* blurs and only their
- * opacities move, the same trick the commit bloom uses for its `BlurView`.
+ * So: **transform and opacity only, and nothing else.** A rise, a fade and a
+ * small scale, which is the reference's motion minus the one part of it React
+ * Native cannot be trusted to draw. It cannot glitch, because there is nothing
+ * in it that a platform can decline to implement.
  *
- * Android applies it through `setRenderEffect`, which is API 31 and up; below
- * that the layers are simply unblurred copies of one another crossfading in
- * place, which degrades to a clean fade rather than to anything wrong.
- *
- * Distances and sigmas are frame units; scale them at the point of use.
+ * Distances are frame units; scale them at the point of use.
  */
-export const LAND_MS = 340
+export const LAND_MS = 420
 /** How far below its seat the character starts. */
-export const LAND_RISE = 18
-/** The two fixed blurs, as standard deviations. The third layer is sharp. */
-export const LAND_BLUR_FAR = 14
-export const LAND_BLUR_NEAR = 5
+export const LAND_RISE = 24
+/** How small it starts. Enough that it grows into place rather than pops. */
+export const LAND_FROM = 0.82
+
+/*
+ * **The driver runs linear and the shape is applied along it**, the way the
+ * slider's swell does, rather than easing the driver itself.
+ *
+ * Easing the driver couples the fade to the movement, and an ease-out spends
+ * most of its travel early: on a cubic, the character is 78% home in 160ms of
+ * a 400ms run and the fade — read against the same eased value — is over in
+ * ninety. What is left is a long tail with nothing visibly happening in it,
+ * which is precisely how an animation comes to look like a jump.
+ *
+ * Linear, the position and scale take the cubic ease-out and the fade takes
+ * its own fraction of real time, so both are legible for as long as they are
+ * meant to be.
+ */
+export const LAND_FADE = 0.62
+
+/** The shape the glide takes, so the settle matches the character's own. */
+export const EASE_LAND = Easing.out(Easing.cubic)
 
 /*
  * The figure re-centring under a new character.
  *
  * The amount is centred, so a character added on the right moves everything
  * already there half its width to the left. Unanimated that is a jump on every
- * keystroke, and it was the other half of the "clunky" — the landing was
+ * keystroke, and it was half of what the owner called clunky — the landing was
  * smooth and the number under it snapped.
  *
  * It is not measured. `Figure.tsx` reads the advance widths out of the shipped
  * font (`scratchpad/ttf.py`) and knows exactly how wide the figure is about to
- * be, so the glide is set in the same tick as the character — measuring with
- * `onLayout` would paint one frame at the new position before correcting it,
- * which is a flicker rather than a fix.
+ * be, so the glide is set in the same tick as the character. `onLayout` would
+ * paint one frame at the new position before correcting it, which is a flicker
+ * rather than a fix.
+ *
+ * Same duration and curve as the landing, so the character rising and the
+ * number settling under it read as one motion rather than two.
  */
-export const GLIDE_MS = 340
+export const GLIDE_MS = 420
 
 /** Where the confirmation shows itself, along the same track. */
 export const SAID_IN = 0.34

@@ -43,14 +43,13 @@
   .on { color:#FFD479 }
 </style>
 
-<h1>Digit landing — blur in, by character</h1>
+<h1>Digit landing — transform and opacity only</h1>
 <p class="note">
-  The numbers the app now uses: rises <b>18</b> over <b>340ms</b> on
-  <code>cubic-bezier(.23,1,.32,1)</code>, handed from <b>blur 14</b> to
-  <b>blur 5</b> to sharp by opacity alone. Figures are <b>tabular</b>, and the
-  group glides as it re-centres. React Native's <code>filter: blur</code> is the
-  same gaussian as the browser's, so this is the real thing — but it is still a
-  browser, and it cannot tell you how it feels on the phone.
+  What the app now does, exactly: rises <b>24</b> and grows from <b>0.82</b>
+  over <b>420ms</b> on a cubic ease-out, fading full at 62% of the run. Figures are
+  <b>tabular</b> so the number cannot jitter, and the whole group glides as it
+  re-centres. <b>No blur</b> — React Native drew a solid grey box instead of one
+  on the simulator, so there is nothing in this a platform can decline to draw.
 </p>
 
 <div class="bar">
@@ -70,7 +69,7 @@
 </div>
 
 <script>
-  const LAND_MS = 340, RISE = 18, BLURS = [14, 5, 0], GLIDE_MS = 340;
+  const LAND_MS = 420, RISE = 24, FROM = 0.82, GLIDE_MS = 420, FADE = 0.62;
   const EM_DIGIT = 0.631348, EM_PUNCT = 0.269043, SIZE = 60, TRACK = -1.4;
   let slow = 1, glideOn = true;
 
@@ -80,7 +79,7 @@
     return x=>{let t=x;for(let i=0;i<8;i++){const e=fx(t)-x;if(Math.abs(e)<1e-6)break;
       const d=dx(t);if(Math.abs(d)<1e-6)break;t-=e/d;}return ((ay*t+by)*t+cy)*t;};
   }
-  const ease = bezier(0.23,1,0.32,1);
+  const ease = t => 1 - Math.pow(1 - t, 3);   // Easing.out(Easing.cubic)
   const clamp = (v,a,b)=>v<a?a:v>b?b:v;
   const lerp2 = (p,xs,ys)=>{
     if(p<=xs[0])return ys[0];
@@ -103,30 +102,16 @@
   }
 
   function makeCell(ch){
-    const cell = document.createElement('div'); cell.className='cell';
-    const gauge = document.createElement('span');
-    gauge.className='glyph'; gauge.textContent=ch; gauge.style.opacity=0;
-    cell.appendChild(gauge);
-    const layers = BLURS.map(b=>{
-      const g=document.createElement('span');
-      g.className='glyph layer'; g.textContent=ch;
-      if(b) g.style.filter=`blur(${b}px)`;
-      cell.appendChild(g); return g;
-    });
-    return { cell, layers };
+    const g = document.createElement('span');
+    g.className='glyph'; g.textContent=ch;
+    return { cell:g, glyph:g };
   }
 
-  function settle(layers,p){
-    const fade = lerp2(p,[0,0.45],[0,1]);
-    const share = [
-      lerp2(p,[0,0.35],[1,0]),
-      lerp2(p,[0,0.35,0.7],[0,1,0]),
-      lerp2(p,[0.35,0.7],[0,1]),
-    ];
-    layers.forEach((g,i)=>{
-      g.style.opacity = fade*clamp(share[i],0,1);
-      g.style.transform = `translateY(${(1-p)*RISE}px)`;
-    });
+  /* Transform and opacity, and nothing else. p is LINEAR; shape it here. */
+  function settle(g,p){
+    const e = 1-(1-p)*(1-p)*(1-p);
+    g.style.opacity = clamp(p/FADE,0,1);
+    g.style.transform = `translateY(${(1-e)*RISE}px) scale(${FROM+(1-FROM)*e})`;
   }
 
   function render(next, animateLast){
@@ -136,14 +121,14 @@
       const parts = makeCell(ch);
       row.appendChild(parts.cell);
       if(i===chars.length-1 && animateLast){
-        settle(parts.layers,0);
+        settle(parts.glyph,0);
         const t0=performance.now();
         (function step(now){
           const p=Math.min(1,(now-t0)/(LAND_MS*slow));
-          settle(parts.layers,ease(p));
+          settle(parts.glyph,p);
           if(p<1) requestAnimationFrame(step);
         })(t0);
-      } else settle(parts.layers,1);
+      } else settle(parts.glyph,1);
     });
   }
 

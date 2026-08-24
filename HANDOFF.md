@@ -243,30 +243,42 @@ its seat from below, smeared while it moves and sharp once it stops. Only the
 digit just typed does this — the ones already set are still, which is what
 makes each keystroke its own event instead of the whole number twitching.
 
-- **The blur is real, and it is `filter`, not `expo-blur`.** `expo-blur` blurs
-  what is *behind* a view rather than the view itself, so it is no use here.
-  React Native takes a **`filter` style prop** from 0.76 on the New
-  Architecture — SDK 54 qualifies, the same footing `boxShadow` is on — and its
-  `blur` is a standard deviation exactly like CSS. Android applies it through
-  `View.setRenderEffect`, gated at **API 31**; below that it is a silent no-op,
-  which here degrades to a clean fade rather than to anything wrong.
+- **There is no blur, and two attempts at one both shipped broken.** The
+  reference is a blur-in; React Native cannot be trusted to draw one.
 
-  **It cannot be animated per frame** — it is not a transform or an opacity — so
-  it is not. Three layers of the same glyph carry *fixed* blurs (14, 5, sharp)
-  and only their opacities move, which is the same trick the commit bloom uses
-  for its `BlurView`.
+  1. **Stacked offset copies**, faking the smear. Rendered beside a true
+     gaussian at matched times (`scratchpad/blurfit.html` — screenshot it with
+     the bundled Chromium), nine gaussian-weighted copies showed **concentric
+     ridges** where each copy's edge composited over the last. Alpha
+     compositing is not addition; a blur cannot be built out of copies.
+  2. **React Native's own `filter: [{ blur }]`.** It is real, it is in the
+     types from 0.76 on the New Architecture, its value is a standard deviation
+     like CSS, and Android implements it through `View.setRenderEffect` (API 31
+     and up). It typechecked, it bundled clean on both platforms — and on the
+     owner's **iPhone simulator it drew a solid grey rectangle the size of the
+     view's bounds**, no glyph in it at all, sliding across the screen where
+     the digit should have been. Caught only because the owner sent a screen
+     recording.
 
-  **A `RenderEffect` is clipped to the view it is set on,** so a blurred glyph
-  in a box its own size comes out as a blurred rectangle with cut edges. Each
-  layer is padded by three standard deviations — where a gaussian is spent —
-  and pulled back by the same amount, leaving the glyph where it was.
+  So the landing is **transform and opacity, and nothing else**: a rise, a fade
+  and a small scale. It is the reference's motion minus the one part of it the
+  platform will not reliably draw, and it cannot glitch because there is
+  nothing in it a platform can decline to implement. If a real blur is ever
+  wanted here, the only safe route left is pre-rendering the blurred glyphs
+  offline (Chromium can rasterise them from the shipped font) and crossfading
+  images — not asking the platform for one at runtime.
 
-- **The first cut faked the blur by stacking offset copies, and it was wrong.**
-  Rendered beside a true gaussian at matched times (`scratchpad/blurfit.html`,
-  screenshot it with the bundled Chromium), nine gaussian-weighted copies
-  showed **concentric ridges** — each copy's edge compositing over the last.
-  Alpha compositing is not addition; you cannot build a blur out of copies.
-  That was half of what the owner called clunky.
+- **`filter` is now a trap, not a tool.** Do not reach for it for anything
+  visible. Neither `tsc`, nor the worklet check, nor a clean bundle on both
+  platforms can see this class of failure — only a device can.
+
+- **The driver runs linear and the shape is applied along it.** Easing the
+  driver couples the fade to the movement, and an ease-out spends most of its
+  travel early: on a cubic the character was 78% home in 160ms of a 400ms run
+  and the fade, read against the same eased value, was over inside ninety. What
+  was left was a long tail with nothing visibly happening in it, which is
+  exactly how an animation comes to look like a jump. Same pattern the slider's
+  swell uses.
 
 - **The figures are tabular, and that is not cosmetic.** SF Pro Rounded's
   proportional digits are not one width — a `1` is 0.467em against a `0` at
