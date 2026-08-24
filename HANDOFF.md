@@ -321,6 +321,45 @@ far edge rather than the one it came from. The keyframe track is `BLOOM_AT` /
 - It is the sheet's `curtain`, so it covers the **screen**, not the panel. A
   bloom that stopped where the sheet stops would read as something happening
   in the form rather than to the ledger.
+- **The light is now the owner's own frame** — node `51:306`, "blob" — and the
+  one that shipped before it is kept beside it. `BLOB` in `motion.ts` chooses
+  (`'blob'` | `'legacy'`); both palettes live in `Composer.tsx`. Flip the one
+  line to put the old one back.
+
+  The frame stacks **three concentric blurred ellipses in `plus-lighter`**, so
+  where they overlap they *add*: a green `#2AED78` core (r 115, blur 100), a
+  cyan `#2AEDEA` middle (r 244, blur 236) and a broad `#2AE0ED`->`#2AD3ED` wash
+  (343.5 x 255.5, blur 500). All at 0.8, and each fades **diagonally** to
+  nothing across its own box rather than radially — which is why the light
+  sits up and left of centre rather than dead on it.
+
+  **RN cannot be trusted to do `plus-lighter` the same way on both platforms,**
+  so the sum is solved offline and arrives as one ramp. `scratchpad/blob.py`
+  rasterises each ellipse with its real ramp, blurs it at its own sigma, adds
+  them, and picks stops until the reconstruction is inside 1.2/255. It also
+  measures where the ramps put the peak: `(-20, -20)` frame units, about which
+  an offset radial reproduces the composite to 5% of peak against 9% about the
+  centre. **Re-run the script to change a colour; do not hand-edit the stops.**
+
+  Cross-checked against the closed form for a blurred disc — centre coverage
+  `1 - exp(-R^2/2σ^2)` gives 45.7 for the core against the script's 47.3.
+
+  Two things that follow from the frame and are worth knowing before judging
+  it: the new light is **about half the luminance of the old one**, and the
+  derived debit side is dimmer again, because red carries about a third of
+  green's luminance at the same numbers. Neither has been fudged brighter. It
+  costs nothing functionally — what hides the sheet's dismissal is the black
+  veil at 0.99, not the bloom.
+
+  **The tail is forced to nothing at the sprite's edge.** The true light still
+  carries ~4.5% there, and a radial gradient pads its last stop outward for
+  ever, so leaving it would tint the sprite's *corners* and hand the eye a
+  square to find. Legacy ends the same way for the same reason.
+
+  **Only the credit side is transcribed.** The owner asked for debit to be
+  derived, so it keeps the construction exactly — same geometry, same
+  saturation and value, same hue steps — rotated the other way, so the outer
+  light cools toward violet the way green's cools toward teal.
 - **No white core, and two hues.** A near-white middle at 0.96 put a small
   hard disc of white in the centre of the screen — rejected. The core is a
   light tint of the entry's own colour, peaking well under 1, with a long
@@ -511,6 +550,9 @@ of mistake here that kills the app outright rather than looking wrong.
 
 ## Recovery points
 
+- **`f432149`** — the last commit before the bloom was rebuilt on the owner's
+  Figma frame. The old light does not need this to be recovered, though: it is
+  still in the tree, and `BLOB` in `motion.ts` switches back to it.
 - **`c11ac8c`** — the previous composer, as a bottom sheet with an amount hero
   rather than a full page. The owner asked for this version to be kept before
   the rebuild.

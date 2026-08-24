@@ -81,6 +81,21 @@ export const BLOOM_Y = [1.18, 0.92, 0.46, -0.04, -0.22] as const
 export const BLOOM_SCALE = [0.5, 0.82, 1.18, 0.72, 0.5] as const
 export const BLOOM_FADE = [0, 1, 1, 0.75, 0] as const
 
+/**
+ * Which light the bloom is made of. The track above drives both — only the
+ * colour and the shape of the falloff differ.
+ *
+ *   blob    the owner's Figma frame (node 51:306). Green core out through
+ *           cyan to blue, solved from the frame's own three blurred ellipses.
+ *   legacy  what shipped before it: a near-white mint core, a green middle
+ *           and a blue wash offset to one side.
+ *
+ * Flip this line to put the old one back. Both palettes are kept in
+ * `Composer.tsx`; nothing else changes.
+ */
+export type Blob = 'blob' | 'legacy'
+export const BLOB: Blob = 'blob'
+
 /** Where the confirmation shows itself, along the same track. */
 export const SAID_IN = 0.34
 export const SAID_OUT = 0.88

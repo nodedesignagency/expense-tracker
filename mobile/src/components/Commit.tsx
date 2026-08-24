@@ -7,6 +7,7 @@ import Animated, {
 import { BlurView } from 'expo-blur'
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg'
 import {
+  BLOB,
   BLOOM_AT,
   BLOOM_FADE,
   BLOOM_SCALE,
@@ -39,6 +40,34 @@ const SAID_Y = 0.44
 /** How far it rises into place. Worked out here: a worklet cannot call sp(). */
 const SAID_RISE = sp(10)
 
+/** One stop on the solved ramp: where it sits, its colour, its strength. */
+export interface BloomStop {
+  /** Fraction of the sprite's half-width, so 1 is the sprite's own edge. */
+  at: number
+  color: string
+  opacity: number
+}
+
+/**
+ * The bloom as the Figma frame actually draws it.
+ *
+ * The frame stacks three concentric blurred ellipses in `plus-lighter`, so
+ * where they overlap they *add*. React Native cannot be relied on to blend
+ * that way identically on both platforms, so the sum is solved offline
+ * instead — see `scratchpad/blob.py` — and arrives here as a single ramp that
+ * already contains it. One gradient, one Rect: still a static texture that
+ * only moves and scales, which is what keeps this affordable per frame.
+ *
+ * `offset` is where the three layers' diagonal alpha ramps put the brightest
+ * point, in frame units off the sprite's centre. It is measured, not chosen:
+ * an offset radial about it reproduces the true composite to within 5% of
+ * peak, against 9% about the centre.
+ */
+export interface BloomSpec {
+  offset: { x: number; y: number }
+  stops: BloomStop[]
+}
+
 export interface BloomTint {
   /** The middle. Tinted, not white — see the note on `Bloom` below. */
   core: string
@@ -53,6 +82,9 @@ export interface BloomTint {
 interface CommitProps {
   /** 0 to 1 across the whole celebration. Owned by the composer. */
   progress: SharedValue<number>
+  /** The Figma frame's light. Used unless `BLOB` is flipped to 'legacy'. */
+  spec: BloomSpec
+  /** The light that shipped before it, kept so it can be put back. */
   tint: BloomTint
   label: string
 }
@@ -77,7 +109,7 @@ interface CommitProps {
  * blur behind it is static too and crossfaded by opacity: animating a
  * `BlurView`'s intensity re-renders the blur every frame on Android.
  */
-export function Commit({ progress, tint, label }: CommitProps) {
+export function Commit({ progress, spec, tint, label }: CommitProps) {
   /* The form going away: blurred back, so the light is the only thing left. */
   const veil = useAnimatedStyle(() => ({
     opacity: interpolate(progress.get(), [0, 0.16, 0.9, 1], [0, 1, 1, 0], 'clamp'),
@@ -151,7 +183,7 @@ export function Commit({ progress, tint, label }: CommitProps) {
       <Animated.View style={[s.wash, dark]} pointerEvents="none" />
 
       <Animated.View style={[s.bloom, bloom]}>
-        <Bloom tint={tint} />
+        {BLOB === 'blob' ? <Blob spec={spec} /> : <Bloom tint={tint} />}
       </Animated.View>
 
       <Animated.View style={[s.said, said]}>
@@ -165,7 +197,50 @@ export function Commit({ progress, tint, label }: CommitProps) {
 }
 
 /**
- * The light itself — two of them, and neither has a white middle.
+ * The light, as the frame draws it.
+ *
+ * Three concentric blurred ellipses, summed: a green core (r 115, blur 100),
+ * a cyan middle (r 244, blur 236) and a broad blue-cyan wash (343.5 x 255.5,
+ * blur 500), each at 0.8 and each fading diagonally to nothing across its own
+ * box. Solved into the one ramp below, whose stops reproduce that composite
+ * to within 0.9/255 in luminance.
+ *
+ * The tail is forced to nothing at the sprite's edge. The true light is still
+ * carrying about 4.5% there — the blur is enormous — and a radial gradient
+ * pads its last stop outward for ever, so leaving it would tint the sprite's
+ * corners and hand the eye a square to find. The legacy light below ends the
+ * same way, for the same reason. What is lost is roughly 2/255 in the far
+ * field, most of which is off-screen at every point on the track.
+ */
+function Blob({ spec }: { spec: BloomSpec }) {
+  return (
+    <Svg width={BLOOM} height={BLOOM} viewBox={`0 0 ${BLOOM} ${BLOOM}`}>
+      <Defs>
+        <RadialGradient
+          id="commitBlob"
+          cx={BLOOM / 2 + sp(spec.offset.x)}
+          cy={BLOOM / 2 + sp(spec.offset.y)}
+          r={BLOOM / 2}
+          gradientUnits="userSpaceOnUse"
+        >
+          {spec.stops.map((stop) => (
+            <Stop
+              key={stop.at}
+              offset={stop.at}
+              stopColor={stop.color}
+              stopOpacity={stop.opacity}
+            />
+          ))}
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={BLOOM} height={BLOOM} fill="url(#commitBlob)" />
+    </Svg>
+  )
+}
+
+/**
+ * The light that shipped before the frame arrived — two of them, and neither
+ * has a white middle.
  *
  * The first cut ran to near-white at 0.96 over the innermost 8%, which put a
  * small hard disc of white in the centre of the screen: the owner called it

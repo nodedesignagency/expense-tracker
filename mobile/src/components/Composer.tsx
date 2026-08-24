@@ -19,7 +19,7 @@ import { Easing, useSharedValue, withTiming } from 'react-native-reanimated'
 import { CELEBRATE, HANDOFF } from '../motion'
 import { capTrim, color, font, radius, sp, type } from '../theme'
 import { Calendar } from './Calendar'
-import { Commit, type BloomTint } from './Commit'
+import { Commit, type BloomSpec, type BloomTint } from './Commit'
 import { CloseIcon } from './Icons'
 import { SlideAction } from './SlideAction'
 import {
@@ -77,6 +77,59 @@ const LIGHT: Record<Direction, { glow: string; trail: string; caption: string }>
 const BLOOM: Record<Direction, BloomTint> = {
   credit: { core: '#B9F2DA', mid: '#2FD693', edge: '#00553F', wash: '#1C7FB0' },
   debit: { core: '#FFCFC6', mid: '#FF7C6E', edge: '#5E100C', wash: '#7A3BB5' },
+}
+
+/**
+ * The bloom the owner drew — Figma node `51:306`, "blob".
+ *
+ * Three concentric ellipses in `plus-lighter`, every value read out of the
+ * exported SVGs rather than off the render: a green `#2AED78` core at r 115
+ * blurred 100, a cyan `#2AEDEA` middle at r 244 blurred 236, and a broad
+ * `#2AE0ED` -> `#2AD3ED` wash at 343.5 x 255.5 blurred 500. All at 0.8, each
+ * fading diagonally to nothing across its own box.
+ *
+ * Those three cannot be stacked live — `plus-lighter` is not a blend mode RN
+ * will do the same way on both platforms — so the sum is solved offline and
+ * arrives as one ramp. `scratchpad/blob.py` is that solve: it rasterises each
+ * ellipse with its real ramp, blurs it at its own sigma, adds them, and picks
+ * stops until the reconstruction is within 1.2/255. Re-run it to change a
+ * colour; do not hand-edit the numbers below.
+ *
+ * **Only the credit side is the frame's.** The owner asked for debit to be
+ * derived, so it keeps the construction exactly — the same geometry, the same
+ * saturation and value, the same hue steps — and rotates them the other way,
+ * so the outer light cools toward violet the way green's cools toward teal.
+ * The reds are therefore a derivation, not a transcription.
+ *
+ * One thing that follows from the frame and is worth knowing before judging
+ * it on device: red carries about a third of green's luminance at the same
+ * numbers, so the debit bloom is genuinely dimmer than the credit one. That
+ * is what the construction gives; it has not been fudged brighter.
+ */
+const BLOB: Record<Direction, BloomSpec> = {
+  credit: {
+    offset: { x: -20, y: -20 },
+    stops: [
+      { at: 0, color: '#2EFFC6', opacity: 0.3967 },
+      { at: 0.0509, color: '#2EFFC7', opacity: 0.3896 },
+      { at: 0.1018, color: '#2EFFCA', opacity: 0.3695 },
+      { at: 0.3393, color: '#2EFFEA', opacity: 0.2115 },
+      { at: 0.4835, color: '#2EFFFD', opacity: 0.1449 },
+      { at: 0.7125, color: '#2EF7FF', opacity: 0.0881 },
+      { at: 1, color: '#2DF2FF', opacity: 0 },
+    ],
+  },
+  debit: {
+    offset: { x: -20, y: -20 },
+    stops: [
+      { at: 0, color: '#FF346B', opacity: 0.4014 },
+      { at: 0.1018, color: '#FF336E', opacity: 0.3742 },
+      { at: 0.3393, color: '#FF308B', opacity: 0.2159 },
+      { at: 0.475, color: '#FF2E9B', opacity: 0.1519 },
+      { at: 0.704, color: '#FF2DA5', opacity: 0.0905 },
+      { at: 1, color: '#FF2DAA', opacity: 0 },
+    ],
+  },
 }
 
 /** Which list the drawer is showing. Null is the keypad, which is the default. */
@@ -338,6 +391,7 @@ export function Composer() {
         landed ? (
           <Commit
             progress={celebrate}
+            spec={BLOB[direction]}
             tint={BLOOM[direction]}
             label={direction === 'credit' ? 'Credit added' : 'Debit added'}
           />
