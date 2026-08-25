@@ -7,7 +7,9 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated'
+import { scheduleOnUI } from 'react-native-worklets'
 import { EASE_LAND, GLIDE_MS, LAND_FADE, LAND_MS, LAND_RISE } from '../motion'
 import { color, font, sp } from '../theme'
 
@@ -52,10 +54,12 @@ function span(text: string): number {
  * digit after it onto a fresh key, remounting — and re-animating — half the
  * number at once.
  *
- * Group separators are keyed apart from the digits and never animate. They are
- * not typed; they arrive because the number crossed a thousand, and a comma
- * flying up out of the middle of a figure says something happened there that
- * did not.
+ * Group separators are keyed apart from the digits and **rise** for nobody.
+ * They are not typed; they arrive because the number crossed a thousand, and a
+ * comma flying up out of the middle of a figure says something happened there
+ * that did not. They do fade in, though — appearing at full strength in a
+ * single frame is the one hard pop left in a figure where everything else
+ * arrives softly.
  */
 interface Cell {
   ch: string
@@ -82,6 +86,28 @@ function cells(value: string, empty: boolean): Cell[] {
     else out.push({ ch, key: `c${typed++}`, typed: true })
   }
   return out
+}
+
+/**
+ * Push the group back by `d` and let it settle again.
+ *
+ * **Additive, and run on the UI thread so that it can be.** Setting the offset
+ * outright threw away whatever travel the last glide had not finished: type
+ * again inside `GLIDE_MS` — which is most of the time once there is any rhythm
+ * to it — and the group lurched backwards instead of stepping cleanly by half a
+ * digit. `scratchpad/glide.mjs` prints the discontinuity at a few typing
+ * speeds; at a 160ms cadence the group was still 3.5pt from home when the next
+ * key landed, and all 3.5 of it was discarded.
+ *
+ * It has to happen here rather than in the layout effect because only the UI
+ * thread knows where the glide has actually got to. Reading a shared value from
+ * JS mid-animation is not reliably current, and being one frame out here is
+ * precisely the bug.
+ */
+function nudge(shift: SharedValue<number>, d: number, ms: number) {
+  'worklet'
+  shift.set(shift.get() + d)
+  shift.set(withTiming(0, { duration: ms, easing: EASE_LAND }))
 }
 
 interface FigureProps {
@@ -118,7 +144,7 @@ interface FigureProps {
  * fade is measured against real time rather than against an eased value that
  * would have finished it inside ninety milliseconds.
  */
-function Glyph({ ch }: { ch: string }) {
+function Glyph({ ch, lift }: { ch: string; lift: number }) {
   const t = useSharedValue(0)
   const started = useRef(false)
 
@@ -133,7 +159,7 @@ function Glyph({ ch }: { ch: string }) {
     const e = 1 - (1 - p) * (1 - p) * (1 - p)
     return {
       opacity: interpolate(p, [0, LAND_FADE], [0, 1], Extrapolation.CLAMP),
-      transform: [{ translateY: (1 - e) * RISE }],
+      transform: [{ translateY: (1 - e) * lift }],
     }
   })
 
@@ -181,6 +207,9 @@ export function Figure({ value, sign, tint, empty }: FigureProps) {
    * paint. `useEffect` here would paint one frame at the new position before
    * correcting it, and a jump backwards is worse than the jump it was meant to
    * smooth. Shrinking glides too, so backspace is the same motion in reverse.
+   *
+   * The push itself is handed to `nudge` on the UI thread, so that it adds to
+   * the glide already in flight instead of replacing it.
    */
   useLayoutEffect(() => {
     const before = seen.current
@@ -188,8 +217,7 @@ export function Figure({ value, sign, tint, empty }: FigureProps) {
     seen.current = value
     const d = (span(value) - span(before)) / 2
     if (d === 0) return
-    shift.set(d)
-    shift.set(withTiming(0, { duration: GLIDE_MS, easing: EASE_LAND }))
+    scheduleOnUI(nudge, shift, d, GLIDE_MS)
   }, [value, shift])
 
   const glide = useAnimatedStyle(() => ({ transform: [{ translateX: shift.get() }] }))
@@ -199,15 +227,10 @@ export function Figure({ value, sign, tint, empty }: FigureProps) {
       <Text style={[s.sign, { color: tint }]}>{sign}</Text>
       <Text style={s.currency}>$</Text>
       <View style={s.row}>
-        {cells(value, empty).map((cell) =>
-          cell.typed ? (
-            <Glyph key={cell.key} ch={cell.ch} />
-          ) : (
-            <Text key={cell.key} style={s.glyph} numberOfLines={1}>
-              {cell.ch}
-            </Text>
-          ),
-        )}
+        {cells(value, empty).map((cell) => (
+          /* Typed characters rise in; a separator only fades. */
+          <Glyph key={cell.key} ch={cell.ch} lift={cell.typed ? RISE : 0} />
+        ))}
       </View>
     </Animated.View>
   )

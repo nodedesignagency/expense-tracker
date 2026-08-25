@@ -323,6 +323,27 @@ makes each keystroke its own event instead of the whole number twitching.
   keystroke and visibly jitters as it is typed. The font carries `tnum`; under
   it every digit is exactly **0.631348em** (`,` and `.` are 0.269043em).
 
+- **The glide is additive, and it has to run on the UI thread to be.** Setting
+  the offset outright throws away whatever travel the last glide had not
+  finished. Type again inside `GLIDE_MS` — which is most keystrokes once there
+  is any rhythm — and the group lurches backwards instead of stepping cleanly
+  by half a digit. That was the "little glitch from the third or fourth number
+  onwards", and `scratchpad/glide.mjs` prints it: at a 160ms cadence the group
+  was still 3.5pt from home when the next key landed and all of it was
+  discarded.
+
+  `nudge` adds to the value in flight from a worklet, via `scheduleOnUI` — the
+  JS→UI partner of the `scheduleOnRN` used elsewhere — because **only the UI
+  thread knows where the glide has actually got to**. Reading a shared value
+  from JS mid-animation is not reliably current, and being a frame out here is
+  precisely the bug. Being additive also means a small error in the width model
+  cannot accumulate: every glide still ends at 0, which is the true position.
+
+- **Separators fade but never rise.** A comma is not typed — it arrives because
+  the number crossed a thousand — so lifting it out of the middle of the figure
+  claims something happened there that did not. Appearing at full strength in
+  one frame was the other pop left at the fourth digit, though, so it fades.
+
 - **The figure glides as it re-centres**, and the glide is *solved*, not
   measured. The amount is centred, so a character added on the right takes half
   its width off the left; unanimated that is a jump on every keystroke, and it

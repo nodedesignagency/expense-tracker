@@ -46,16 +46,18 @@
 <p class="note">
   Rises <b>22</b> and fades over <b>380ms</b>, cubic ease-out along a linear run.
   Each character is its own cell keyed by identity, so only a genuinely new one
-  mounts — and it animates <i>because</i> it mounted, starting invisible on its
-  first frame. Turn on <b class="bad">the old bug</b> to see what was wrong: the
-  digit was drawn whole, then blinked out and replayed, on every single tap.
+  mounts, and it animates <i>because</i> it mounted. The re-centring glide is
+  <b>additive</b>: type again before it finishes and the new push adds to the
+  travel still left. Both <b class="bad">old bugs</b> are toggleable — the
+  second one is the lurch you were seeing from the third digit on.
 </p>
 
 <div class="bar">
   <button id="play">Type 1 2 3 4 5</button>
   <button id="slowmo">Slow motion: <span id="slowlabel">off</span></button>
   <button id="glidebtn">Glide: <span id="glidelabel">on</span></button>
-  <button id="bugbtn">The old bug: <span id="buglabel">off</span></button>
+  <button id="bugbtn">Old bug — pop &amp; rewind: <span id="buglabel">off</span></button>
+  <button id="gbugbtn">Old bug — glide discard: <span id="gbuglabel">off</span></button>
   <button id="clear">Clear</button>
 </div>
 
@@ -71,7 +73,7 @@
 <script>
   const LAND_MS = 380, RISE = 22, FADE = 0.55, GLIDE_MS = 380;
   const EM_DIGIT = 0.631348, EM_PUNCT = 0.269043, SIZE = 60, TRACK = -1.4;
-  let slow = 1, glideOn = true, bug = false;
+  let slow = 1, glideOn = true, bug = false, glideBug = false;
 
   const ease = t => 1 - Math.pow(1 - t, 3);
   const clamp = (v,a,b) => v<a?a:v>b?b:v;
@@ -96,17 +98,17 @@
     return out;
   };
 
-  function place(el, p) {
+  function place(el, p, lift) {
     el.style.opacity = clamp(p/FADE, 0, 1);
-    el.style.transform = `translateY(${(1-ease(p))*RISE}px)`;
+    el.style.transform = `translateY(${(1-ease(p))*lift}px)`;
   }
 
-  function animateIn(el) {
+  function animateIn(el, lift) {
     const start = () => {
       const t0 = performance.now();
       (function step(now){
         const p = Math.min(1, (now-t0)/(LAND_MS*slow));
-        place(el, p);
+        place(el, p, lift);
         if (p<1) requestAnimationFrame(step);
       })(t0);
     };
@@ -115,7 +117,7 @@
       el.style.opacity = 1; el.style.transform = 'none';
       requestAnimationFrame(() => requestAnimationFrame(start));
     } else {
-      place(el, 0);   // invisible on its very first frame
+      place(el, 0, lift);   // invisible on its very first frame
       start();
     }
   }
@@ -137,19 +139,33 @@
       el.textContent = c.ch;
       row.appendChild(el);
       keep.set(c.key, el);
-      if (fresh) { if (c.typed) animateIn(el); else place(el, 1); }
+      if (fresh) animateIn(el, c.typed ? RISE : 0);
     }
     live = keep;
   }
 
+  /*
+   * Additive: a keystroke inside GLIDE_MS adds to the travel still left rather
+   * than replacing it. Replacing it discards the remainder, and the group
+   * lurches backwards instead of stepping cleanly. That is `glideBug`.
+   */
+  let glideFrom = 0, glideAt = -1e9;
+  const glideNow = () => {
+    const e = (performance.now() - glideAt) / (GLIDE_MS * slow);
+    return e >= 1 ? 0 : glideFrom * (1 - ease(e));
+  };
+  let glideRunning = false;
   function glide(d) {
     if (!glideOn || !d) return;
-    const t0 = performance.now();
-    (function step(now){
-      const p = Math.min(1, (now-t0)/(GLIDE_MS*slow));
-      amount.style.transform = `translateX(${d*(1-ease(p))}px)`;
-      if (p<1) requestAnimationFrame(step); else amount.style.transform = '';
-    })(t0);
+    glideFrom = glideBug ? d : glideNow() + d;
+    glideAt = performance.now();
+    if (glideRunning) return;
+    glideRunning = true;
+    (function step(){
+      const v = glideNow();
+      amount.style.transform = v ? `translateX(${v}px)` : '';
+      if (v) requestAnimationFrame(step); else glideRunning = false;
+    })();
   }
 
   function type(k) {
@@ -185,6 +201,11 @@
     glideOn = !glideOn;
     const l=document.getElementById('glidelabel');
     l.textContent = glideOn?'on':'off'; l.className = glideOn?'':'on';
+  };
+  document.getElementById('gbugbtn').onclick = () => {
+    glideBug = !glideBug;
+    const l=document.getElementById('gbuglabel');
+    l.textContent = glideBug?'ON':'off'; l.className = glideBug?'bad':'';
   };
   document.getElementById('bugbtn').onclick = () => {
     bug = !bug;
