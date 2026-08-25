@@ -95,6 +95,35 @@ per-device (see `sp()` below). Both are live and both are checked.
 - **`expo-blur`** — the composer's anchored menus and the calendar overlay
   only. The sheets themselves are flat; glass on them was built and rejected.
 
+## Drive the app in a browser and MEASURE it
+
+`react-native-web` is already a dependency, so the real components render in a
+browser — and this container has Chromium. `scratchpad/drive.mjs` starts it,
+talks CDP over Node's built-in WebSocket, taps its way to the composer, and
+records **every glyph's real x every frame** while it types. `analyse.mjs`
+reads that back and prints the worst single-frame movement.
+
+```bash
+npx expo start --web --port 8081      # leave running
+node scratchpad/drive.mjs             # screenshots -> scratchpad/shots/
+node scratchpad/analyse.mjs           # the numbers
+```
+
+**This settled an argument that four rounds of reasoning could not.** The
+figure's jerk was reported as "sometimes", "in a few places", "3rd or 4th
+number onwards" — every guess about *which* keystroke was wrong. The recorder
+said it plainly: the leftmost digit moved **18.2pt in a single 3ms frame on
+every keystroke**, and travelled 54.7pt in total to cover 18.2pt of ground.
+Layout moved it, then the correction arrived a frame late and yanked it back.
+After the rewrite: **4.5pt worst frame, 18.2pt travelled.**
+
+It cannot see fonts, blend modes, worklets or haptics — those still need a
+device, and everything in the section below still holds. What it *can* see is
+whether anything rendered at all and where it ended up, which is exactly the
+class of failure that shipped a blank amount and four jerky ones.
+
+**Use it before pushing anything that moves.**
+
 ## Verify on the device, not in the browser
 
 `npx expo start --web` is useful for layout and for tracing values, and it is
@@ -335,22 +364,42 @@ makes each keystroke its own event instead of the whole number twitching.
     overhang into an ellipsis, the "A…" trap, and a single character has
     nowhere to wrap.
 
-- **DO NOT rewrite this to place the figure absolutely. It has been tried and
-  it shipped a blank screen.**
+- **The figure is PLACED, not laid out.** Every piece — the sign, the mark and
+  each character — is an absolutely-positioned overlay filling the anchor with
+  its glyph centred, and one `translateX` puts it where it belongs. That number
+  is an **absolute target**, solved from slot arithmetic at render.
 
-  The idea was sound — position every piece by `translateX` against an absolute
-  target so that layout never moves a character, which kills the whole class of
-  correction-races above. What it actually did was draw **nothing at all**: the
-  anchor took `alignSelf: 'stretch'` inside a `Pressable` that shrinks to fit
-  its content, so the width resolved to zero, and every absolutely-filled piece
-  filled a zero-width box. The amount vanished entirely and the owner found it,
-  not `tsc`, not the worklet check, and not a clean bundle on both platforms.
+  Three rounds went on the other approach: let flexbox position the characters,
+  then correct for wherever it put them. **Every one of those corrections is a
+  race against the frame that already moved the character**, and `drive.mjs`
+  proved the race is lost — 18.2pt in a single 3ms frame, every keystroke, with
+  the glyph travelling 54.7pt to cover 18.2pt of ground. `useLayoutEffect` plus
+  `scheduleOnUI` does **not** land before the paint.
 
-  This is the trap already written down two sections below — *do not lean on
-  Yoga to size or centre an absolutely-positioned child* — and it was walked
-  into anyway. If it is ever attempted again, the anchor needs an **explicit
-  width and height**, and it must be checked on a device before anything else
-  is built on it.
+  Placing it instead:
+  - **Layout never moves a character**, so an animation that starts a frame
+    late is a frame late, not a jump. Measured: 4.5pt worst frame, 18.2pt
+    travelled — the right distance, once.
+  - **The target is absolute**, so nothing has to know where the animation
+    currently is. `withTiming` starts from wherever it got to, which handles an
+    interrupted slide natively — no accumulating, no `scheduleOnUI`, no reading
+    a shared value from the wrong thread. All of it deleted.
+  - **A new character mounts with its target already set**, so its first
+    painted frame is right.
+  - There is no group transform. The centring is inside every target.
+
+  It also drops the last dependency on the font: a glyph is *centred on* its
+  slot rather than filling a box, so its advance cannot matter, and with
+  nothing constraining its width the `numberOfLines` eliding trap has nothing
+  to bite.
+
+- **The anchor takes an explicit width, and must never take `alignSelf:
+  'stretch'`.** That is exactly how this shipped a blank screen once: its
+  parent is a `Pressable` that shrinks to fit, so stretching asks the anchor
+  how wide it is in order to answer how wide it is, and Yoga settles that
+  circle at **zero**. Every absolutely-filled piece then filled a zero-width
+  box and the whole amount drew nothing. `FIGURE_W` is the widest figure the
+  keypad allows — see `fits.py`, 336.31 of the 339 there is, which is tight.
 
 - **Separators fade but never rise.** A comma is not typed — it arrives because
   the number crossed a thousand — so lifting it out of the middle of the figure
