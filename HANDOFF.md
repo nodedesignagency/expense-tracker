@@ -317,77 +317,66 @@ makes each keystroke its own event instead of the whole number twitching.
   frame is on screen, which is a visible correction rather than a start. Both
   the landing and the re-centring glide depend on this.
 
-- **Every character sits in a fixed-width slot, and that is the whole basis of
-  the glide.** SF Pro Rounded's proportional digits are nothing like one width —
-  a `1` is 0.467em against a `0` at 0.638em.
+- **A slot is arithmetic, not a box.** SF Pro Rounded's proportional digits are
+  nothing like one width — a `1` is 0.467em against a `0` at 0.638em — so a
+  figure that lets the font decide grows by a different amount per key.
 
-  This was `fontVariant: ['tabular-nums']` and a model that assumed the font's
-  tabular advance, which is **asking the font nicely and hoping**. The moment
-  `tnum` does not take, the row grows by a different amount per key while the
-  glide still pushes the modelled distance: `scratchpad/slots.py` prints it — a
-  `1` misses by 2.05pt and a `7` by 2.05pt, `0`/`4`/`8` by under a twentieth.
-  A lurch on *some keys and not others*, which is precisely how the owner
-  described it, twice.
+  This was `fontVariant: ['tabular-nums']` plus a width model that assumed the
+  font's tabular advance, which is **asking the font nicely and hoping**. The
+  moment `tnum` did not take, the model and the layout disagreed and the
+  correction pushed the wrong distance: `scratchpad/slots.py` prints it — a `1`
+  out by 2.05pt, `0`/`4`/`8` by under a twentieth. A lurch on *some keys and not
+  others*, which is exactly how the owner kept describing it.
 
-  The slot is declared in `Figure.tsx` now. The figure is tabular because that
-  file made it so, and **the model cannot disagree with the layout because the
-  model is the layout**.
+  The slot is now only a **number in the placement arithmetic** — how far along
+  the next character's centre sits. Every digit is given the same one, so the
+  figure is tabular because `Figure.tsx` made it so. Nothing constrains a
+  glyph's rendered width, so its advance cannot matter and `tnum` is decoration.
 
-  Two numbers hold it together, and both are checked rather than assumed:
-  - `slots.py` — no glyph overhangs its slot by enough to matter.
-  - `fits.py` — "9,999,999" still crosses the panel. It is **tight**: at the
-    tabular advance it spans 336.31 of 339. Sized to the *widest* glyph instead
-    it spans 338.97, which is three hundredths of a point of headroom, i.e.
-    none — so the tabular advance is the slot and the 0.38pt overhang on
-    `0`/`4`/`8` is accepted.
-  - The glyphs therefore render **without `numberOfLines`**. That prop is what
-    turns an overhang into an ellipsis — the "A…" trap. A single character has
-    nowhere to wrap, so omitting it costs nothing and removes the failure.
+  That also retires two hazards for good: there is no fixed-width `Text` to
+  overflow, so the `numberOfLines` eliding trap has nothing to bite, and no
+  measured box to disagree with the model.
 
-- **Three things move the figure, and all three have to be animated.** Fixing
-  one at a time is why "still a bit jerky" came back three times.
+  `scratchpad/fits.py` is still load-bearing: "9,999,999" spans **336.31 of the
+  339** the panel has. It is tight. Widen a slot and check it again.
 
-  1. The character **lands** — it rises and fades in.
-  2. The figure **re-centres** — it grew, so it shifts by half the new width.
-  3. Every character **slides to its own new place**.
+- **The figure is PLACED, not laid out — and that is the whole of it.**
 
-  The third is the one that was missing, and no amount of work on the second
-  could ever have covered it. Re-centring moves every character by the *same*
-  amount, so one transform on the group cancels it. A **separator arriving does
-  not**: it shoves everything ahead of it along by a comma's width and leaves
-  the rest where it was — and as the number grows, the separator itself walks
-  along a digit at a time.
+  Three rounds of "still jerky" were spent letting flexbox position the
+  characters and then correcting for wherever it had put them: one transform to
+  undo the re-centring, another to undo a comma shoving its neighbours along.
+  **Every one of those corrections is a race against the frame that already
+  moved the character**, and each was its own hop to the UI thread — on the
+  keystroke that inserts a separator there were six at once. Whichever lost the
+  race snapped.
 
-  `scratchpad/shift.mjs` prints the residue the group glide cannot reach. From
-  the fourth key on, **every** keystroke displaced some characters and not
-  others: ±14.7pt on the digits, and up to 73pt on the comma. Instantly, in one
-  frame. Each character now undoes its own displacement and settles out of it,
-  from `x` that is arithmetic and known at render — nothing here measures
-  layout.
+  Nothing in `Figure.tsx` is laid out now. Every piece — the sign, the mark and
+  each character — is an absolutely-positioned overlay filling the anchor with
+  its glyph centred, and one `translateX` puts it where it belongs. That number
+  is an **absolute target**, solved from slot arithmetic at render:
 
-- **Separators are keyed from the right, by how many digits follow them.** That
-  is what a group separator *is*: a comma sits three digits from the end for as
-  long as the number has three. Keyed by index from the left, "123,456"
-  becoming "1,234,567" makes the first separator a different separator, and the
-  cell has 73pt to travel to catch up; right-anchored the same comma is still
-  three from the end, only the new one arrives, and no comma ever unmounts
-  while typing. `shift.mjs` prints both keyings side by side.
+  - **Layout never moves a character**, so an animation that starts a frame
+    late is a frame late, not a jump. The race is gone rather than won.
+  - **The target is absolute**, so nothing needs to know where the animation
+    currently is. `withTiming` starts from wherever it got to, which handles an
+    interrupted slide natively — no accumulating a remainder, no
+    `scheduleOnUI`, no reading a shared value from the wrong thread. All of
+    that machinery is deleted.
+  - **A new character mounts with its target already set**, so the first frame
+    it is painted in is already right.
+  - There is no group transform. The centring is inside every target.
 
-- **The glide is additive, and it has to run on the UI thread to be.** Setting
-  the offset outright throws away whatever travel the last glide had not
-  finished. Type again inside `GLIDE_MS` — which is most keystrokes once there
-  is any rhythm — and the group lurches backwards instead of stepping cleanly
-  by half a digit. That was the "little glitch from the third or fourth number
-  onwards", and `scratchpad/glide.mjs` prints it: at a 160ms cadence the group
-  was still 3.5pt from home when the next key landed and all of it was
-  discarded.
+  It also drops the last dependency on the font: a glyph is *centred on* its
+  slot rather than filling a fixed-width box, so its own advance cannot matter.
+  Whether `tabular-nums` takes or not, the figure is tabular and the arithmetic
+  holds — and with nothing constraining a glyph's width there is nothing to
+  overflow, so the eliding trap is gone too.
 
-  `nudge` adds to the value in flight from a worklet, via `scheduleOnUI` — the
-  JS→UI partner of the `scheduleOnRN` used elsewhere — because **only the UI
-  thread knows where the glide has actually got to**. Reading a shared value
-  from JS mid-animation is not reliably current, and being a frame out here is
-  precisely the bug. Being additive also means a small error in the width model
-  cannot accumulate: every glide still ends at 0, which is the true position.
+  `scratchpad/place.mjs` checks the arithmetic: that the figure is centred, that
+  the widest one still fits the panel (336.31 of 339), and what moves per
+  keystroke. Everything it lists is a target change, which is animated by
+  definition. **If the figure ever needs to move differently, change the target
+  — never add a correcting transform on top.**
 
 - **Separators fade but never rise.** A comma is not typed — it arrives because
   the number crossed a thousand — so lifting it out of the middle of the figure

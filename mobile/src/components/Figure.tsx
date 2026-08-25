@@ -7,9 +7,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-  type SharedValue,
 } from 'react-native-reanimated'
-import { scheduleOnUI } from 'react-native-worklets'
 import { EASE_LAND, GLIDE_MS, LAND_FADE, LAND_MS, LAND_RISE } from '../motion'
 import { color, font, sp } from '../theme'
 
@@ -21,140 +19,173 @@ import { color, font, sp } from '../theme'
 const SIZE = sp(60)
 const TRACK = sp(-1.4)
 const RISE = sp(LAND_RISE)
+const MARK = sp(36)
+const GAP = sp(3)
 
 /*
- * Every character is drawn in a **fixed-width slot**, so the figure's width is
- * arithmetic rather than whatever the font decides.
- *
- * This started as `fontVariant: ['tabular-nums']` and a width model that
- * assumed the font's tabular advance. SF Pro Rounded's *proportional* digits
- * are nothing like one width — a '1' is 0.467em against a '0' at 0.638em — so
- * the moment `tnum` does not take, the row grows by a different amount per key
- * and the glide, which is solved from the model, pushes the group the wrong
- * distance. `scratchpad/slots.py` prints the damage: a '1' misses by 5.1pt and
- * a '7' by 2.2pt, while '0', '4' and '8' are inside a fifth of a point. That is
- * a lurch on some keys and not others, which is exactly what it looked like.
- *
- * Asking the font nicely and hoping is not a foundation. The slot is declared
- * here instead: one width for all ten digits, so the figure is tabular because
- * *this file* made it so, and the model cannot disagree with the layout because
- * the model **is** the layout.
- *
- * The slot is the font's **tabular** advance, not its widest glyph. Sized to
- * the widest, "9,999,999" spans 338.97 of the 339 the panel has — three
- * hundredths of a point of headroom, which is none. At the tabular advance it
- * spans 336.31 and the only cost is that '0', '4' and '8' overhang their slot
- * by at most 0.38pt when `tnum` does not take. An overhang can only become an
- * ellipsis — the "A…" trap — if the `Text` is allowed to elide, and these are
- * rendered without `numberOfLines` precisely so that it cannot. `slots.py` and
- * `fits.py` check both halves of that: what overhangs, and what still fits.
+ * Advance widths in ems, read out of `sf-pro-rounded-600.ttf` by
+ * `scratchpad/ttf.py`. '+', '−' and '$' are all one width, so switching
+ * direction cannot move the figure.
  */
 const EM_DIGIT = 0.631348
 const EM_PUNCT = 0.269043
+const EM_MARK = 0.631348
 
-/** The slots themselves, tracking folded in, in device points. */
+/** The slot each character occupies, tracking folded in. */
 const DIGIT_W = EM_DIGIT * SIZE + TRACK
 const PUNCT_W = EM_PUNCT * SIZE + TRACK
+const MARK_W = EM_MARK * MARK
 
-/** How wide a figure is. Exact: it is the sum of the slots it is made of. */
-function span(text: string): number {
-  let w = 0
-  for (const ch of text) w += ch === ',' || ch === '.' ? PUNCT_W : DIGIT_W
-  return w
+/**
+ * The figure is **placed, not laid out.**
+ *
+ * Everything before this let flexbox position the characters and then tried to
+ * correct for wherever it had put them — one transform to undo the re-centring,
+ * another to undo a comma shoving its neighbours along. Every one of those
+ * corrections is a race against the frame that already moved the character, and
+ * each was its own hop to the UI thread; on the keystroke that inserts a
+ * separator there were six at once. Whichever lost the race snapped, and that
+ * is what kept coming back as "still jerky".
+ *
+ * So nothing is laid out any more. Every piece is an absolutely-positioned
+ * overlay filling the anchor with its glyph centred, and a single `translateX`
+ * puts it where it belongs. That one number is an **absolute target**, solved
+ * from slot arithmetic at render, and it changes everything:
+ *
+ *   - **Layout never moves a character**, so an animation that starts a frame
+ *     late is a frame late, not a jump. The race is gone rather than won.
+ *   - **The target is absolute**, so nothing needs to know where the animation
+ *     currently is. `withTiming` starts from wherever it got to, which handles
+ *     an interrupted slide natively — no accumulating a remainder, no
+ *     `scheduleOnUI`, no reading a shared value from the wrong thread.
+ *   - **A new character mounts with its target already set**, so the first
+ *     frame it is ever painted in is already right.
+ *   - There is no group transform at all. The centring is inside every target.
+ *
+ * It also drops the last dependency on the font: a glyph is *centred on* its
+ * slot rather than filling a box, so its own width cannot matter. Whether
+ * `tabular-nums` takes or not, the figure is tabular and the arithmetic holds.
+ */
+interface Piece {
+  key: string
+  ch: string
+  /** Where its centre goes, measured from the middle of the whole figure. */
+  target: number
+  /** How far it rises on arrival. Separators and the marks do not. */
+  lift: number
+  /** Whether it plays an entrance at all. */
+  lands: boolean
+  size: number
+  tint?: string
 }
 
 /**
- * One cell of the figure, and the identity that decides whether it is new.
+ * Break the figure into pieces and solve where each one's centre goes.
  *
- * Keys are the whole trick. A digit is keyed by its place among the *typed*
- * characters, so it keeps that key however the grouping moves it about: '999'
- * becoming '9,999' leaves the three digits already there exactly where they
- * were as far as React is concerned, and only the fourth is new. Key by the
- * position in the rendered string instead and inserting a comma shunts every
- * digit after it onto a fresh key, remounting — and re-animating — half the
- * number at once.
+ * Digits are keyed by their place among the *typed* characters, so a digit
+ * keeps its key however the grouping shifts it about. Separators are keyed
+ * **from the right**, by how many digits follow, because that is what a group
+ * separator is: a comma sits three from the end for as long as the number has
+ * three. Keyed from the left instead, "123,456" becoming "1,234,567" makes the
+ * first separator a *different* separator, with 73pt to travel to catch up.
  *
- * Separators are keyed **from the right**, by how many digits follow them,
- * because that is what a group separator actually is: a comma sits three
- * digits from the end for as long as the number has that many. Keyed by index
- * from the left instead, "123,456" becoming "1,234,567" turns one comma into
- * two *different* commas — the first separator is no longer in the same place —
- * and the cell has to travel 73pt to catch up. Right-anchored, the comma that
- * was three from the end still is, and only the new one arrives.
- *
- * Group separators are keyed apart from the digits and **rise** for nobody.
- * They are not typed; they arrive because the number crossed a thousand, and a
- * comma flying up out of the middle of a figure says something happened there
- * that did not. They do fade in, though — appearing at full strength in a
- * single frame is the one hard pop left in a figure where everything else
- * arrives softly.
+ * The standing zero is keyed apart from a typed one, or the first press of the
+ * pad is the one keystroke in the whole figure that does not animate.
  */
-interface Cell {
-  ch: string
-  key: string
-  /** Digits and the decimal point are typed. Commas are not. */
-  typed: boolean
-}
+function pieces(value: string, empty: boolean, sign: string, tint: string): Piece[] {
+  type Raw = Omit<Piece, 'target'> & { w: number }
+  const raw: Raw[] = [
+    { key: 'sign', ch: sign, w: MARK_W, lift: 0, lands: false, size: MARK, tint },
+    { key: 'mark', ch: '$', w: MARK_W, lift: 0, lands: false, size: MARK, tint: color.textDim },
+  ]
 
-function cells(value: string, empty: boolean): Cell[] {
-  /*
-   * The nothing-typed-yet zero is keyed apart from a typed one.
-   *
-   * Sharing a key with the first real digit, it simply had its character
-   * swapped underneath it — same cell, new glyph — so the first press of the
-   * pad was the one keystroke in the whole figure that did not animate.
-   */
-  if (empty) return [{ ch: value, key: 'z', typed: false }]
-
-  /* How many digits follow each position, so separators can be keyed by it. */
-  const after: number[] = []
-  let rest = 0
-  for (let i = value.length - 1; i >= 0; i--) {
-    after[i] = rest
-    if (value[i] !== ',') rest++
+  if (empty) {
+    raw.push({ key: 'z', ch: value, w: DIGIT_W, lift: 0, lands: true, size: SIZE })
+  } else {
+    /* How many digits follow each position, so separators can be keyed by it. */
+    const after: number[] = []
+    let rest = 0
+    for (let i = value.length - 1; i >= 0; i--) {
+      after[i] = rest
+      if (value[i] !== ',') rest++
+    }
+    let typed = 0
+    for (let i = 0; i < value.length; i++) {
+      const ch = value[i]
+      if (ch === ',') {
+        raw.push({ key: `s${after[i]}`, ch, w: PUNCT_W, lift: 0, lands: true, size: SIZE })
+      } else {
+        const w = ch === '.' ? PUNCT_W : DIGIT_W
+        raw.push({ key: `c${typed++}`, ch, w, lift: RISE, lands: true, size: SIZE })
+      }
+    }
   }
 
-  const out: Cell[] = []
-  let typed = 0
-  for (let i = 0; i < value.length; i++) {
-    const ch = value[i]
-    if (ch === ',') out.push({ ch, key: `s${after[i]}`, typed: false })
-    else out.push({ ch, key: `c${typed++}`, typed: true })
+  /* The two marks carry a gap after them; the characters simply abut. */
+  const advance = (i: number) => raw[i].w + (i < 2 ? GAP : 0)
+  let total = 0
+  for (let i = 0; i < raw.length; i++) total += advance(i)
+
+  const out: Piece[] = []
+  let x = 0
+  for (let i = 0; i < raw.length; i++) {
+    const { w, ...rest2 } = raw[i]
+    out.push({ ...rest2, target: x + w / 2 - total / 2 })
+    x += advance(i)
   }
   return out
 }
 
-/** Where each cell sits along the row, and how wide the row comes out. */
-function place(list: Cell[]): { xs: number[]; total: number } {
-  const xs: number[] = []
-  let x = 0
-  for (const c of list) {
-    xs.push(x)
-    x += c.ch === ',' || c.ch === '.' ? PUNCT_W : DIGIT_W
-  }
-  return { xs, total: x }
-}
-
 /**
- * Push the group back by `d` and let it settle again.
+ * One piece of the figure, at its own place.
  *
- * **Additive, and run on the UI thread so that it can be.** Setting the offset
- * outright threw away whatever travel the last glide had not finished: type
- * again inside `GLIDE_MS` — which is most of the time once there is any rhythm
- * to it — and the group lurched backwards instead of stepping cleanly by half a
- * digit. `scratchpad/glide.mjs` prints the discontinuity at a few typing
- * speeds; at a 160ms cadence the group was still 3.5pt from home when the next
- * key landed, and all 3.5 of it was discarded.
+ * `translateX` is an absolute target, so mounting with it already set puts the
+ * piece right on its first painted frame, and a change animates from wherever
+ * the last one got to. Nothing here reads layout and nothing reads the UI
+ * thread.
  *
- * It has to happen here rather than in the layout effect because only the UI
- * thread knows where the glide has actually got to. Reading a shared value from
- * JS mid-animation is not reliably current, and being one frame out here is
- * precisely the bug.
+ * The entrance is a rise and a fade, and no scale: scaled text rasterises at
+ * its laid-out size and stretches from there, so a glyph that changes size
+ * while it moves reads as wobble rather than as arrival. The driver runs
+ * **linear** with the cubic ease-out applied along it, so the fade is measured
+ * against real time rather than an eased value that would finish it inside
+ * ninety milliseconds.
  */
-function nudge(shift: SharedValue<number>, d: number, ms: number) {
-  'worklet'
-  shift.set(shift.get() + d)
-  shift.set(withTiming(0, { duration: ms, easing: EASE_LAND }))
+function Mark({ ch, target, lift, lands, size, tint }: Omit<Piece, 'key'>) {
+  const x = useSharedValue(target)
+  const t = useSharedValue(lands ? 0 : 1)
+  const started = useRef(false)
+
+  useLayoutEffect(() => {
+    if (started.current) return
+    started.current = true
+    if (lands) t.set(withTiming(1, { duration: LAND_MS, easing: Easing.linear }))
+  }, [lands, t])
+
+  /* An absolute target: no remainder to carry, and nothing to read back. */
+  useLayoutEffect(() => {
+    x.set(withTiming(target, { duration: GLIDE_MS, easing: EASE_LAND }))
+  }, [target, x])
+
+  const style = useAnimatedStyle(() => {
+    const p = t.get()
+    const e = 1 - (1 - p) * (1 - p) * (1 - p)
+    return {
+      opacity: interpolate(p, [0, LAND_FADE], [0, 1], Extrapolation.CLAMP),
+      transform: [{ translateX: x.get() }, { translateY: (1 - e) * lift }],
+    }
+  })
+
+  /*
+   * **No `numberOfLines`.** It is the prop that turns an overflowing glyph into
+   * an ellipsis — the "A…" trap. Nothing here constrains a glyph's width, so
+   * there is nothing to overflow, and a single character has nowhere to wrap.
+   */
+  return (
+    <Animated.View style={[s.piece, style]} pointerEvents="none">
+      <Text style={[s.glyph, { fontSize: size }, tint ? { color: tint } : null]}>{ch}</Text>
+    </Animated.View>
+  )
 }
 
 interface FigureProps {
@@ -169,188 +200,49 @@ interface FigureProps {
 }
 
 /**
- * A typed character, arriving.
- *
- * **It animates because it mounted, not because something told it to.** Its
- * driver is 0 on the very first render, so the first frame it is ever painted
- * in is already the start of the animation — there is no state to change, no
- * second render to wait for, and nothing to correct after the fact.
- *
- * That is the whole fix. The version before this reused one component for
- * whichever character was last and reset it from a `useEffect`, which runs
- * after paint; every keystroke drew the digit whole and in place, blinked it
- * out and replayed it. `useLayoutEffect` here runs inside the commit, before
- * the frame is mounted, but even it is only belt and braces: at worst the
- * character waits a frame invisible, which is nothing to look at.
- *
- * A rise and a fade, and no scale. Scaled text rasterises at its laid-out size
- * and stretches from there, and a glyph that changes size while it moves reads
- * as wobble rather than as arrival.
- *
- * The driver runs **linear** and the cubic ease-out is applied along it, so the
- * fade is measured against real time rather than against an eased value that
- * would have finished it inside ninety milliseconds.
- */
-function Glyph({
-  ch,
-  lift,
-  wide,
-  x,
-}: {
-  ch: string
-  lift: number
-  wide: boolean
-  /** Where this character sits along the row. Changes when a comma arrives. */
-  x: number
-}) {
-  const t = useSharedValue(0)
-  const dx = useSharedValue(0)
-  const started = useRef(false)
-  const seen = useRef(x)
-
-  useLayoutEffect(() => {
-    if (started.current) return
-    started.current = true
-    t.set(withTiming(1, { duration: LAND_MS, easing: Easing.linear }))
-  }, [t])
-
-  /*
-   * **The group glide cannot fix this, and that is why it kept looking jerky.**
-   *
-   * Re-centring moves every character by the same amount, so one transform on
-   * the group cancels it. A separator arriving does not: it shoves everything
-   * ahead of it along by a comma's width and leaves the rest where it was, and
-   * as the number grows the separator itself moves a digit at a time. From the
-   * fourth key on, *every* keystroke displaced some characters and not others
-   * — `scratchpad/shift.mjs` prints the residue, up to 73pt on the comma.
-   *
-   * So each character undoes its own displacement and settles out of it. Note
-   * that nothing here reads layout: `x` is arithmetic, known at render, and the
-   * correction is exact. Additive via `nudge`, so a keystroke landing mid-slide
-   * adds to it rather than throwing the remainder away.
-   */
-  useLayoutEffect(() => {
-    const from = seen.current - x
-    seen.current = x
-    if (from !== 0) scheduleOnUI(nudge, dx, from, GLIDE_MS)
-  }, [x, dx])
-
-  const style = useAnimatedStyle(() => {
-    const p = t.get()
-    const e = 1 - (1 - p) * (1 - p) * (1 - p)
-    return {
-      opacity: interpolate(p, [0, LAND_FADE], [0, 1], Extrapolation.CLAMP),
-      transform: [{ translateY: (1 - e) * lift }, { translateX: dx.get() }],
-    }
-  })
-
-  /*
-   * **No `numberOfLines`, deliberately.** It is the prop that turns an overhang
-   * into an ellipsis, and the widest glyphs overhang their slot by a third of a
-   * point when `tnum` does not take. Without it the overhang is a hair of
-   * overlap nobody can see; with it, Android draws "…" instead of the digit.
-   * A single character has nowhere to wrap, so nothing is lost by omitting it.
-   */
-  return (
-    <Animated.Text style={[s.glyph, wide ? s.digit : s.punct, style]}>
-      {ch}
-    </Animated.Text>
-  )
-}
-
-/**
  * The amount, typed a character at a time.
  *
- * One `Text` held the whole figure before this and cannot animate a character
- * on its own, so it is a cell per character — and each cell is keyed by what it
- * *is* rather than where it sits, so only a character that is genuinely new
- * mounts, and only a character that mounts animates. Nothing else in here
- * decides what to animate; the keys do.
- *
- * The sign and the currency mark live in here too, rather than beside it, so
- * that the glide below moves the whole group. Sliding only the digits would
- * leave the "−$" standing still and pull the amount apart.
- *
- * **Nothing here animates a width.** Android measures a string against its box
- * and elides it to fit, which is how the Add button once drew as "A…" on the
- * phone; every character is sized by itself and everything animated is a
- * transform or an opacity.
- *
- * `adjustsFontSizeToFit` went with the single `Text` and is not needed back:
- * the keypad caps the figure at seven digits, the most the hero can set
- * without shrinking, and type and panel scale by the same `sp()`, so what fits
- * at the frame's 393 fits at 360.
+ * The anchor spans the stage and holds nothing in flow but an invisible zero,
+ * which is there to give the row exactly the height a 60pt line has always
+ * given it — taken from the same `Text` rather than assumed from metrics, so
+ * the figure sits where it has always sat. Every piece is an overlay on top of
+ * it, placed by `translateX` alone.
  */
 export function Figure({ value, sign, tint, empty }: FigureProps) {
-  const seen = useRef(value)
-  const shift = useSharedValue(0)
-
-  /*
-   * The figure is centred, so a character added on the right takes half its
-   * width off the left. Start the group back where it was and let it settle,
-   * rather than letting it snap.
-   *
-   * Solved from the font's own advances rather than measured, and set in a
-   * **layout** effect, which runs inside the commit rather than after the
-   * paint. `useEffect` here would paint one frame at the new position before
-   * correcting it, and a jump backwards is worse than the jump it was meant to
-   * smooth. Shrinking glides too, so backspace is the same motion in reverse.
-   *
-   * The push itself is handed to `nudge` on the UI thread, so that it adds to
-   * the glide already in flight instead of replacing it.
-   */
-  useLayoutEffect(() => {
-    const before = seen.current
-    if (before === value) return
-    seen.current = value
-    const d = (span(value) - span(before)) / 2
-    if (d === 0) return
-    scheduleOnUI(nudge, shift, d, GLIDE_MS)
-  }, [value, shift])
-
-  const glide = useAnimatedStyle(() => ({ transform: [{ translateX: shift.get() }] }))
-
-  const list = cells(value, empty)
-  const { xs } = place(list)
-
   return (
-    <Animated.View style={[s.amount, glide]}>
-      <Text style={[s.sign, { color: tint }]}>{sign}</Text>
-      <Text style={s.currency}>$</Text>
-      <View style={s.row}>
-        {list.map((cell, i) => (
-          /* Typed characters rise in; a separator only fades. */
-          <Glyph
-            key={cell.key}
-            ch={cell.ch}
-            lift={cell.typed ? RISE : 0}
-            wide={cell.ch !== ',' && cell.ch !== '.'}
-            x={xs[i]}
-          />
-        ))}
-      </View>
-    </Animated.View>
+    <View style={s.anchor}>
+      {/* Sets the row's height, and nothing else. */}
+      <Text style={[s.glyph, s.gauge]}>0</Text>
+      {pieces(value, empty, sign, tint).map(({ key, ...p }) => (
+        <Mark key={key} {...p} />
+      ))}
+    </View>
   )
 }
 
 const s = StyleSheet.create({
-  amount: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: sp(3) },
-  sign: { fontFamily: font.r600, fontSize: sp(36) },
-  currency: { fontFamily: font.r600, fontSize: sp(36), color: color.textDim },
-  row: { flexDirection: 'row', alignItems: 'center' },
+  /* Spans the stage, so no piece is ever outside its parent and liable to clip. */
+  anchor: { alignSelf: 'stretch' },
+  gauge: { opacity: 0, width: 0 },
+  /*
+   * All four edges spelled out. An absolute child left to find its own box has
+   * drawn nothing at all in this project before; this one fills the anchor and
+   * centres its glyph, and the transform does the placing.
+   */
+  piece: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   glyph: {
     fontFamily: font.r600,
     fontSize: SIZE,
     color: color.text,
     /*
-     * The tracking is in the slot width, not here: `letterSpacing` on a
-     * one-character `Text` would push the glyph off-centre inside its own box.
-     * `tabular-nums` is kept for the glyph's own side bearings, but nothing
-     * depends on it any more — the slots below are what make this tabular.
+     * Kept for the glyphs' own side bearings. Nothing depends on it any more:
+     * the slots are what make this tabular, and the arithmetic holds whether
+     * or not the feature takes.
      */
     fontVariant: ['tabular-nums'],
-    textAlign: 'center',
   },
-  digit: { width: DIGIT_W },
-  punct: { width: PUNCT_W },
 })
