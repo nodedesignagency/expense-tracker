@@ -74,6 +74,14 @@ function span(text: string): number {
  * digit after it onto a fresh key, remounting — and re-animating — half the
  * number at once.
  *
+ * Separators are keyed **from the right**, by how many digits follow them,
+ * because that is what a group separator actually is: a comma sits three
+ * digits from the end for as long as the number has that many. Keyed by index
+ * from the left instead, "123,456" becoming "1,234,567" turns one comma into
+ * two *different* commas — the first separator is no longer in the same place —
+ * and the cell has to travel 73pt to catch up. Right-anchored, the comma that
+ * was three from the end still is, and only the new one arrives.
+ *
  * Group separators are keyed apart from the digits and **rise** for nobody.
  * They are not typed; they arrive because the number crossed a thousand, and a
  * comma flying up out of the middle of a figure says something happened there
@@ -98,14 +106,33 @@ function cells(value: string, empty: boolean): Cell[] {
    */
   if (empty) return [{ ch: value, key: 'z', typed: false }]
 
+  /* How many digits follow each position, so separators can be keyed by it. */
+  const after: number[] = []
+  let rest = 0
+  for (let i = value.length - 1; i >= 0; i--) {
+    after[i] = rest
+    if (value[i] !== ',') rest++
+  }
+
   const out: Cell[] = []
   let typed = 0
-  let seps = 0
-  for (const ch of value) {
-    if (ch === ',') out.push({ ch, key: `s${seps++}`, typed: false })
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i]
+    if (ch === ',') out.push({ ch, key: `s${after[i]}`, typed: false })
     else out.push({ ch, key: `c${typed++}`, typed: true })
   }
   return out
+}
+
+/** Where each cell sits along the row, and how wide the row comes out. */
+function place(list: Cell[]): { xs: number[]; total: number } {
+  const xs: number[] = []
+  let x = 0
+  for (const c of list) {
+    xs.push(x)
+    x += c.ch === ',' || c.ch === '.' ? PUNCT_W : DIGIT_W
+  }
+  return { xs, total: x }
 }
 
 /**
@@ -164,9 +191,22 @@ interface FigureProps {
  * fade is measured against real time rather than against an eased value that
  * would have finished it inside ninety milliseconds.
  */
-function Glyph({ ch, lift, wide }: { ch: string; lift: number; wide: boolean }) {
+function Glyph({
+  ch,
+  lift,
+  wide,
+  x,
+}: {
+  ch: string
+  lift: number
+  wide: boolean
+  /** Where this character sits along the row. Changes when a comma arrives. */
+  x: number
+}) {
   const t = useSharedValue(0)
+  const dx = useSharedValue(0)
   const started = useRef(false)
+  const seen = useRef(x)
 
   useLayoutEffect(() => {
     if (started.current) return
@@ -174,12 +214,33 @@ function Glyph({ ch, lift, wide }: { ch: string; lift: number; wide: boolean }) 
     t.set(withTiming(1, { duration: LAND_MS, easing: Easing.linear }))
   }, [t])
 
+  /*
+   * **The group glide cannot fix this, and that is why it kept looking jerky.**
+   *
+   * Re-centring moves every character by the same amount, so one transform on
+   * the group cancels it. A separator arriving does not: it shoves everything
+   * ahead of it along by a comma's width and leaves the rest where it was, and
+   * as the number grows the separator itself moves a digit at a time. From the
+   * fourth key on, *every* keystroke displaced some characters and not others
+   * — `scratchpad/shift.mjs` prints the residue, up to 73pt on the comma.
+   *
+   * So each character undoes its own displacement and settles out of it. Note
+   * that nothing here reads layout: `x` is arithmetic, known at render, and the
+   * correction is exact. Additive via `nudge`, so a keystroke landing mid-slide
+   * adds to it rather than throwing the remainder away.
+   */
+  useLayoutEffect(() => {
+    const from = seen.current - x
+    seen.current = x
+    if (from !== 0) scheduleOnUI(nudge, dx, from, GLIDE_MS)
+  }, [x, dx])
+
   const style = useAnimatedStyle(() => {
     const p = t.get()
     const e = 1 - (1 - p) * (1 - p) * (1 - p)
     return {
       opacity: interpolate(p, [0, LAND_FADE], [0, 1], Extrapolation.CLAMP),
-      transform: [{ translateY: (1 - e) * lift }],
+      transform: [{ translateY: (1 - e) * lift }, { translateX: dx.get() }],
     }
   })
 
@@ -249,18 +310,22 @@ export function Figure({ value, sign, tint, empty }: FigureProps) {
 
   const glide = useAnimatedStyle(() => ({ transform: [{ translateX: shift.get() }] }))
 
+  const list = cells(value, empty)
+  const { xs } = place(list)
+
   return (
     <Animated.View style={[s.amount, glide]}>
       <Text style={[s.sign, { color: tint }]}>{sign}</Text>
       <Text style={s.currency}>$</Text>
       <View style={s.row}>
-        {cells(value, empty).map((cell) => (
+        {list.map((cell, i) => (
           /* Typed characters rise in; a separator only fades. */
           <Glyph
             key={cell.key}
             ch={cell.ch}
             lift={cell.typed ? RISE : 0}
             wide={cell.ch !== ',' && cell.ch !== '.'}
+            x={xs[i]}
           />
         ))}
       </View>

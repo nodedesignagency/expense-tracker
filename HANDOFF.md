@@ -344,6 +344,35 @@ makes each keystroke its own event instead of the whole number twitching.
     turns an overhang into an ellipsis — the "A…" trap. A single character has
     nowhere to wrap, so omitting it costs nothing and removes the failure.
 
+- **Three things move the figure, and all three have to be animated.** Fixing
+  one at a time is why "still a bit jerky" came back three times.
+
+  1. The character **lands** — it rises and fades in.
+  2. The figure **re-centres** — it grew, so it shifts by half the new width.
+  3. Every character **slides to its own new place**.
+
+  The third is the one that was missing, and no amount of work on the second
+  could ever have covered it. Re-centring moves every character by the *same*
+  amount, so one transform on the group cancels it. A **separator arriving does
+  not**: it shoves everything ahead of it along by a comma's width and leaves
+  the rest where it was — and as the number grows, the separator itself walks
+  along a digit at a time.
+
+  `scratchpad/shift.mjs` prints the residue the group glide cannot reach. From
+  the fourth key on, **every** keystroke displaced some characters and not
+  others: ±14.7pt on the digits, and up to 73pt on the comma. Instantly, in one
+  frame. Each character now undoes its own displacement and settles out of it,
+  from `x` that is arithmetic and known at render — nothing here measures
+  layout.
+
+- **Separators are keyed from the right, by how many digits follow them.** That
+  is what a group separator *is*: a comma sits three digits from the end for as
+  long as the number has three. Keyed by index from the left, "123,456"
+  becoming "1,234,567" makes the first separator a different separator, and the
+  cell has 73pt to travel to catch up; right-anchored the same comma is still
+  three from the end, only the new one arrives, and no comma ever unmounts
+  while typing. `shift.mjs` prints both keyings side by side.
+
 - **The glide is additive, and it has to run on the UI thread to be.** Setting
   the offset outright throws away whatever travel the last glide had not
   finished. Type again inside `GLIDE_MS` — which is most keystrokes once there

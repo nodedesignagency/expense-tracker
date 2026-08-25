@@ -9,7 +9,7 @@
     padding:24px 16px 40px; min-height:100vh; box-sizing:border-box;
   }
   h1 { font-size:15px; font-weight:600; margin:0; letter-spacing:-.2px }
-  p.note { margin:0; max-width:480px; text-align:center; font-size:12.5px;
+  p.note { margin:0; max-width:500px; text-align:center; font-size:12.5px;
            line-height:1.55; color:var(--dim) }
   .panel {
     width:min(393px,100%); background:var(--bg);
@@ -36,7 +36,7 @@
   .key { height:52px; border:0; border-radius:16px; background:rgba(255,255,255,.09);
          color:var(--ink); font:inherit; font-size:24px; font-weight:500; cursor:pointer }
   .key:active { background:rgba(255,255,255,.18) }
-  .bar { display:flex; gap:8px; flex-wrap:wrap; justify-content:center }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; max-width:580px }
   .bar button { border:1px solid rgba(255,255,255,.18); background:transparent;
     color:var(--ink); font:inherit; font-size:12.5px; font-weight:500;
     border-radius:999px; padding:8px 15px; cursor:pointer }
@@ -47,22 +47,19 @@
 
 <h1>Digit landing</h1>
 <p class="note">
-  Rises <b>22</b> and fades over <b>380ms</b>, cubic ease-out along a linear run.
-  Each character is its own cell keyed by identity, so only a genuinely new one
-  mounts, and it animates <i>because</i> it mounted. The re-centring glide is
-  <b>additive</b>, and every character sits in a <b>fixed-width slot</b>, so the
-  figure's width is arithmetic rather than whatever the font decided — which is
-  what made a <b>1</b> or a <b>7</b> lurch and a <b>0</b> not. Turn on
-  "Proportional digits" to see the slots doing their job. The
-  <b class="bad">old bugs</b> are toggleable too.
+  Three things move, and all three are animated now. The character <b>lands</b>
+  (rises 22, fades, 380ms). The figure <b>re-centres</b> as it grows. And every
+  character <b>slides to its own new place</b> when a comma arrives and shoves
+  it along — that last one was never corrected, which is why it stayed jerky
+  past the third digit. Switch <b class="bad">comma reflow</b> off and type
+  seven digits to feel exactly what was wrong.
 </p>
 
 <div class="bar">
-  <button id="play">Type 1 2 3 4 5</button>
+  <button id="play">Type 1 2 3 4 5 6 7</button>
   <button id="slowmo">Slow motion: <span id="slowlabel">off</span></button>
-  <button id="glidebtn">Glide: <span id="glidelabel">on</span></button>
-  <button id="bugbtn">Old bug — pop &amp; rewind: <span id="buglabel">off</span></button>
-  <button id="gbugbtn">Old bug — glide discard: <span id="gbuglabel">off</span></button>
+  <button id="reflowbtn">Comma reflow fix: <span id="reflowlabel">on</span></button>
+  <button id="glidebtn">Re-centre glide: <span id="glidelabel">on</span></button>
   <button id="loosebtn">Proportional digits: <span id="looselabel">off</span></button>
   <button id="clear">Clear</button>
 </div>
@@ -78,155 +75,132 @@
 
 <script>
   const LAND_MS = 380, RISE = 22, FADE = 0.55, GLIDE_MS = 260;
-  const EM_DIGIT = 0.631348, EM_PUNCT = 0.269043, SIZE = 60, TRACK = -1.4;
-  const DIGIT_W = EM_DIGIT*SIZE + TRACK, PUNCT_W = EM_PUNCT*SIZE + TRACK;
-  let slow = 1, glideOn = true, bug = false, glideBug = false, loose = false;
+  const SIZE = 60, TRACK = -1.4;
+  const DIGIT_W = 0.631348 * SIZE + TRACK, PUNCT_W = 0.269043 * SIZE + TRACK;
+  let slow = 1, glideOn = true, loose = false, reflowOn = true;
 
   const ease = t => 1 - Math.pow(1 - t, 3);
-  const clamp = (v,a,b) => v<a?a:v>b?b:v;
-  /* Exact: the figure is the sum of the slots it is made of. */
-  const span = s => [...s].reduce((w,ch)=>w+((ch===','||ch==='.')?PUNCT_W:DIGIT_W),0);
-
-  const row = document.getElementById('row'), amount = document.getElementById('amount');
-  let raw = '';
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const glideMs = () => GLIDE_MS * slow;
 
   const display = r => {
     if (!r) return '0';
-    const [w,p] = r.split('.');
-    const g = (w||'0').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    return p===undefined ? g : g+'.'+p;
+    const [w, p] = r.split('.');
+    const g = (w || '0').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return p === undefined ? g : g + '.' + p;
   };
 
-  /* Mirrors cells() in Figure.tsx exactly. */
+  /* Mirrors cells() in Figure.tsx: digits keyed from the left, commas from the right. */
   const cells = (v, empty) => {
-    if (empty) return [{ ch:v, key:'z', typed:false }];
-    const out=[]; let typed=0, seps=0;
-    for (const ch of v) ch===',' ? out.push({ch,key:'s'+(seps++),typed:false})
-                                 : out.push({ch,key:'c'+(typed++),typed:true});
+    if (empty) return [{ ch: v, key: 'z', typed: false }];
+    const after = []; let rest = 0;
+    for (let i = v.length - 1; i >= 0; i--) { after[i] = rest; if (v[i] !== ',') rest++; }
+    const out = []; let t = 0;
+    for (let i = 0; i < v.length; i++) {
+      const ch = v[i];
+      if (ch === ',') out.push({ ch, key: 's' + after[i], typed: false });
+      else out.push({ ch, key: 'c' + (t++), typed: true });
+    }
     return out;
   };
+  const slotOf = ch => (ch === ',' || ch === '.') ? PUNCT_W : DIGIT_W;
+  const place = list => {
+    const xs = []; let x = 0;
+    for (const c of list) { xs.push(x); x += slotOf(c.ch); }
+    return { xs, total: x };
+  };
 
-  function place(el, p, lift) {
-    el.style.opacity = clamp(p/FADE, 0, 1);
-    el.style.transform = `translateY(${(1-ease(p))*lift}px)`;
-  }
+  /* An additive decay: a new push adds to whatever travel is left. */
+  const decay = () => ({
+    from: 0, at: -1e9,
+    now() { const e = (performance.now() - this.at) / glideMs(); return e >= 1 ? 0 : this.from * (1 - ease(e)); },
+    push(d) { this.from = this.now() + d; this.at = performance.now(); },
+  });
 
-  function animateIn(el, lift) {
-    const start = () => {
-      const t0 = performance.now();
-      (function step(now){
-        const p = Math.min(1, (now-t0)/(LAND_MS*slow));
-        place(el, p, lift);
-        if (p<1) requestAnimationFrame(step);
-      })(t0);
-    };
-    if (bug) {
-      /* The bug: painted whole and in place first, then reset a frame later. */
-      el.style.opacity = 1; el.style.transform = 'none';
-      requestAnimationFrame(() => requestAnimationFrame(start));
-    } else {
-      place(el, 0, lift);   // invisible on its very first frame
-      start();
+  const row = document.getElementById('row'), amount = document.getElementById('amount');
+  let raw = '', live = new Map(), groupShift = decay(), running = false;
+
+  function draw() {
+    const g = groupShift.now();
+    amount.style.transform = g ? `translateX(${g}px)` : '';
+    let moving = Math.abs(g) > 0.01;
+    for (const c of live.values()) {
+      const d = c.dx.now();
+      const p = Math.min(1, (performance.now() - c.land) / (LAND_MS * slow));
+      c.el.style.opacity = clamp(p / FADE, 0, 1);
+      c.el.style.transform = `translateY(${(1 - ease(p)) * c.lift}px) translateX(${d}px)`;
+      if (Math.abs(d) > 0.01 || p < 1) moving = true;
     }
+    if (moving) requestAnimationFrame(draw); else running = false;
   }
+  const kick = () => { if (!running) { running = true; requestAnimationFrame(draw); } };
 
-  /* Keyed reconciliation, the way React does it: reuse by key, animate mounts. */
-  let live = new Map();
   function render() {
-    const v = display(raw);
-    const next = cells(v, raw === '');
+    const v = display(raw), empty = raw === '';
+    const list = cells(v, empty), { xs, total } = place(list);
     const keep = new Map();
     row.innerHTML = '';
-    for (const c of next) {
-      let el = live.get(c.key);
-      const fresh = !el;
-      if (fresh) {
-        el = document.createElement('span');
-        el.className = 'glyph ' + (c.typed && c.ch !== '.' ? 'digit' : 'punct')
-                     + (loose ? ' loose' : '');
+    list.forEach((c, i) => {
+      let cell = live.get(c.key);
+      if (!cell) {
+        const el = document.createElement('span');
+        el.className = 'glyph ' + (slotOf(c.ch) === DIGIT_W ? 'digit' : 'punct') + (loose ? ' loose' : '');
+        cell = { el, dx: decay(), x: xs[i], lift: c.typed ? RISE : 0, land: performance.now() };
+      } else {
+        /* Undo its own displacement and settle out of it, rather than jumping. */
+        if (reflowOn && Math.abs(cell.x - xs[i]) > 0.01) cell.dx.push(cell.x - xs[i]);
+        cell.x = xs[i];
       }
-      el.textContent = c.ch;
-      row.appendChild(el);
-      keep.set(c.key, el);
-      if (fresh) animateIn(el, c.typed ? RISE : 0);
-    }
+      cell.el.textContent = c.ch;
+      row.appendChild(cell.el);
+      keep.set(c.key, cell);
+    });
     live = keep;
-  }
-
-  /*
-   * Additive: a keystroke inside GLIDE_MS adds to the travel still left rather
-   * than replacing it. Replacing it discards the remainder, and the group
-   * lurches backwards instead of stepping cleanly. That is `glideBug`.
-   */
-  let glideFrom = 0, glideAt = -1e9;
-  const glideNow = () => {
-    const e = (performance.now() - glideAt) / (GLIDE_MS * slow);
-    return e >= 1 ? 0 : glideFrom * (1 - ease(e));
-  };
-  let glideRunning = false;
-  function glide(d) {
-    if (!glideOn || !d) return;
-    glideFrom = glideBug ? d : glideNow() + d;
-    glideAt = performance.now();
-    if (glideRunning) return;
-    glideRunning = true;
-    (function step(){
-      const v = glideNow();
-      amount.style.transform = v ? `translateX(${v}px)` : '';
-      if (v) requestAnimationFrame(step); else glideRunning = false;
-    })();
+    return total;
   }
 
   function type(k) {
-    const before = display(raw);
+    const before = place(cells(display(raw), raw === '')).total;
     let next;
-    if (k === '<') next = raw.slice(0,-1);
-    else if (k === '.') next = raw.includes('.') ? raw : (raw||'0')+'.';
-    else next = raw.replace('.','').length>=7 ? raw : raw+k;
-    if (display(next) === before && next === raw) return;
+    if (k === '<') next = raw.slice(0, -1);
+    else if (k === '.') next = raw.includes('.') ? raw : (raw || '0') + '.';
+    else next = raw.replace('.', '').length >= 7 ? raw : raw + k;
+    if (next === raw) return;
     raw = next;
-    glide((span(display(raw)) - span(before))/2);
-    render();
+    const after = render();
+    if (glideOn) groupShift.push((after - before) / 2);
+    kick();
   }
 
   const pad = document.getElementById('pad');
-  ['1','2','3','4','5','6','7','8','9','.','0','<'].forEach(k=>{
-    const b=document.createElement('button'); b.className='key'; b.textContent=k;
-    b.onclick=()=>type(k); pad.appendChild(b);
+  ['1','2','3','4','5','6','7','8','9','.','0','<'].forEach(k => {
+    const b = document.createElement('button'); b.className = 'key'; b.textContent = k;
+    b.onclick = () => type(k); pad.appendChild(b);
   });
 
-  const reset = () => { raw=''; live=new Map(); amount.style.transform=''; render(); };
+  const reset = () => { raw = ''; live = new Map(); groupShift = decay(); amount.style.transform = ''; render(); kick(); };
   document.getElementById('play').onclick = () => {
     reset();
-    ['1','2','3','4','5'].forEach((k,i)=>setTimeout(()=>type(k), 300*slow*(i+1)));
-  };
-  document.getElementById('loosebtn').onclick = () => {
-    loose = !loose;
-    const l=document.getElementById('looselabel');
-    l.textContent = loose?'ON':'off'; l.className = loose?'on':'';
-    reset();
+    [...'1234567'].forEach((k, i) => setTimeout(() => type(k), 300 * slow * (i + 1)));
   };
   document.getElementById('clear').onclick = reset;
   document.getElementById('slowmo').onclick = () => {
-    slow = slow===1?5:1;
-    const l=document.getElementById('slowlabel');
-    l.textContent = slow===1?'off':'5x'; l.className = slow===1?'':'on';
+    slow = slow === 1 ? 5 : 1;
+    const l = document.getElementById('slowlabel');
+    l.textContent = slow === 1 ? 'off' : '5x'; l.className = slow === 1 ? '' : 'on';
   };
-  document.getElementById('glidebtn').onclick = () => {
-    glideOn = !glideOn;
-    const l=document.getElementById('glidelabel');
-    l.textContent = glideOn?'on':'off'; l.className = glideOn?'':'on';
+  const toggle = (btn, label, read, write, badWhenOn) => {
+    document.getElementById(btn).onclick = () => {
+      write(!read());
+      const l = document.getElementById(label), on = read();
+      l.textContent = on ? 'on' : 'off';
+      l.className = (badWhenOn ? on : !on) ? 'bad' : '';
+      reset();
+    };
   };
-  document.getElementById('gbugbtn').onclick = () => {
-    glideBug = !glideBug;
-    const l=document.getElementById('gbuglabel');
-    l.textContent = glideBug?'ON':'off'; l.className = glideBug?'bad':'';
-  };
-  document.getElementById('bugbtn').onclick = () => {
-    bug = !bug;
-    const l=document.getElementById('buglabel');
-    l.textContent = bug?'ON':'off'; l.className = bug?'bad':'';
-  };
+  toggle('reflowbtn', 'reflowlabel', () => reflowOn, v => reflowOn = v, false);
+  toggle('glidebtn', 'glidelabel', () => glideOn, v => glideOn = v, false);
+  toggle('loosebtn', 'looselabel', () => loose, v => loose = v, true);
 
   render();
 </script>
