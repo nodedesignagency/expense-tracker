@@ -177,7 +177,13 @@ export const EASE_LAND = Easing.out(Easing.cubic)
  * Same duration and curve as the landing, so the character rising and the
  * number settling under it read as one motion rather than two.
  */
-export const GLIDE_MS = 420
+/*
+ * Shorter than the landing on purpose. The glide is the number settling under
+ * a new character, not a journey of its own; at the landing's length it was
+ * still drifting when the next key arrived, so the figure was permanently in
+ * motion under the finger.
+ */
+export const GLIDE_MS = 260
 
 /** Where the confirmation shows itself, along the same track. */
 export const SAID_IN = 0.34

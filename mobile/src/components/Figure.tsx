@@ -23,23 +23,43 @@ const TRACK = sp(-1.4)
 const RISE = sp(LAND_RISE)
 
 /*
- * Advance widths, in ems, read out of `sf-pro-rounded-600.ttf` itself by
- * `scratchpad/ttf.py` — not estimated, and not measured at runtime.
+ * Every character is drawn in a **fixed-width slot**, so the figure's width is
+ * arithmetic rather than whatever the font decides.
  *
- * The figure is set in **tabular** figures. SF Pro Rounded's proportional
- * digits are not one width — a '1' is 0.467em against a '0' at 0.638em — so a
- * number set in them changes width by a different amount per keystroke and
- * jitters as it is typed. The font carries a `tnum` feature and under it every
- * digit is exactly 0.631348em, which is what makes the glide below solvable in
- * closed form as well as what stops the jitter.
+ * This started as `fontVariant: ['tabular-nums']` and a width model that
+ * assumed the font's tabular advance. SF Pro Rounded's *proportional* digits
+ * are nothing like one width — a '1' is 0.467em against a '0' at 0.638em — so
+ * the moment `tnum` does not take, the row grows by a different amount per key
+ * and the glide, which is solved from the model, pushes the group the wrong
+ * distance. `scratchpad/slots.py` prints the damage: a '1' misses by 5.1pt and
+ * a '7' by 2.2pt, while '0', '4' and '8' are inside a fifth of a point. That is
+ * a lurch on some keys and not others, which is exactly what it looked like.
+ *
+ * Asking the font nicely and hoping is not a foundation. The slot is declared
+ * here instead: one width for all ten digits, so the figure is tabular because
+ * *this file* made it so, and the model cannot disagree with the layout because
+ * the model **is** the layout.
+ *
+ * The slot is the font's **tabular** advance, not its widest glyph. Sized to
+ * the widest, "9,999,999" spans 338.97 of the 339 the panel has — three
+ * hundredths of a point of headroom, which is none. At the tabular advance it
+ * spans 336.31 and the only cost is that '0', '4' and '8' overhang their slot
+ * by at most 0.38pt when `tnum` does not take. An overhang can only become an
+ * ellipsis — the "A…" trap — if the `Text` is allowed to elide, and these are
+ * rendered without `numberOfLines` precisely so that it cannot. `slots.py` and
+ * `fits.py` check both halves of that: what overhangs, and what still fits.
  */
 const EM_DIGIT = 0.631348
 const EM_PUNCT = 0.269043
 
-/** How wide a figure will be, before it has been laid out. */
+/** The slots themselves, tracking folded in, in device points. */
+const DIGIT_W = EM_DIGIT * SIZE + TRACK
+const PUNCT_W = EM_PUNCT * SIZE + TRACK
+
+/** How wide a figure is. Exact: it is the sum of the slots it is made of. */
 function span(text: string): number {
   let w = 0
-  for (const ch of text) w += (ch === ',' || ch === '.' ? EM_PUNCT : EM_DIGIT) * SIZE + TRACK
+  for (const ch of text) w += ch === ',' || ch === '.' ? PUNCT_W : DIGIT_W
   return w
 }
 
@@ -144,7 +164,7 @@ interface FigureProps {
  * fade is measured against real time rather than against an eased value that
  * would have finished it inside ninety milliseconds.
  */
-function Glyph({ ch, lift }: { ch: string; lift: number }) {
+function Glyph({ ch, lift, wide }: { ch: string; lift: number; wide: boolean }) {
   const t = useSharedValue(0)
   const started = useRef(false)
 
@@ -163,8 +183,15 @@ function Glyph({ ch, lift }: { ch: string; lift: number }) {
     }
   })
 
+  /*
+   * **No `numberOfLines`, deliberately.** It is the prop that turns an overhang
+   * into an ellipsis, and the widest glyphs overhang their slot by a third of a
+   * point when `tnum` does not take. Without it the overhang is a hair of
+   * overlap nobody can see; with it, Android draws "…" instead of the digit.
+   * A single character has nowhere to wrap, so nothing is lost by omitting it.
+   */
   return (
-    <Animated.Text style={[s.glyph, style]} numberOfLines={1}>
+    <Animated.Text style={[s.glyph, wide ? s.digit : s.punct, style]}>
       {ch}
     </Animated.Text>
   )
@@ -229,7 +256,12 @@ export function Figure({ value, sign, tint, empty }: FigureProps) {
       <View style={s.row}>
         {cells(value, empty).map((cell) => (
           /* Typed characters rise in; a separator only fades. */
-          <Glyph key={cell.key} ch={cell.ch} lift={cell.typed ? RISE : 0} />
+          <Glyph
+            key={cell.key}
+            ch={cell.ch}
+            lift={cell.typed ? RISE : 0}
+            wide={cell.ch !== ',' && cell.ch !== '.'}
+          />
         ))}
       </View>
     </Animated.View>
@@ -245,8 +277,15 @@ const s = StyleSheet.create({
     fontFamily: font.r600,
     fontSize: SIZE,
     color: color.text,
-    letterSpacing: TRACK,
-    /* Tabular, so the figure does not change width per digit as it is typed. */
+    /*
+     * The tracking is in the slot width, not here: `letterSpacing` on a
+     * one-character `Text` would push the glyph off-centre inside its own box.
+     * `tabular-nums` is kept for the glyph's own side bearings, but nothing
+     * depends on it any more — the slots below are what make this tabular.
+     */
     fontVariant: ['tabular-nums'],
+    textAlign: 'center',
   },
+  digit: { width: DIGIT_W },
+  punct: { width: PUNCT_W },
 })

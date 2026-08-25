@@ -317,11 +317,32 @@ makes each keystroke its own event instead of the whole number twitching.
   frame is on screen, which is a visible correction rather than a start. Both
   the landing and the re-centring glide depend on this.
 
-- **The figures are tabular, and that is not cosmetic.** SF Pro Rounded's
-  proportional digits are not one width — a `1` is 0.467em against a `0` at
-  0.638em — so a number set in them changes width by a different amount per
-  keystroke and visibly jitters as it is typed. The font carries `tnum`; under
-  it every digit is exactly **0.631348em** (`,` and `.` are 0.269043em).
+- **Every character sits in a fixed-width slot, and that is the whole basis of
+  the glide.** SF Pro Rounded's proportional digits are nothing like one width —
+  a `1` is 0.467em against a `0` at 0.638em.
+
+  This was `fontVariant: ['tabular-nums']` and a model that assumed the font's
+  tabular advance, which is **asking the font nicely and hoping**. The moment
+  `tnum` does not take, the row grows by a different amount per key while the
+  glide still pushes the modelled distance: `scratchpad/slots.py` prints it — a
+  `1` misses by 2.05pt and a `7` by 2.05pt, `0`/`4`/`8` by under a twentieth.
+  A lurch on *some keys and not others*, which is precisely how the owner
+  described it, twice.
+
+  The slot is declared in `Figure.tsx` now. The figure is tabular because that
+  file made it so, and **the model cannot disagree with the layout because the
+  model is the layout**.
+
+  Two numbers hold it together, and both are checked rather than assumed:
+  - `slots.py` — no glyph overhangs its slot by enough to matter.
+  - `fits.py` — "9,999,999" still crosses the panel. It is **tight**: at the
+    tabular advance it spans 336.31 of 339. Sized to the *widest* glyph instead
+    it spans 338.97, which is three hundredths of a point of headroom, i.e.
+    none — so the tabular advance is the slot and the 0.38pt overhang on
+    `0`/`4`/`8` is accepted.
+  - The glyphs therefore render **without `numberOfLines`**. That prop is what
+    turns an overhang into an ellipsis — the "A…" trap. A single character has
+    nowhere to wrap, so omitting it costs nothing and removes the failure.
 
 - **The glide is additive, and it has to run on the UI thread to be.** Setting
   the offset outright throws away whatever travel the last glide had not

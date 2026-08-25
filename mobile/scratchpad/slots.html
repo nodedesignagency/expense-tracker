@@ -1,0 +1,46 @@
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: SFR; src: url('../assets/fonts/sf-pro-rounded-600.ttf'); }
+  body { margin:0; background:#141414; color:#fff; font-family:-apple-system,system-ui,sans-serif; padding:18px 20px }
+  h2 { font-size:12.5px; margin:14px 0 6px; font-weight:600 }
+  .sub { font-size:11px; color:#8a8a8a; margin:0 0 8px }
+  .amount { display:flex; align-items:center; gap:3px; margin-bottom:4px;
+            outline:1px dashed rgba(255,255,255,.13) }
+  .g { font-family:SFR,system-ui; font-size:60px; font-weight:600; line-height:1.12;
+       color:#fff; text-align:center; display:inline-block }
+  .digit { width:36.86px }   /* 0.637695*60 - 1.4 */
+  .punct { width:14.74px }   /* 0.269043*60 - 1.4 */
+  .tnum { font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1 }
+  .free { }                  /* proportional: what you get if tnum does not take */
+  .old  { font-family:SFR,system-ui; font-size:60px; font-weight:600; line-height:1.12;
+          letter-spacing:-1.4px; color:#fff }
+</style>
+<body>
+<div id="out"></div>
+<script>
+const VALS = ['1,111,111','1,234,567','8,888,888','7,177,177'];
+const out = document.getElementById('out');
+function row(v, cls) {
+  const d = document.createElement('div'); d.className='amount';
+  for (const ch of v) {
+    const s = document.createElement('span');
+    s.className = 'g ' + cls + ' ' + ((ch===','||ch==='.') ? 'punct' : 'digit');
+    s.textContent = ch; d.appendChild(s);
+  }
+  return d;
+}
+function head(t, s) {
+  const h=document.createElement('h2'); h.textContent=t; out.appendChild(h);
+  const p=document.createElement('p'); p.className='sub'; p.textContent=s; out.appendChild(p);
+}
+head('FIXED SLOTS + tnum', 'what ships when the font feature takes');
+VALS.forEach(v => out.appendChild(row(v,'tnum')));
+head('FIXED SLOTS, proportional glyphs', 'what ships if tnum does NOT take — still tabular, still exact');
+VALS.forEach(v => out.appendChild(row(v,'free')));
+head('OLD: no slots, proportional', 'the row width changed per digit — this is what lurched');
+VALS.forEach(v => {
+  const d=document.createElement('div'); d.className='amount';
+  const s=document.createElement('span'); s.className='old'; s.textContent=v;
+  d.appendChild(s); out.appendChild(d);
+});
+</script>

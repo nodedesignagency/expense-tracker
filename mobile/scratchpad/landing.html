@@ -24,10 +24,13 @@
   .row  { display:flex; align-items:center }
   .glyph {
     font-family:SFR, system-ui; font-size:60px; font-weight:600;
-    letter-spacing:-1.4px; line-height:1.12; color:var(--ink);
-    white-space:pre; font-variant-numeric:tabular-nums;
-    font-feature-settings:"tnum" 1;
+    line-height:1.12; color:var(--ink); white-space:pre;
+    font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1;
+    display:inline-block; text-align:center;
   }
+  .digit { width:36.48px }   /* 0.631348*60 - 1.4 */
+  .punct { width:14.74px }   /* 0.269043*60 - 1.4 */
+  .loose { font-variant-numeric:normal; font-feature-settings:"tnum" 0 }
   .cap { font-size:16px; font-weight:500; color:var(--dim) }
   .pad { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; width:100%; margin-top:20px }
   .key { height:52px; border:0; border-radius:16px; background:rgba(255,255,255,.09);
@@ -47,9 +50,11 @@
   Rises <b>22</b> and fades over <b>380ms</b>, cubic ease-out along a linear run.
   Each character is its own cell keyed by identity, so only a genuinely new one
   mounts, and it animates <i>because</i> it mounted. The re-centring glide is
-  <b>additive</b>: type again before it finishes and the new push adds to the
-  travel still left. Both <b class="bad">old bugs</b> are toggleable — the
-  second one is the lurch you were seeing from the third digit on.
+  <b>additive</b>, and every character sits in a <b>fixed-width slot</b>, so the
+  figure's width is arithmetic rather than whatever the font decided — which is
+  what made a <b>1</b> or a <b>7</b> lurch and a <b>0</b> not. Turn on
+  "Proportional digits" to see the slots doing their job. The
+  <b class="bad">old bugs</b> are toggleable too.
 </p>
 
 <div class="bar">
@@ -58,6 +63,7 @@
   <button id="glidebtn">Glide: <span id="glidelabel">on</span></button>
   <button id="bugbtn">Old bug — pop &amp; rewind: <span id="buglabel">off</span></button>
   <button id="gbugbtn">Old bug — glide discard: <span id="gbuglabel">off</span></button>
+  <button id="loosebtn">Proportional digits: <span id="looselabel">off</span></button>
   <button id="clear">Clear</button>
 </div>
 
@@ -71,13 +77,15 @@
 </div>
 
 <script>
-  const LAND_MS = 380, RISE = 22, FADE = 0.55, GLIDE_MS = 380;
+  const LAND_MS = 380, RISE = 22, FADE = 0.55, GLIDE_MS = 260;
   const EM_DIGIT = 0.631348, EM_PUNCT = 0.269043, SIZE = 60, TRACK = -1.4;
-  let slow = 1, glideOn = true, bug = false, glideBug = false;
+  const DIGIT_W = EM_DIGIT*SIZE + TRACK, PUNCT_W = EM_PUNCT*SIZE + TRACK;
+  let slow = 1, glideOn = true, bug = false, glideBug = false, loose = false;
 
   const ease = t => 1 - Math.pow(1 - t, 3);
   const clamp = (v,a,b) => v<a?a:v>b?b:v;
-  const span = s => [...s].reduce((w,ch)=>w+((ch===','||ch==='.')?EM_PUNCT:EM_DIGIT)*SIZE+TRACK,0);
+  /* Exact: the figure is the sum of the slots it is made of. */
+  const span = s => [...s].reduce((w,ch)=>w+((ch===','||ch==='.')?PUNCT_W:DIGIT_W),0);
 
   const row = document.getElementById('row'), amount = document.getElementById('amount');
   let raw = '';
@@ -134,7 +142,8 @@
       const fresh = !el;
       if (fresh) {
         el = document.createElement('span');
-        el.className = 'glyph';
+        el.className = 'glyph ' + (c.typed && c.ch !== '.' ? 'digit' : 'punct')
+                     + (loose ? ' loose' : '');
       }
       el.textContent = c.ch;
       row.appendChild(el);
@@ -190,6 +199,12 @@
   document.getElementById('play').onclick = () => {
     reset();
     ['1','2','3','4','5'].forEach((k,i)=>setTimeout(()=>type(k), 300*slow*(i+1)));
+  };
+  document.getElementById('loosebtn').onclick = () => {
+    loose = !loose;
+    const l=document.getElementById('looselabel');
+    l.textContent = loose?'ON':'off'; l.className = loose?'on':'';
+    reset();
   };
   document.getElementById('clear').onclick = reset;
   document.getElementById('slowmo').onclick = () => {
