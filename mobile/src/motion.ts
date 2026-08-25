@@ -113,18 +113,33 @@ export const BLOB: Blob = 'blob'
  *      sliding across the screen where the digit should have been. Caught only
  *      because the owner sent a screen recording.
  *
- * So: **transform and opacity only, and nothing else.** A rise, a fade and a
- * small scale, which is the reference's motion minus the one part of it React
- * Native cannot be trusted to draw. It cannot glitch, because there is nothing
- * in it that a platform can decline to implement.
+ * So: **transform and opacity only, and nothing else.** A rise and a fade,
+ * which is the reference's motion minus the one part of it React Native cannot
+ * be trusted to draw.
+ *
+ * **And it is driven by the character mounting, not by an effect.** The
+ * version before this reused one component for whichever character was last
+ * and reset it from a `useEffect`, which runs *after* paint — and the token it
+ * watched was state, so it took a second render to arrive. Every keystroke
+ * therefore drew the new digit whole and in place, blinked it out, and replayed
+ * it. A pop and a rewind, on every tap. That was the clunk, and no curve was
+ * ever going to fix it.
+ *
+ * Each character is its own cell keyed by its own identity now, so a new one
+ * *mounts*, and its driver is 0 on the very first render — invisible before it
+ * is ever painted. Nothing to flash.
+ *
+ * Reanimated's own `entering`/`layout` animations would be the idiomatic way to
+ * say this, and they are not used on purpose: layout animations over `Text` are
+ * a long-standing Android failure (software-mansion/react-native-reanimated
+ * #2235, #6606 — the transition simply does not fire and the text jumps). A
+ * plain shared value behaves the same on both platforms.
  *
  * Distances are frame units; scale them at the point of use.
  */
-export const LAND_MS = 420
+export const LAND_MS = 380
 /** How far below its seat the character starts. */
-export const LAND_RISE = 24
-/** How small it starts. Enough that it grows into place rather than pops. */
-export const LAND_FROM = 0.82
+export const LAND_RISE = 22
 
 /*
  * **The driver runs linear and the shape is applied along it**, the way the

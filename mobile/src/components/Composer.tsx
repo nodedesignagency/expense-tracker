@@ -447,6 +447,7 @@ export function Composer() {
             value={display(amount)}
             sign={direction === 'debit' ? '−' : '+'}
             tint={tint}
+            empty={amount === ''}
           />
         </Pressable>
 

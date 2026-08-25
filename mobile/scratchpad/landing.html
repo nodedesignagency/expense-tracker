@@ -5,11 +5,11 @@
   body {
     margin:0; background:var(--page); color:var(--ink);
     font-family:-apple-system, system-ui, sans-serif;
-    display:flex; flex-direction:column; align-items:center; gap:16px;
-    padding:26px 16px 40px; min-height:100vh; box-sizing:border-box;
+    display:flex; flex-direction:column; align-items:center; gap:14px;
+    padding:24px 16px 40px; min-height:100vh; box-sizing:border-box;
   }
   h1 { font-size:15px; font-weight:600; margin:0; letter-spacing:-.2px }
-  p.note { margin:0; max-width:470px; text-align:center; font-size:12.5px;
+  p.note { margin:0; max-width:480px; text-align:center; font-size:12.5px;
            line-height:1.55; color:var(--dim) }
   .panel {
     width:min(393px,100%); background:var(--bg);
@@ -18,44 +18,44 @@
     display:flex; flex-direction:column; align-items:center; gap:6px;
     overflow:hidden;
   }
-  .amount { display:flex; align-items:center; gap:3px; height:84px; }
+  .amount { display:flex; align-items:center; gap:3px; height:84px }
   .sign { font-size:36px; font-weight:600; color:#25E063; font-family:SFR,system-ui }
   .cur  { font-size:36px; font-weight:600; color:var(--dim); font-family:SFR,system-ui }
   .row  { display:flex; align-items:center }
-  .cell { position:relative }
   .glyph {
     font-family:SFR, system-ui; font-size:60px; font-weight:600;
     letter-spacing:-1.4px; line-height:1.12; color:var(--ink);
     white-space:pre; font-variant-numeric:tabular-nums;
     font-feature-settings:"tnum" 1;
   }
-  .layer { position:absolute; left:0; top:0 }
   .cap { font-size:16px; font-weight:500; color:var(--dim) }
   .pad { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; width:100%; margin-top:20px }
   .key { height:52px; border:0; border-radius:16px; background:rgba(255,255,255,.09);
          color:var(--ink); font:inherit; font-size:24px; font-weight:500; cursor:pointer }
   .key:active { background:rgba(255,255,255,.18) }
-  .bar { display:flex; gap:10px; flex-wrap:wrap; justify-content:center }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; justify-content:center }
   .bar button { border:1px solid rgba(255,255,255,.18); background:transparent;
     color:var(--ink); font:inherit; font-size:12.5px; font-weight:500;
-    border-radius:999px; padding:8px 16px; cursor:pointer }
+    border-radius:999px; padding:8px 15px; cursor:pointer }
   .bar button:hover { background:rgba(255,255,255,.08) }
   .on { color:#FFD479 }
+  .bad { color:#FF6969 }
 </style>
 
-<h1>Digit landing — transform and opacity only</h1>
+<h1>Digit landing</h1>
 <p class="note">
-  What the app now does, exactly: rises <b>24</b> and grows from <b>0.82</b>
-  over <b>420ms</b> on a cubic ease-out, fading full at 62% of the run. Figures are
-  <b>tabular</b> so the number cannot jitter, and the whole group glides as it
-  re-centres. <b>No blur</b> — React Native drew a solid grey box instead of one
-  on the simulator, so there is nothing in this a platform can decline to draw.
+  Rises <b>22</b> and fades over <b>380ms</b>, cubic ease-out along a linear run.
+  Each character is its own cell keyed by identity, so only a genuinely new one
+  mounts — and it animates <i>because</i> it mounted, starting invisible on its
+  first frame. Turn on <b class="bad">the old bug</b> to see what was wrong: the
+  digit was drawn whole, then blinked out and replayed, on every single tap.
 </p>
 
 <div class="bar">
   <button id="play">Type 1 2 3 4 5</button>
   <button id="slowmo">Slow motion: <span id="slowlabel">off</span></button>
-  <button id="noglide">Glide: <span id="glidelabel">on</span></button>
+  <button id="glidebtn">Glide: <span id="glidelabel">on</span></button>
+  <button id="bugbtn">The old bug: <span id="buglabel">off</span></button>
   <button id="clear">Clear</button>
 </div>
 
@@ -69,114 +69,128 @@
 </div>
 
 <script>
-  const LAND_MS = 420, RISE = 24, FROM = 0.82, GLIDE_MS = 420, FADE = 0.62;
+  const LAND_MS = 380, RISE = 22, FADE = 0.55, GLIDE_MS = 380;
   const EM_DIGIT = 0.631348, EM_PUNCT = 0.269043, SIZE = 60, TRACK = -1.4;
-  let slow = 1, glideOn = true;
+  let slow = 1, glideOn = true, bug = false;
 
-  function bezier(x1,y1,x2,y2){
-    const cx=3*x1,bx=3*(x2-x1)-cx,ax=1-cx-bx, cy=3*y1,by=3*(y2-y1)-cy,ay=1-cy-by;
-    const fx=t=>((ax*t+bx)*t+cx)*t, dx=t=>(3*ax*t+2*bx)*t+cx;
-    return x=>{let t=x;for(let i=0;i<8;i++){const e=fx(t)-x;if(Math.abs(e)<1e-6)break;
-      const d=dx(t);if(Math.abs(d)<1e-6)break;t-=e/d;}return ((ay*t+by)*t+cy)*t;};
-  }
-  const ease = t => 1 - Math.pow(1 - t, 3);   // Easing.out(Easing.cubic)
-  const clamp = (v,a,b)=>v<a?a:v>b?b:v;
-  const lerp2 = (p,xs,ys)=>{
-    if(p<=xs[0])return ys[0];
-    for(let i=0;i<xs.length-1;i++) if(p<=xs[i+1]){
-      const k=(p-xs[i])/(xs[i+1]-xs[i]); return ys[i]+(ys[i+1]-ys[i])*k;
-    }
-    return ys[ys.length-1];
-  };
-
+  const ease = t => 1 - Math.pow(1 - t, 3);
+  const clamp = (v,a,b) => v<a?a:v>b?b:v;
   const span = s => [...s].reduce((w,ch)=>w+((ch===','||ch==='.')?EM_PUNCT:EM_DIGIT)*SIZE+TRACK,0);
 
   const row = document.getElementById('row'), amount = document.getElementById('amount');
-  let value = '0';
+  let raw = '';
 
-  function group(raw){
-    if(!raw) return '0';
-    const [w,p] = raw.split('.');
-    const g = (w||'0').replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  const display = r => {
+    if (!r) return '0';
+    const [w,p] = r.split('.');
+    const g = (w||'0').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     return p===undefined ? g : g+'.'+p;
+  };
+
+  /* Mirrors cells() in Figure.tsx exactly. */
+  const cells = (v, empty) => {
+    if (empty) return [{ ch:v, key:'z', typed:false }];
+    const out=[]; let typed=0, seps=0;
+    for (const ch of v) ch===',' ? out.push({ch,key:'s'+(seps++),typed:false})
+                                 : out.push({ch,key:'c'+(typed++),typed:true});
+    return out;
+  };
+
+  function place(el, p) {
+    el.style.opacity = clamp(p/FADE, 0, 1);
+    el.style.transform = `translateY(${(1-ease(p))*RISE}px)`;
   }
 
-  function makeCell(ch){
-    const g = document.createElement('span');
-    g.className='glyph'; g.textContent=ch;
-    return { cell:g, glyph:g };
+  function animateIn(el) {
+    const start = () => {
+      const t0 = performance.now();
+      (function step(now){
+        const p = Math.min(1, (now-t0)/(LAND_MS*slow));
+        place(el, p);
+        if (p<1) requestAnimationFrame(step);
+      })(t0);
+    };
+    if (bug) {
+      /* The bug: painted whole and in place first, then reset a frame later. */
+      el.style.opacity = 1; el.style.transform = 'none';
+      requestAnimationFrame(() => requestAnimationFrame(start));
+    } else {
+      place(el, 0);   // invisible on its very first frame
+      start();
+    }
   }
 
-  /* Transform and opacity, and nothing else. p is LINEAR; shape it here. */
-  function settle(g,p){
-    const e = 1-(1-p)*(1-p)*(1-p);
-    g.style.opacity = clamp(p/FADE,0,1);
-    g.style.transform = `translateY(${(1-e)*RISE}px) scale(${FROM+(1-FROM)*e})`;
+  /* Keyed reconciliation, the way React does it: reuse by key, animate mounts. */
+  let live = new Map();
+  function render() {
+    const v = display(raw);
+    const next = cells(v, raw === '');
+    const keep = new Map();
+    row.innerHTML = '';
+    for (const c of next) {
+      let el = live.get(c.key);
+      const fresh = !el;
+      if (fresh) {
+        el = document.createElement('span');
+        el.className = 'glyph';
+      }
+      el.textContent = c.ch;
+      row.appendChild(el);
+      keep.set(c.key, el);
+      if (fresh) { if (c.typed) animateIn(el); else place(el, 1); }
+    }
+    live = keep;
   }
 
-  function render(next, animateLast){
-    row.innerHTML='';
-    const chars = next.split('');
-    chars.forEach((ch,i)=>{
-      const parts = makeCell(ch);
-      row.appendChild(parts.cell);
-      if(i===chars.length-1 && animateLast){
-        settle(parts.glyph,0);
-        const t0=performance.now();
-        (function step(now){
-          const p=Math.min(1,(now-t0)/(LAND_MS*slow));
-          settle(parts.glyph,p);
-          if(p<1) requestAnimationFrame(step);
-        })(t0);
-      } else settle(parts.glyph,1);
-    });
-  }
-
-  function glide(d){
-    if(!glideOn || !d) return;
-    const t0=performance.now();
+  function glide(d) {
+    if (!glideOn || !d) return;
+    const t0 = performance.now();
     (function step(now){
-      const p=Math.min(1,(now-t0)/(GLIDE_MS*slow));
-      amount.style.transform=`translateX(${d*(1-ease(p))}px)`;
-      if(p<1) requestAnimationFrame(step); else amount.style.transform='';
+      const p = Math.min(1, (now-t0)/(GLIDE_MS*slow));
+      amount.style.transform = `translateX(${d*(1-ease(p))}px)`;
+      if (p<1) requestAnimationFrame(step); else amount.style.transform = '';
     })(t0);
   }
 
-  function type(k){
-    const raw = value==='0' ? '' : value.replace(/,/g,'');
-    let nextRaw;
-    if(k==='<') nextRaw = raw.slice(0,-1);
-    else if(k==='.') nextRaw = raw.includes('.') ? raw : (raw||'0')+'.';
-    else nextRaw = raw.replace('.','').length>=7 ? raw : raw+k;
-    const next = group(nextRaw);
-    if(next===value) return;
-    const grew = next.length>value.length;
-    glide((span(next)-span(value))/2);
-    value = next;
-    render(next, grew);
+  function type(k) {
+    const before = display(raw);
+    let next;
+    if (k === '<') next = raw.slice(0,-1);
+    else if (k === '.') next = raw.includes('.') ? raw : (raw||'0')+'.';
+    else next = raw.replace('.','').length>=7 ? raw : raw+k;
+    if (display(next) === before && next === raw) return;
+    raw = next;
+    glide((span(display(raw)) - span(before))/2);
+    render();
   }
 
-  const pad=document.getElementById('pad');
+  const pad = document.getElementById('pad');
   ['1','2','3','4','5','6','7','8','9','.','0','<'].forEach(k=>{
     const b=document.createElement('button'); b.className='key'; b.textContent=k;
     b.onclick=()=>type(k); pad.appendChild(b);
   });
 
-  document.getElementById('play').onclick=()=>{
-    value='0'; render('0',false); amount.style.transform='';
+  const reset = () => { raw=''; live=new Map(); amount.style.transform=''; render(); };
+  document.getElementById('play').onclick = () => {
+    reset();
     ['1','2','3','4','5'].forEach((k,i)=>setTimeout(()=>type(k), 300*slow*(i+1)));
   };
-  document.getElementById('clear').onclick=()=>{ value='0'; render('0',false); amount.style.transform=''; };
-  document.getElementById('slowmo').onclick=()=>{
+  document.getElementById('clear').onclick = reset;
+  document.getElementById('slowmo').onclick = () => {
     slow = slow===1?5:1;
     const l=document.getElementById('slowlabel');
     l.textContent = slow===1?'off':'5x'; l.className = slow===1?'':'on';
   };
-  document.getElementById('noglide').onclick=()=>{
-    glideOn=!glideOn;
+  document.getElementById('glidebtn').onclick = () => {
+    glideOn = !glideOn;
     const l=document.getElementById('glidelabel');
     l.textContent = glideOn?'on':'off'; l.className = glideOn?'':'on';
   };
+  document.getElementById('bugbtn').onclick = () => {
+    bug = !bug;
+    const l=document.getElementById('buglabel');
+    l.textContent = bug?'ON':'off'; l.className = bug?'bad':'';
+  };
 
-  render('0',false);
+  render();
 </script>

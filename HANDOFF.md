@@ -280,6 +280,43 @@ makes each keystroke its own event instead of the whole number twitching.
   exactly how an animation comes to look like a jump. Same pattern the slider's
   swell uses.
 
+- **A character animates because it MOUNTED, never because an effect told it
+  to.** This was the real "clunky", and it survived three rounds of tuning
+  curves that were never the problem.
+
+  The version before it reused one component for whichever character was last,
+  keyed `"landing"`, and reset its driver from a `useEffect` keyed on a *state*
+  token. `useEffect` runs after paint and the token needed a second render, so
+  every keystroke drew the new digit **whole and in place**, blinked it out,
+  and replayed it. A pop and a rewind, on every tap.
+
+  Now each character is its own cell and **the keys decide what animates**: a
+  digit is keyed by its place among the *typed* characters (`c0`, `c1`, …), so
+  it keeps that key however the grouping shifts it — '999' becoming '9,999'
+  leaves the first three untouched and only the fourth is new. Key by position
+  in the rendered string instead and a comma shunts every digit after it onto a
+  fresh key, remounting and re-animating half the number at once. The
+  nothing-typed-yet zero is keyed `z`, apart from a typed digit, or the first
+  press of the pad is the one keystroke that does not animate.
+  `scratchpad/keys.mjs` prints the mounts for a typing sequence; run it after
+  touching either function.
+
+  A fresh mount starts with its driver at 0, so the first frame it is ever
+  painted in is already the start of the animation. Nothing to correct after
+  the fact, and nothing to flash.
+
+- **Reanimated's `entering` / `layout` animations are the idiomatic way to say
+  that, and they are deliberately not used.** Layout animations over `Text` are
+  a long-standing Android failure — software-mansion/react-native-reanimated
+  #2235 and #6606: the transition does not fire and the text jumps. A plain
+  shared value set on mount behaves identically on both platforms. Same reason
+  the glide is solved from font metrics rather than left to `LinearTransition`.
+
+- **Anything that must be in place before the first paint goes in
+  `useLayoutEffect`.** It runs inside the commit; `useEffect` runs after the
+  frame is on screen, which is a visible correction rather than a start. Both
+  the landing and the re-centring glide depend on this.
+
 - **The figures are tabular, and that is not cosmetic.** SF Pro Rounded's
   proportional digits are not one width — a `1` is 0.467em against a `0` at
   0.638em — so a number set in them changes width by a different amount per
