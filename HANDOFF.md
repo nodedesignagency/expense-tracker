@@ -317,66 +317,40 @@ makes each keystroke its own event instead of the whole number twitching.
   frame is on screen, which is a visible correction rather than a start. Both
   the landing and the re-centring glide depend on this.
 
-- **A slot is arithmetic, not a box.** SF Pro Rounded's proportional digits are
-  nothing like one width — a `1` is 0.467em against a `0` at 0.638em — so a
-  figure that lets the font decide grows by a different amount per key.
+- **Every character sits in a fixed-width slot.** SF Pro Rounded's proportional
+  digits are nothing like one width — a `1` is 0.467em against a `0` at 0.638em
+  — so a figure that lets the font decide grows by a different amount per key,
+  and the glide, solved from a model, pushes the wrong distance.
+  `scratchpad/slots.py` prints the damage: a `1` out by 2.05pt, `0`/`4`/`8` by
+  under a twentieth. A lurch on *some keys and not others*.
 
-  This was `fontVariant: ['tabular-nums']` plus a width model that assumed the
-  font's tabular advance, which is **asking the font nicely and hoping**. The
-  moment `tnum` did not take, the model and the layout disagreed and the
-  correction pushed the wrong distance: `scratchpad/slots.py` prints it — a `1`
-  out by 2.05pt, `0`/`4`/`8` by under a twentieth. A lurch on *some keys and not
-  others*, which is exactly how the owner kept describing it.
+  The slot is declared in `Figure.tsx`, so the figure is tabular because that
+  file made it so rather than because `tnum` was honoured, and the width model
+  cannot disagree with the layout because the model **is** the layout.
 
-  The slot is now only a **number in the placement arithmetic** — how far along
-  the next character's centre sits. Every digit is given the same one, so the
-  figure is tabular because `Figure.tsx` made it so. Nothing constrains a
-  glyph's rendered width, so its advance cannot matter and `tnum` is decoration.
+  - `slots.py` — no glyph overhangs its slot by enough to matter.
+  - `fits.py` — "9,999,999" spans **336.31 of the 339** the panel has. Tight.
+    Widen a slot and check it again.
+  - The glyphs render **without `numberOfLines`**: that prop is what turns an
+    overhang into an ellipsis, the "A…" trap, and a single character has
+    nowhere to wrap.
 
-  That also retires two hazards for good: there is no fixed-width `Text` to
-  overflow, so the `numberOfLines` eliding trap has nothing to bite, and no
-  measured box to disagree with the model.
+- **DO NOT rewrite this to place the figure absolutely. It has been tried and
+  it shipped a blank screen.**
 
-  `scratchpad/fits.py` is still load-bearing: "9,999,999" spans **336.31 of the
-  339** the panel has. It is tight. Widen a slot and check it again.
+  The idea was sound — position every piece by `translateX` against an absolute
+  target so that layout never moves a character, which kills the whole class of
+  correction-races above. What it actually did was draw **nothing at all**: the
+  anchor took `alignSelf: 'stretch'` inside a `Pressable` that shrinks to fit
+  its content, so the width resolved to zero, and every absolutely-filled piece
+  filled a zero-width box. The amount vanished entirely and the owner found it,
+  not `tsc`, not the worklet check, and not a clean bundle on both platforms.
 
-- **The figure is PLACED, not laid out — and that is the whole of it.**
-
-  Three rounds of "still jerky" were spent letting flexbox position the
-  characters and then correcting for wherever it had put them: one transform to
-  undo the re-centring, another to undo a comma shoving its neighbours along.
-  **Every one of those corrections is a race against the frame that already
-  moved the character**, and each was its own hop to the UI thread — on the
-  keystroke that inserts a separator there were six at once. Whichever lost the
-  race snapped.
-
-  Nothing in `Figure.tsx` is laid out now. Every piece — the sign, the mark and
-  each character — is an absolutely-positioned overlay filling the anchor with
-  its glyph centred, and one `translateX` puts it where it belongs. That number
-  is an **absolute target**, solved from slot arithmetic at render:
-
-  - **Layout never moves a character**, so an animation that starts a frame
-    late is a frame late, not a jump. The race is gone rather than won.
-  - **The target is absolute**, so nothing needs to know where the animation
-    currently is. `withTiming` starts from wherever it got to, which handles an
-    interrupted slide natively — no accumulating a remainder, no
-    `scheduleOnUI`, no reading a shared value from the wrong thread. All of
-    that machinery is deleted.
-  - **A new character mounts with its target already set**, so the first frame
-    it is painted in is already right.
-  - There is no group transform. The centring is inside every target.
-
-  It also drops the last dependency on the font: a glyph is *centred on* its
-  slot rather than filling a fixed-width box, so its own advance cannot matter.
-  Whether `tabular-nums` takes or not, the figure is tabular and the arithmetic
-  holds — and with nothing constraining a glyph's width there is nothing to
-  overflow, so the eliding trap is gone too.
-
-  `scratchpad/place.mjs` checks the arithmetic: that the figure is centred, that
-  the widest one still fits the panel (336.31 of 339), and what moves per
-  keystroke. Everything it lists is a target change, which is animated by
-  definition. **If the figure ever needs to move differently, change the target
-  — never add a correcting transform on top.**
+  This is the trap already written down two sections below — *do not lean on
+  Yoga to size or centre an absolutely-positioned child* — and it was walked
+  into anyway. If it is ever attempted again, the anchor needs an **explicit
+  width and height**, and it must be checked on a device before anything else
+  is built on it.
 
 - **Separators fade but never rise.** A comma is not typed — it arrives because
   the number crossed a thousand — so lifting it out of the middle of the figure
