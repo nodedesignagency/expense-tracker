@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { BalanceCard } from '../components/BalanceCard'
@@ -6,9 +6,41 @@ import { FilterBar } from '../components/FilterBar'
 import { TransactionCard } from '../components/TransactionCard'
 import { WeekStrip } from '../components/WeekStrip'
 import { formatDateHeading, formatMonthYear } from '../lib/dates'
+import type { Transaction } from '../lib/types'
 import { filterLedger, groupByDate, monthTotals, netBalanceCents } from '../lib/selectors'
 import { useAppState, useDispatch, useToday } from '../store'
+import type { Arrival } from '../components/Mascot'
 import { color, metric, type } from '../theme'
+
+/**
+ * Bumps a nonce whenever an id appears in the ledger that was not there before.
+ *
+ * Refs rather than state, and computed during render rather than in an effect:
+ * the mascot is handed the result on the same commit the entry arrives on, so
+ * its reaction and the new row appear together. An effect would land a frame
+ * later and the two would separate.
+ */
+function useArrival(rows: Transaction[]): Arrival | undefined {
+  const known = useRef<Set<string> | null>(null)
+  const last = useRef<Arrival | undefined>(undefined)
+
+  const ids = rows.map((row) => row.id)
+  if (known.current === null) {
+    /* The first pass is the seed arriving, which nobody did. */
+    known.current = new Set(ids)
+    return undefined
+  }
+
+  const fresh = rows.find((row) => !known.current?.has(row.id))
+  if (fresh) {
+    known.current = new Set(ids)
+    last.current = { nonce: (last.current?.nonce ?? 0) + 1, direction: fresh.direction }
+  } else if (ids.length !== known.current.size) {
+    /* A delete. Nothing to react to, but the set must not go stale. */
+    known.current = new Set(ids)
+  }
+  return last.current
+}
 
 const RULE: readonly [string, string, string] = [
   'rgba(255,255,255,0)',
@@ -36,10 +68,25 @@ export function HomeScreen() {
   const net = useMemo(() => netBalanceCents(transactions, scope, today), [transactions, scope, today])
   const groups = useMemo(() => groupByDate(visible), [visible])
 
+  /*
+   * Whether an entry just *landed*, which is not the same as which row is
+   * newest. The ledger re-sorts and re-filters on every scope switch, day
+   * pick and search keystroke, so watching the top row would have the mascot
+   * react to a filter change. Watching the full ledger's ids means only a
+   * genuine arrival counts — and the id it finds carries the direction, so an
+   * entry backdated into the middle of the list still reacts as itself.
+   */
+  const arrival = useArrival(transactions)
+
   return (
     <View>
       <WeekStrip />
-      <BalanceCard netCents={net} totals={totals} monthLabel={formatMonthYear(`${month}-01`)} />
+      <BalanceCard
+        netCents={net}
+        totals={totals}
+        monthLabel={formatMonthYear(`${month}-01`)}
+        arrival={arrival}
+      />
       <FilterBar />
 
       {/* Each half carries one side of the rule, so the pair reads as one line

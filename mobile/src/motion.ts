@@ -380,3 +380,57 @@ export function recedeLift(insetTop: number, windowH: number) {
 export function pageSheetTop(insetTop: number) {
   return insetTop + sp(CHROME_CLEAR) + RECEDE * metric.control + sp(SHEET_CLEAR)
 }
+
+/*
+ * The mascot.
+ *
+ * It lives in a card that clips, so these are measurements rather than
+ * preferences — `scratchpad/mascot.mjs` reports the headroom and the PNG's own
+ * padding was decoded to find the rest:
+ *
+ *   - 51pt above the pig's box before the card cuts its head, and the artwork
+ *     carries another 23.5pt of transparent padding inside that.
+ *   - The box is cut 4.5pt at the bottom, but the artwork has 16.5pt of
+ *     padding down there, so the feet are ~12pt clear of the line.
+ *
+ * Everything below fits inside that with room to spare. If the card's height
+ * or the mascot's placement changes, re-run the driver before changing these.
+ */
+
+/** The two idle loops, at deliberately different periods. */
+export const PIG_BOB_MS = 2600
+export const PIG_BREATH_MS = 1900
+/** How far it drifts up, and how much it swells. Both are small on purpose. */
+export const PIG_BOB = 3
+export const PIG_BREATH = 1.018
+
+/*
+ * Periods that do not divide into each other, so the bob and the breath drift
+ * in and out of phase instead of locking to one visible cycle. 2600 and 1900
+ * come back together every 49.4s; at a glance it never repeats.
+ */
+
+/** The hop a credit gets: anticipation, up, settle. */
+export const PIG_HOP_DIP = 90
+export const PIG_HOP_UP = 220
+export const PIG_HOP_SETTLE = 420
+export const PIG_HOP_RISE = 12
+export const PIG_HOP_SQUASH = 0.97
+export const PIG_HOP_STRETCH = 1.04
+
+/** The recoil a debit gets: a slump, not a shudder. A debit is not an error. */
+export const PIG_DIP_DOWN = 200
+export const PIG_DIP_BACK = 460
+export const PIG_DIP_FALL = 4
+export const PIG_DIP_SHRINK = 0.955
+
+/*
+ * When the reaction starts, measured from the entry being filed.
+ *
+ * The entry lands halfway through the bloom (`HANDOFF`), which still has
+ * CELEBRATE * (1 - HANDOFF) left to run over the top of everything. A pig that
+ * hops the instant the entry is filed hops behind a veil at its brightest and
+ * is finished before it lifts. This waits it out, so the reaction plays to a
+ * screen that can see it.
+ */
+export const PIG_REACT_DELAY = CELEBRATE * (1 - HANDOFF)

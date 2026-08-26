@@ -1,15 +1,17 @@
-import { Image, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { formatMoney } from '../lib/money'
 import type { Totals } from '../lib/types'
-import { MASCOT_SRC } from '../assets/registry'
 import { axisFor, color, fill, metric, radius, rim, sp, type } from '../theme'
 import { Glass } from './Glass'
+import { Mascot, type Arrival } from './Mascot'
 
 interface BalanceCardProps {
   netCents: number
   totals: Totals
   monthLabel: string
+  /** Bumped when an entry lands, so the mascot can react to it. */
+  arrival?: Arrival
 }
 
 /* Frame: 345 x 189, padding 18, inner gap 16, legend gap 10. */
@@ -23,7 +25,7 @@ function quipFor(totals: Totals, net: number): string {
   return 'Keeping your head above water'
 }
 
-export function BalanceCard({ netCents, totals, monthLabel }: BalanceCardProps) {
+export function BalanceCard({ netCents, totals, monthLabel, arrival }: BalanceCardProps) {
   return (
     <Glass
       rim={rim.card}
@@ -54,7 +56,7 @@ export function BalanceCard({ netCents, totals, monthLabel }: BalanceCardProps) 
         <View style={s.bubblePointer} />
       </View>
 
-      <Image source={MASCOT_SRC} style={s.mascot} resizeMode="contain" />
+      <Mascot style={s.mascot} arrival={arrival} />
     </Glass>
   )
 }

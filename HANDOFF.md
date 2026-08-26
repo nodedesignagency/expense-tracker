@@ -724,6 +724,86 @@ field from that entry instead of clearing. `submit` then branches to
   open — this app avoids modal-over-modal (it is why the calendar is an
   `overlay` inside the sheet rather than a sheet of its own).
 
+## The mascot
+
+`Mascot.tsx`. The pig breathes and bobs on a loop, and reacts when an entry
+lands — a hop on a credit, a slump on a debit.
+
+**Magnific was considered and is not needed.** The owner's idea was to generate
+an animated pig as a video with no background. Two independent reasons that
+does not work, both worth not rediscovering:
+
+- **No Magnific model outputs alpha.** The formats are `mp4` and `mov`, and the
+  `mov` option is about colour fidelity. `images_remove_background` is images
+  only; there is no video equivalent.
+- **React Native could not play it anyway.** H.264 carries no alpha channel at
+  all, and the two formats that do are split by platform — HEVC-with-alpha is
+  Apple-only, VP9-in-WebM is Android-only. There is no one file that plays
+  transparent on both of the owner's devices, and on Android the video surface
+  does not composite alpha over the views behind it regardless.
+
+If real character animation is ever wanted — a blink, a wave, an expression
+change, anything where the *drawing* changes rather than its placement — the
+route is Magnific onto a flat keyable background, frames keyed out, exported as
+an animated WebP with alpha, played by `expo-image` (which is in SDK 54 and
+ships inside Expo Go). Both risks are real: these models are not frame-stable,
+so a rendered mascot's suit and face drift between frames, and the background
+is rarely flat enough to key without spill. Test one short clip before
+committing to it.
+
+### What the numbers had to be
+
+The card **clips**, so amplitude was measured, not chosen. `scratchpad/mascot.mjs`
+reports the headroom; the PNG's own padding was decoded on top of it:
+
+| | |
+| --- | --- |
+| Above the pig's box | 51pt before the card cuts its head |
+| Below it | the box is cut 4.5pt — but the artwork has 16.5pt of transparent padding down there, so the **feet are ~12pt clear** |
+| Inside the artwork | 47px top / 33px bottom of transparent padding, at half scale |
+
+So it can move both ways, which the box alone says it cannot. Everything in
+`motion.ts` under "The mascot" fits inside that. **Re-run the driver before
+changing any of it**, and re-decode the padding if the artwork is ever replaced.
+
+### Two rules it follows
+
+- **The idle loops and the reaction are separate shared values that are
+  summed**, never one value they take turns owning. A hop that *replaces* the
+  breath snaps the loop to wherever the reaction starts and snaps back when it
+  ends. Same lesson as the figure's glide: add to what is in flight.
+- **The bob and the breath run at different periods** (2600 / 1900), so they
+  drift in and out of phase rather than locking to one visible cycle.
+- **No rotation**, for the reason `TILT` is `false` everywhere else: it is a
+  flat image with the depth painted in, so turning it reveals no side face.
+- `useReducedMotion` stops the idle loop. The reactions still play — they are
+  brief, and they answer something the user just did.
+
+### The reaction is delayed on purpose
+
+`PIG_REACT_DELAY` is `CELEBRATE * (1 - HANDOFF)`. The entry is filed halfway
+through the commit bloom, which still has that long left to run over the top of
+everything. A pig that hops the instant the entry is filed hops behind a veil at
+its brightest and is finished before it lifts. Measured: the peak lands ~1.9s
+after the slider is released, just as the bloom clears.
+
+### Measuring it
+
+`scratchpad/mascot.mjs`. Two things it had to learn, both of which produced
+confident wrong answers first:
+
+- **Measure the pig relative to its card, not the viewport.** Opening the
+  composer recedes the whole page behind it, which moves the pig bodily. Against
+  the viewport that read as a 14.9pt jump and a 12.6pt failure to return; against
+  the card, 4.6pt and a 0.4pt drift.
+- **Normalise a step to a 16ms frame before calling it a jump.** A 10.11pt
+  "snap" on the debit was a dropped frame: the same motion re-measured was
+  3.71pt across a true 16ms gap.
+
+Current numbers: idle travels 5.1pt with a 2.65pt breath, worst step 0.13pt.
+Credit rises 16.4pt, worst 5.8pt per frame. Debit sinks 12.6pt, worst 3.7pt per
+frame. Both return to the idle baseline within ~1pt.
+
 ## Animation rules now being followed
 
 From the skills repo the owner supplied — `github.com/emilkowalski/skills`,
@@ -904,6 +984,10 @@ of mistake here that kills the app outright rather than looking wrong.
   first turn. Delete the loser once they say.
 - **The wider animation pass has not been done.** List entrances, press
   feedback, the nav — the skills repo enables it, the owner has not asked yet.
+  The mascot was done separately, on its own ask; see **The mascot** above.
+- **The mascot has no tap reaction and no mood.** Both were offered and the
+  owner picked only the idle loop and the arrival reaction. A tap easter egg and
+  a pig whose posture follows the balance are still on the table.
 - **The composer has no time field.** It was removed in the rebuild; entries
   default to `'09:00'`. Asked again during the detail-sheet rebuild: the owner
   chose to **drop the Time row** from that sheet rather than add the field, so
