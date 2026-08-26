@@ -25,10 +25,13 @@ from PIL import Image
 import imageio_ffmpeg
 
 SRC = sys.argv[1] if len(sys.argv) > 1 else 'scratchpad/pig/clip.mp4'
-OUT, KEYED = 'scratchpad/pig/frames', 'scratchpad/pig/keyed'
+TAG = sys.argv[2] if len(sys.argv) > 2 else ''
+OUT = f'scratchpad/pig/frames{TAG}'
+KEYED = f'scratchpad/pig/keyed{TAG}'
 FPS = 12
 BOX_W, BOX_H = 392, 294        # the mascot's own box, at the app's 2x artwork
 CANVAS_W, CANVAS_H = 520, 390  # what we sent, so the crop maps back 1:1
+HEAD = 48                    # extra rows kept ABOVE the box
 
 for d in (OUT, KEYED):
     os.makedirs(d, exist_ok=True)
@@ -73,15 +76,20 @@ def resample(rgb, alpha, size):
 
 # Where the mascot's 392x294 box sits inside the native frame.
 sx, sy = NW / CANVAS_W, NH / CANVAS_H
-crop = (round(64 * sx), round(48 * sy), round(456 * sx), round(342 * sy))
-print(f'cropping {crop} of the native frame -> {BOX_W}x{BOX_H}')
+# Kept taller than the box on purpose: the cheer throws his arms straight up,
+# and cropping to the box alone sliced them off at the wrist. The canvas has
+# 48px of green above the box, so all of it is kept and the packer works out
+# how far above the box the artwork actually reaches.
+crop = (round(64 * sx), round((48 - HEAD) * sy), round(456 * sx), round(342 * sy))
+OUT_H = BOX_H + HEAD
+print(f'cropping {crop} of the native frame -> {BOX_W}x{OUT_H} ({HEAD}px above the box)')
 
 print('keying at full resolution…')
 for i, f in enumerate(frames):
     rgb, alpha = key(f)
     rgb = rgb[crop[1]:crop[3], crop[0]:crop[2]]
     alpha = alpha[crop[1]:crop[3], crop[0]:crop[2]]
-    resample(rgb, alpha, (BOX_W, BOX_H)).save(f'{KEYED}/{i:03d}.png')
+    resample(rgb, alpha, (BOX_W, OUT_H)).save(f'{KEYED}/{i:03d}.png')
 
 # Did the edge come back? The original art is the yardstick.
 def softness(im):
@@ -90,7 +98,7 @@ def softness(im):
 
 ref = Image.open('assets/art/mascot.png').crop((88, 43, 312, 263))
 rp, rs = softness(ref)
-gp, gs = softness(Image.open(f'{KEYED}/000.png').crop((88, 43, 312, 263)))
+gp, gs = softness(Image.open(f'{KEYED}/000.png').crop((88, 43 + HEAD, 312, 263 + HEAD)))
 print(f'\nedge softness (partial-alpha pixels as a share of the solid area):')
 print(f'  original art : {rp:5d}  ({100*rp/rs:.1f}%)')
 print(f'  generated    : {gp:5d}  ({100*gp/gs:.1f}%)')
