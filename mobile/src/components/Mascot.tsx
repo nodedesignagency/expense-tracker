@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
-import { StyleSheet, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native'
+import {
+  Image,
+  PixelRatio,
+  StyleSheet,
+  View,
+  type ImageSourcePropType,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native'
 import Animated, {
   Easing,
   cancelAnimation,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
-  withRepeat,
   withTiming,
 } from 'react-native-reanimated'
 import { scheduleOnRN } from 'react-native-worklets'
@@ -17,12 +24,27 @@ const FPS = 12
 /** The artwork is drawn at twice the size it is displayed. */
 const ART = 2
 
+/** How long he stays still between coming alive, in ms. */
+const IDLE_MIN = 25_000
+const IDLE_MAX = 32_000
+
+/**
+ * Snapped to a whole device pixel.
+ *
+ * **This is what made him shimmer.** A tile is 226 artwork pixels, which is
+ * `sp(113)` — and on the owner's 360pt phone `sp` is 0.916, so that is
+ * 103.51pt. Every tile boundary then landed on a fraction of a pixel, each
+ * frame resampled at a slightly different sub-pixel phase, and the pig
+ * appeared to shift about while standing still. Rounding the tile to the
+ * device's own grid makes every step an exact whole number of pixels.
+ */
+const px = (n: number) => PixelRatio.roundToNearestPixel(sp(n / ART))
+
 interface Clip {
   source: ImageSourcePropType
   frames: number
   cols: number
   rows: number
-  /** Already scaled: one tile, and where it sits inside the mascot's box. */
   tileW: number
   tileH: number
   offX: number
@@ -35,10 +57,9 @@ interface Clip {
  * may be guessed** — a tile one pixel out shears the animation sideways as it
  * advances, and an offset one pixel out slides the pig in the card.
  *
- * The offsets are quoted against the mascot's own 392 x 294 box, so all three
- * clips land in the same place however differently they were framed. They were
- * framed differently: the idle and the cheer came off a 4:3 canvas, the hide
- * off a square one, because Kling does not offer 4:3.
+ * The offsets are quoted against the mascot's own 392 x 294 box, so clips
+ * framed differently still land in the same place. `offY` may be negative:
+ * the idle's artwork reaches slightly above the box.
  */
 function clip(
   source: ImageSourcePropType,
@@ -54,21 +75,24 @@ function clip(
     frames,
     cols,
     rows: Math.ceil(frames / cols),
-    tileW: sp(tw / ART),
-    tileH: sp(th / ART),
-    offX: sp(ox / ART),
-    offY: sp(oy / ART),
+    tileW: px(tw),
+    tileH: px(th),
+    offX: px(ox),
+    offY: px(oy),
     ms: (frames / FPS) * 1000,
   }
 }
 
 const CLIPS = {
-  idle: clip(require('../../assets/art/mascot-idle.png'), 49, 7, 226, 220, 87, 43),
+  idle: clip(require('../../assets/art/mascot-idle.png'), 21, 7, 226, 220, 87, -5),
   cheer: clip(require('../../assets/art/mascot-cheer.png'), 32, 6, 257, 263, 63, 0),
-  hide: clip(require('../../assets/art/mascot-hide.png'), 46, 6, 247, 221, 67, 43),
 } as const
 
-export type Reaction = 'cheer' | 'hide'
+/** Frame 0's tile, so the still and the sheet's first frame are identical. */
+const REST = require('../../assets/art/mascot-rest.png')
+
+export type Reaction = 'cheer'
+type Mode = 'rest' | 'idle' | Reaction
 
 export interface Arrival {
   /** Bumped once per entry worth reacting to. Nothing happens while it is 0. */
@@ -83,53 +107,59 @@ interface MascotProps {
 }
 
 /**
- * The pig, alive.
+ * The pig.
  *
- * Three generated clips, each keyed off a green screen and packed into its own
- * sheet: an idle he blinks and breathes through on a loop, a cheer for a
- * credit, and a covers-his-eyes for a debit bigger than usual. They are played
- * by sliding a sheet behind a window the size of one of its tiles, so every
- * frame is a `translate` on the UI thread — no decoding per frame, and **no
- * new native dependency**, which is why this runs in Expo Go unchanged.
+ * **He is still most of the time.** The idle used to loop without stopping,
+ * which the owner found both laggy and wearing — a thing that never rests
+ * stops being noticed and never stops costing. So at rest nothing animates at
+ * all: a single still frame is drawn and no sheet is touched. Every 25 to 32
+ * seconds he comes alive for 1.75s — a blink and a breath — and goes back to
+ * being still. A credit gets the cheer.
  *
- * Every clip was generated with `mascot.png` as **both** its start and its end
- * keyframe, so each one begins and ends on the same neutral pose. That is what
- * lets a reaction cut in and hand back to the idle without a pop, and it is
- * why the reactions are trimmed where they come **to rest** rather than where
- * the motion stops — trimming at the last movement hands back a pose the idle
- * cannot continue from.
+ * The interval is jittered rather than fixed, so it never reads as a metronome.
  *
- * The hop and slump that used to be done with a transform are gone: the clips
- * carry the reaction now.
+ * Playback slides a sheet behind a window one tile wide, so every frame is a
+ * `translate` on the UI thread — no decoding per frame, and **no new native
+ * dependency**, which is why it runs in Expo Go unchanged. Clips were
+ * generated with `mascot.png` as both start and end keyframe, so each begins
+ * and ends on the resting pose and can hand back without a pop.
  */
 export function Mascot({ style, arrival }: MascotProps) {
-  const [playing, setPlaying] = useState<'idle' | Reaction>('idle')
+  const [mode, setMode] = useState<Mode>('rest')
   const frame = useSharedValue(0)
   const reduced = useReducedMotion()
-  const clipNow = CLIPS[playing]
+  /* At rest the window keeps the idle's geometry, since the still is its tile. */
+  const shape = mode === 'cheer' ? CLIPS.cheer : CLIPS.idle
+
+  /*
+   * Rescheduled every time he settles, rather than run off one interval: a
+   * repeating timer would keep firing behind a reaction and stack up.
+   */
+  useEffect(() => {
+    if (mode !== 'rest' || reduced) return
+    const wait = IDLE_MIN + Math.random() * (IDLE_MAX - IDLE_MIN)
+    const t = setTimeout(() => setMode('idle'), wait)
+    return () => clearTimeout(t)
+  }, [mode, reduced])
 
   useEffect(() => {
+    if (mode === 'rest') return
+    const c = CLIPS[mode]
     frame.set(0)
-    if (reduced) return
     /*
      * Linear, and to the frame *count* rather than the last index: the floor
      * below turns this into a step, so it has to sweep the whole of the last
      * frame's slot rather than arriving at it and stopping.
      */
-    const timing = withTiming(
-      clipNow.frames,
-      { duration: clipNow.ms, easing: Easing.linear },
-      playing === 'idle'
-        ? undefined
-        : (done) => {
-            'worklet'
-            /* scheduleOnRN, not runOnJS — the latter is gone in Reanimated 4. */
-            if (done) scheduleOnRN(setPlaying, 'idle')
-          },
+    frame.set(
+      withTiming(c.frames, { duration: c.ms, easing: Easing.linear }, (done) => {
+        'worklet'
+        /* scheduleOnRN, not runOnJS — the latter is gone in Reanimated 4. */
+        if (done) scheduleOnRN(setMode, 'rest')
+      }),
     )
-    frame.set(playing === 'idle' ? withRepeat(timing, -1, false) : timing)
     return () => cancelAnimation(frame)
-  }, [playing, reduced, clipNow, frame])
+  }, [mode, frame])
 
   /*
    * Keyed on the nonce, not on the entry: the ledger re-sorts and re-filters
@@ -146,11 +176,11 @@ export function Mascot({ style, arrival }: MascotProps) {
     if (timer.current) clearTimeout(timer.current)
     /*
      * Held back on purpose. The entry is filed halfway through the commit
-     * bloom, which still has this long left to run over the top of everything
-     * — a pig that reacts the instant it lands reacts behind a veil at its
-     * brightest and is finished before it lifts.
+     * bloom, which still has this long left to run over everything — a pig
+     * that reacts the instant it lands reacts behind a veil at its brightest
+     * and is finished before it lifts.
      */
-    timer.current = setTimeout(() => setPlaying(kind), PIG_REACT_DELAY)
+    timer.current = setTimeout(() => setMode(kind), PIG_REACT_DELAY)
   }, [arrival])
 
   useEffect(
@@ -162,33 +192,43 @@ export function Mascot({ style, arrival }: MascotProps) {
 
   /* Which tile is showing. A step, so the sheet never sits between frames. */
   const sheet = useAnimatedStyle(() => {
-    const i = Math.min(clipNow.frames - 1, Math.max(0, Math.floor(frame.get())))
+    const i = Math.min(shape.frames - 1, Math.max(0, Math.floor(frame.get())))
     return {
       transform: [
-        { translateX: -(i % clipNow.cols) * clipNow.tileW },
-        { translateY: -Math.floor(i / clipNow.cols) * clipNow.tileH },
+        { translateX: -(i % shape.cols) * shape.tileW },
+        { translateY: -Math.floor(i / shape.cols) * shape.tileH },
       ],
     }
   })
 
+  const window = {
+    left: shape.offX,
+    top: shape.offY,
+    width: shape.tileW,
+    height: shape.tileH,
+  }
+
   return (
     <View style={style} pointerEvents="none">
-      {/* One tile's worth of window, where this clip's artwork sits in the box. */}
-      <View
-        style={[
-          s.window,
-          { left: clipNow.offX, top: clipNow.offY, width: clipNow.tileW, height: clipNow.tileH },
-        ]}
-      >
-        <Animated.Image
-          source={clipNow.source}
-          style={[
-            { width: clipNow.tileW * clipNow.cols, height: clipNow.tileH * clipNow.rows },
-            sheet,
-          ]}
-          resizeMode="stretch"
-          fadeDuration={0}
-        />
+      <View style={[s.window, window]}>
+        {mode === 'rest' ? (
+          <Image
+            source={REST}
+            style={{ width: shape.tileW, height: shape.tileH }}
+            resizeMode="stretch"
+            fadeDuration={0}
+          />
+        ) : (
+          <Animated.Image
+            source={shape.source}
+            style={[
+              { width: shape.tileW * shape.cols, height: shape.tileH * shape.rows },
+              sheet,
+            ]}
+            resizeMode="stretch"
+            fadeDuration={0}
+          />
+        )}
       </View>
     </View>
   )

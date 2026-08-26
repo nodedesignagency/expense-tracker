@@ -47,10 +47,21 @@ export interface AppState {
   composerEditId: string | null
   /** Entry shown in the detail sheet, by id. */
   detailId: string | null
+  /**
+   * Whether the stored ledger has been read back yet.
+   *
+   * Nothing may treat an entry as having just *arrived* before this is true.
+   * Hydration replaces the whole ledger, so every entry the user added in a
+   * previous session looks brand new the moment it lands — which had the
+   * mascot celebrating yesterday's income a second after launch.
+   */
+  ready: boolean
 }
 
 export type Action =
   | { type: 'hydrate'; persisted: PersistedState }
+  /* The read finished and there was nothing to apply. Still the end of it. */
+  | { type: 'ready' }
   | { type: 'setScope'; scope: Scope }
   | { type: 'selectDate'; date: string | null }
   | { type: 'shiftWeek'; delta: number }
@@ -111,6 +122,7 @@ export function initialState(): AppState {
     composerDirection: 'debit',
     composerEditId: null,
     detailId: null,
+    ready: false,
   }
 }
 
@@ -134,7 +146,9 @@ function shiftIso(iso: string, days: number): string {
 export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'hydrate':
-      return applyPersisted(state, action.persisted)
+      return { ...applyPersisted(state, action.persisted), ready: true }
+    case 'ready':
+      return state.ready ? state : { ...state, ready: true }
     case 'setScope':
       return { ...state, scope: action.scope, detailId: null }
     case 'selectDate':
@@ -273,13 +287,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     AsyncStorage.getItem(STORAGE_KEY)
       .then((raw) => {
-        if (cancelled || !raw) return
+        if (cancelled) return
+        /*
+         * `ready` is dispatched on **every** path, including the ones with
+         * nothing to apply. Setting it only alongside a successful hydrate
+         * would leave a fresh install waiting for a signal that never comes.
+         */
+        if (!raw) return dispatch({ type: 'ready' })
         const parsed = JSON.parse(raw) as PersistedState
-        if (parsed.version !== 1 || !Array.isArray(parsed.added)) return
+        if (parsed.version !== 1 || !Array.isArray(parsed.added)) {
+          return dispatch({ type: 'ready' })
+        }
         dispatch({ type: 'hydrate', persisted: parsed })
       })
       .catch(() => {
         /* unreadable store — the seeded ledger still works */
+        if (!cancelled) dispatch({ type: 'ready' })
       })
     return () => {
       cancelled = true

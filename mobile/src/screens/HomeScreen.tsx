@@ -47,26 +47,45 @@ function isBigDebit(entry: Transaction, ledger: Transaction[]): boolean {
  *
  * A credit always cheers. A debit only reacts when it is out of the ordinary —
  * otherwise he would wince at every coffee, which is how a character stops
- * being worth watching.
+ * being worth watching. That reaction has no clip right now; see below.
  */
-function useArrival(rows: Transaction[]): Arrival | undefined {
+function useArrival(rows: Transaction[], ready: boolean): Arrival | undefined {
   const known = useRef<Set<string> | null>(null)
+  const armed = useRef(false)
   const last = useRef<Arrival | undefined>(undefined)
 
   const ids = rows.map((row) => row.id)
-  if (known.current === null) {
-    /* The first pass is the seed arriving, which nobody did. */
+  /*
+   * Nothing counts as an arrival until the stored ledger has been read back.
+   * Until then the set is simply kept current: the seed lands first, then
+   * hydration replaces it wholesale, and every entry from a previous session
+   * arrives at once. Reacting to that had the mascot celebrating a day-old
+   * entry a second after launch — which the driver caught as a cheer nobody
+   * had asked for.
+   */
+  if (!ready || !armed.current) {
     known.current = new Set(ids)
-    return undefined
+    armed.current = ready
+    return last.current
   }
+  /* Non-null past the guard above, and narrowed once rather than at each use. */
+  const seen = known.current ?? new Set(ids)
 
-  const fresh = rows.find((row) => !known.current?.has(row.id))
+  const fresh = rows.find((row) => !seen.has(row.id))
   if (fresh) {
-    const react =
-      fresh.direction === 'credit' ? 'cheer' : isBigDebit(fresh, rows) ? 'hide' : null
+    /*
+     * Only credits react at the moment. The covers-his-eyes clip was
+     * withdrawn — Kling's take merges his trotters into his cheeks and does
+     * not read as hiding — so a big debit deliberately does nothing until a
+     * better one is generated. Both debit branches are therefore `null` on
+     * purpose: the threshold is the part that was decided and is kept intact,
+     * and only the artwork is missing.
+     */
+    const react: Arrival['kind'] | null =
+      fresh.direction === 'credit' ? 'cheer' : isBigDebit(fresh, rows) ? null : null
     known.current = new Set(ids)
     if (react) last.current = { nonce: (last.current?.nonce ?? 0) + 1, kind: react }
-  } else if (ids.length !== known.current.size) {
+  } else if (ids.length !== seen.size) {
     /* A delete. Nothing to react to, but the set must not go stale. */
     known.current = new Set(ids)
   }
@@ -80,7 +99,7 @@ const RULE: readonly [string, string, string] = [
 ]
 
 export function HomeScreen() {
-  const { transactions, scope, selectedDate, query, categories } = useAppState()
+  const { transactions, scope, selectedDate, query, categories, ready } = useAppState()
   const dispatch = useDispatch()
   const today = useToday()
 
@@ -107,7 +126,7 @@ export function HomeScreen() {
    * genuine arrival counts — and the id it finds carries the direction, so an
    * entry backdated into the middle of the list still reacts as itself.
    */
-  const arrival = useArrival(transactions)
+  const arrival = useArrival(transactions, ready)
 
   return (
     <View>

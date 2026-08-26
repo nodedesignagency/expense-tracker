@@ -737,13 +737,29 @@ field from that entry instead of clearing. `submit` then branches to
 
 ## The mascot
 
-`Mascot.tsx`. Three generated clips, all real frame animation:
+`Mascot.tsx`. **He is still most of the time.**
 
-| clip | frames | what it is |
+| state | frames | when |
 | --- | --- | --- |
-| `mascot-idle` | 49, loops | blinks and breathes |
+| `mascot-rest` | 1, still | almost always — nothing animates at all |
+| `mascot-idle` | 21, once | every 25-32s, jittered: a blink and a breath |
 | `mascot-cheer` | 32, once | a credit lands |
-| `mascot-hide` | 46, once | a debit bigger than usual |
+
+The idle used to loop without stopping and the owner found it **both laggy and
+wearing** — a thing that never rests stops being noticed and never stops
+costing. At rest no sheet is mounted, only a single still, so the steady state
+is free. The interval is jittered rather than fixed so it never reads as a
+metronome.
+
+`mascot-rest.png` is frame 0's tile exactly, cut from the same union crop as
+the sheet, so swapping between the still and the sheet's first frame cannot
+shift a pixel.
+
+**The debit reaction is withdrawn.** Kling's covers-his-eyes merges his
+trotters into his cheeks and does not read as hiding. The clip and the keyer
+are kept, so it repacks the moment a better one exists; `isBigDebit` and its
+threshold are kept too, because those were decided and only the artwork is
+missing.
 
 The transform hop and slump that stood in for the reactions are **gone** — the
 clips carry them now, and a transform over frame animation fought it.
@@ -763,6 +779,17 @@ and played by sliding it behind a window one tile wide. Every frame is a
 dependency** — plain `Image` and Reanimated, which is why it runs in Expo Go
 unchanged. Swapping clips swaps the `source`; watch for a first-play stutter
 on device, since that is where the decode happens.
+
+**Every tile size and offset is snapped to a whole device pixel**, through
+`PixelRatio.roundToNearestPixel`. This is what made him shimmer. A tile is 226
+artwork pixels, which is `sp(113)` — and on the owner's 360pt phone `sp` is
+0.916, so that is **103.51pt**. Every tile boundary then landed on a fraction
+of a pixel, each frame resampled at a slightly different sub-pixel phase, and
+the pig appeared to shift about while standing still. Measured: **all 7 tile
+steps landed off the pixel grid before, none do now.** Worth knowing that this
+never showed on the simulator — at 393pt `sp` is exactly 1, so the numbers were
+already whole. It was an Android-only fault, invisible on iOS and in the
+browser.
 
 **Each clip carries its own tile size and its own offset**, because they were
 not framed alike: the idle and the cheer came off a 4:3 canvas, the hide off a
@@ -891,6 +918,15 @@ confident wrong answers first:
 - **Normalise a step to a 16ms frame before calling it a jump.** A 10.11pt
   "snap" on the debit was a dropped frame: the same motion re-measured was
   3.71pt across a true 16ms gap.
+- **Hydration is not an arrival.** `AppState.ready` exists for this. The seed
+  ledger renders first and AsyncStorage replaces it wholesale a moment later,
+  so **every entry the user added in a previous session looks brand new** —
+  which had the mascot celebrating a day-old credit a second after launch. The
+  driver caught it as a cheer nobody had asked for. `useArrival` now arms only
+  once `ready` is true, and `ready` is dispatched on *every* path out of the
+  read, including the ones with nothing to apply: setting it only alongside a
+  successful hydrate leaves a fresh install waiting for a signal that never
+  comes.
 - **Never write a regex inside the driver's JS template literals.** An
   unrecognised escape like `\w` quietly collapses to a bare `w`, so the pattern
   never matches and every frame falls through to the default. It reported a
@@ -908,14 +944,24 @@ confident wrong answers first:
   refusing to animate and calling it broken. `Emulation.setEmulatedMedia` now
   forces `no-preference`.
 
-`mascot.mjs` now checks the clip sequence rather than the box's movement — the
+Two more the driver taught, both about it lying rather than the app being
+wrong. **Never capture a DOM element once**: at rest the app draws a still and
+playing it draws the sheet — different elements — so a reference taken at the
+start goes stale the moment he comes alive, and the loop, guarded on
+`isConnected`, simply stopped. And **report how long each state lasted, not
+just the order**: a one-frame sampling artefact was reported as a 1.9s "cheer"
+that a probe proved was never drawn. Anything under 100ms is now ignored.
+
+`mascot.mjs` checks the clip sequence rather than the box's movement — the
 clips move the pig inside a window that holds still, so box travel says
 nothing. It exercises **both sides of the threshold**, since a debit that
 correctly does nothing looks identical to one that is broken.
 
-Current: idle advancing at exactly 12.0fps; credit plays 32 frames over 2.67s
-and hands back to the idle; a $1 debit correctly does nothing; a large debit
-plays 46 frames over 3.85s and hands back. Headroom 51pt up, 11pt down.
+Current, over a 36s watch: `rest 28.1s -> idle 1.7s -> rest 6.1s`, **95% of the
+time at rest with zero frame advances while resting**, coming alive for 1.75s
+at 11.4fps and settling back to the still. A credit plays 32 frames over 2.65s
+and hands back. Both debits correctly do nothing. Headroom 48.5pt up, 35pt
+down.
 
 ## Animation rules now being followed
 

@@ -16,24 +16,13 @@ ws.addEventListener('message', (e) => { const m = JSON.parse(e.data)
   if (m.method === 'Runtime.exceptionThrown') problems.push('EXCEPTION ' + (m.params.exceptionDetails.exception?.description||'')) })
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] })
 await send('Page.navigate', { url: 'http://127.0.0.1:8081' })
-await sleep(10000)
+await sleep(4000)
 const probe = async (e) => (await send('Runtime.evaluate', { returnByValue: true, expression: e })).result.value
 const tap = async (x,y) => { for (const type of ['mousePressed','mouseReleased']) await send('Input.dispatchMouseEvent',{type,x,y,button:'left',clickCount:1}); await sleep(160) }
 
 const NAME = `(() => { const el=[...document.querySelectorAll('div')].find(e=>(getComputedStyle(e).backgroundImage||'').includes('mascot'));
   return el ? (getComputedStyle(el).backgroundImage.match(/mascot-?(\\w*)/)||[])[0] : 'NONE' })()`
-console.log('sheet at rest:', await probe(NAME))
+for (let i = 0; i < 8; i++) { console.log(`  ${(i*500/1000).toFixed(1)}s  ${await probe(NAME)}  textNodes=${await probe('document.querySelectorAll("div,span").length')}`); await sleep(500) }
 console.log('entries:', await probe(`[...document.querySelectorAll('div,span')].filter(e=>!e.children.length&&/Showing/.test(e.textContent)).map(e=>e.textContent)[0]`))
 
-await tap(433, 662); await sleep(600)
-await tap(432, 522); await sleep(1200)
-await tap(99, 404); await sleep(300)
-const Y = 662
-await send('Input.dispatchMouseEvent',{type:'mousePressed',x:67,y:Y,button:'left',clickCount:1})
-for (let x=80;x<=465;x+=20){ await send('Input.dispatchMouseEvent',{type:'mouseMoved',x,y:Y,button:'left'}); await sleep(16) }
-await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:465,y:Y,button:'left'})
-console.log('\nsheet after the swipe, every 250ms:')
-for (let i=0;i<20;i++){ await sleep(250); console.log(`  ${(i*250/1000).toFixed(2)}s  ${await probe(NAME)}`) }
-console.log('entries now:', await probe(`[...document.querySelectorAll('div,span')].filter(e=>!e.children.length&&/Showing/.test(e.textContent)).map(e=>e.textContent)[0]`))
-if (problems.length) { console.log('\nPROBLEMS:'); for (const p of [...new Set(problems)].slice(0,8)) console.log('  -', p.slice(0,200)) }
 chrome.kill(); ws.close()

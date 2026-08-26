@@ -17,7 +17,7 @@ const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 const APP = 'http://127.0.0.1:8081'
 const PORT = 9224
 const OUT = 'scratchpad/shots'
-const SECONDS = 6
+const SECONDS = 36   // long enough to catch one of his occasional moments
 
 async function shot(name) {
   const { data } = await send('Page.captureScreenshot', { format: 'png' })
@@ -95,110 +95,78 @@ await sleep(1200)
  * whichever parent actually has overflow hidden.
  */
 const FIND = `(() => {
-  /*
-   * react-native-web wraps an Image in its own div, so the sheet's *parent* is
-   * not the clip window — it is a wrapper the same size as the sheet. Walk up
-   * to the first ancestor that actually clips AND is narrower than the sheet;
-   * that is the one-tile window. Then keep going for the card.
-   */
-  const sheet = [...document.querySelectorAll('div')].find(
-    (e) => (getComputedStyle(e).backgroundImage || '').includes('mascot'));
-  const sw = sheet.getBoundingClientRect().width;
-  let win = sheet.parentElement;
-  while (win && !(getComputedStyle(win).overflow !== 'visible' &&
-                  win.getBoundingClientRect().width < sw - 1)) win = win.parentElement;
-  const ww = win ? win.getBoundingClientRect().width : 0;
-  /*
-   * The animated style lands on react-native-web's Image *wrapper*, which is
-   * the window's own child — not on the inner div that carries the background.
-   * Reading the inner one gives a transform of none, forever, which reads as
-   * a frozen sprite. This wrapper has now fooled the driver three times.
-   */
-  const mover = (win && win.firstElementChild) || sheet;
-  let card = win ? win.parentElement : null;
-  while (card && !(getComputedStyle(card).overflow !== 'visible' &&
-                   card.getBoundingClientRect().width > ww + 1)) card = card.parentElement;
-  if (!sheet || !win || !card) return null
-  const p = win.getBoundingClientRect()
-  const c = card.getBoundingClientRect()
+  const R = window.__find()
+  if (!R) return null
+  const p = R.win.getBoundingClientRect()
+  const c = R.card.getBoundingClientRect()
   return { pig: { x: p.x, y: p.y, w: p.width, h: p.height },
-           clip: { x: c.x, y: c.y, w: c.width, h: c.height },
-           sheet: sw }
+           clip: { x: c.x, y: c.y, w: c.width, h: c.height } }
 })()`
+
+/*
+ * One locator, shared by the geometry probe and the recorder. They were two
+ * copies and they drifted: the probe still assumed the sheet is always wider
+ * than its window, which stopped being true the moment a still is drawn at
+ * rest — and it then reported the mascot as not rendering at all while the app
+ * was drawing it perfectly.
+ */
+await send('Runtime.evaluate', { expression: `
+  window.__find = function () {
+    const sheet = [...document.querySelectorAll('div')].find(
+      (e) => (getComputedStyle(e).backgroundImage || '').includes('mascot'));
+    if (!sheet) return null;
+    const p0 = sheet.getBoundingClientRect();
+    let win = sheet.parentElement;
+    while (win && !(getComputedStyle(win).overflow !== 'visible' &&
+                    win.getBoundingClientRect().width < p0.width - 1)) win = win.parentElement;
+    /* At rest the still fills its window exactly, so nothing is narrower than
+     * it — the window is then simply the sheet's nearest clipping parent. */
+    if (!win) { win = sheet.parentElement;
+      while (win && getComputedStyle(win).overflow === 'visible') win = win.parentElement; }
+    const ww = win ? win.getBoundingClientRect().width : 0;
+    let card = win ? win.parentElement : null;
+    while (card && !(getComputedStyle(card).overflow !== 'visible' &&
+                     card.getBoundingClientRect().width > ww + 1)) card = card.parentElement;
+    /* The animated style lands on react-native-web's Image wrapper, which is
+     * the window's own child — not the inner div carrying the background. */
+    const mover = (win && win.firstElementChild) || sheet;
+    return win && card ? { sheet, win, card, mover } : null;
+  };
+  window.__nameOf = function (el) {
+    const u = getComputedStyle(el).backgroundImage || '';
+    if (u.includes('mascot-rest')) return 'rest';
+    if (u.includes('mascot-cheer')) return 'cheer';
+    if (u.includes('mascot-idle')) return 'idle';
+    return u.includes('mascot') ? 'other' : '?';
+  };
+` })
 
 const { result: geo } = await send('Runtime.evaluate', { returnByValue: true, expression: FIND })
 if (!geo.value) {
   console.log('  MASCOT NOT FOUND — it did not render at all')
-  chrome.kill(); ws.close()
-  process.exit(1)
+  chrome.kill(); ws.close(); process.exit(1)
 }
 const { pig, clip } = geo.value
-console.log(`\n  mascot : x ${pig.x.toFixed(1)} y ${pig.y.toFixed(1)}  ${pig.w.toFixed(1)} x ${pig.h.toFixed(1)}`)
-if (clip) {
-  console.log(`  clipper: x ${clip.x.toFixed(1)} y ${clip.y.toFixed(1)}  ${clip.w.toFixed(1)} x ${clip.h.toFixed(1)}`)
-  console.log(`  headroom up    : ${(pig.y - clip.y).toFixed(1)} pt before the head is cut`)
-  console.log(`  headroom down  : ${(clip.y + clip.h - (pig.y + pig.h)).toFixed(1)} pt before the feet are cut`)
-  console.log(`     (negative down = the feet are ALREADY clipped by that much)`)
-}
+console.log(`\n  window : x ${pig.x.toFixed(1)} y ${pig.y.toFixed(1)}  ${pig.w.toFixed(1)} x ${pig.h.toFixed(1)}`)
+console.log(`  card   : ${clip.w.toFixed(1)} x ${clip.h.toFixed(1)}`)
+console.log(`  headroom up    : ${(pig.y - clip.y).toFixed(1)} pt before the head is cut`)
+console.log(`  headroom down  : ${(clip.y + clip.h - (pig.y + pig.h)).toFixed(1)} pt before the feet are cut`)
 
-console.log(`\nrecording ${SECONDS}s of idle…`)
+console.log(`\nrecording ${SECONDS}s at rest — he should come alive once, briefly…`)
+
 await send('Runtime.evaluate', { expression: `
   window.__pig = [];
-  /*
-   * react-native-web wraps an Image in its own div, so the sheet's *parent* is
-   * not the clip window — it is a wrapper the same size as the sheet. Walk up
-   * to the first ancestor that actually clips AND is narrower than the sheet;
-   * that is the one-tile window. Then keep going for the card.
-   */
-  const sheet = [...document.querySelectorAll('div')].find(
-    (e) => (getComputedStyle(e).backgroundImage || '').includes('mascot'));
-  const sw = sheet.getBoundingClientRect().width;
-  let win = sheet.parentElement;
-  while (win && !(getComputedStyle(win).overflow !== 'visible' &&
-                  win.getBoundingClientRect().width < sw - 1)) win = win.parentElement;
-  const ww = win ? win.getBoundingClientRect().width : 0;
-  /*
-   * The animated style lands on react-native-web's Image *wrapper*, which is
-   * the window's own child — not on the inner div that carries the background.
-   * Reading the inner one gives a transform of none, forever, which reads as
-   * a frozen sprite. This wrapper has now fooled the driver three times.
-   */
-  const mover = (win && win.firstElementChild) || sheet;
-  let card = win ? win.parentElement : null;
-  while (card && !(getComputedStyle(card).overflow !== 'visible' &&
-                   card.getBoundingClientRect().width > ww + 1)) card = card.parentElement;
-  /*
-   * Plain substring tests, not a regex. A regex here is written inside a
-   * template literal, where an unrecognised escape like \\w quietly collapses to
-   * a bare w — so the pattern never matched, every frame fell through to the
-   * default, and the driver reported a reaction that had never played while
-   * the app was doing it correctly. Third time an escaping detail in this file
-   * has produced a confident wrong answer.
-   */
-  const nameOf = (el) => {
-    const u = getComputedStyle(el).backgroundImage || '';
-    if (u.includes('mascot-cheer')) return 'cheer';
-    if (u.includes('mascot-hide')) return 'hide';
-    if (u.includes('mascot-idle')) return 'idle';
-    return u.includes('mascot') ? 'other' : '?';
-  };
+  let R = window.__find();
   (function loop() {
-    /* React swaps the source rather than remounting, but if it ever does
-     * remount, a stale reference would silently record one frozen frame. */
-    if (!sheet.isConnected) return;
-    const r = win.getBoundingClientRect();
-    const c = card.getBoundingClientRect();
+    requestAnimationFrame(loop);
+    if (!R || !R.sheet.isConnected) { R = window.__find(); if (!R) return; }
+    const r = R.win.getBoundingClientRect();
+    const c = R.card.getBoundingClientRect();
     /* Divided through by the card's own scale: a receding page shrinks both. */
     const k = c.height ? 193.5 / c.height : 1;
-    /*
-     * The sheet's offset behind the window IS the frame number. The pig's box
-     * no longer moves while it idles — the sheet does — so measuring the box
-     * alone would report a frozen pig on every run.
-     */
-    const m = new DOMMatrixReadOnly(getComputedStyle(mover).transform);
+    const m = new DOMMatrixReadOnly(getComputedStyle(R.mover).transform);
     window.__pig.push({ ms: performance.now(), y: (r.y - c.y) * k, h: r.height * k,
-                        fx: Math.round(m.m41), fy: Math.round(m.m42), clip: nameOf(sheet) });
-    requestAnimationFrame(loop);
+                        fx: Math.round(m.m41), fy: Math.round(m.m42), clip: window.__nameOf(R.sheet) });
   })();
 ` })
 await sleep(SECONDS * 1000)
@@ -210,12 +178,35 @@ const frames = JSON.parse(rec.value)
 if (!frames.length) { console.log('  RECORDED NOTHING — the locate failed'); chrome.kill(); ws.close(); process.exit(1) }
 writeFileSync(`${OUT}/pig.json`, rec.value)
 
-const cells = new Set(frames.map((f) => `${f.fx},${f.fy}`))
-const changes = frames.filter((f, i) => i && (f.fx !== frames[i-1].fx || f.fy !== frames[i-1].fy))
+const runs = []
+for (const f of frames) {
+  const last = runs[runs.length - 1]
+  if (last && last.clip === f.clip) last.end = f.ms
+  else runs.push({ clip: f.clip, start: f.ms, end: f.ms })
+}
+/* Anything under 100ms never reached the screen as a state; it is a sampling
+ * artefact and saying otherwise is how a driver invents a bug. */
+const real = runs.filter((r) => r.end - r.start >= 100)
+const seqIdle = real.map((r) => r.clip)
+const blips = runs.length - real.length
+if (blips) console.log(`  (${blips} sub-100ms blip${blips > 1 ? 's' : ''} ignored)`)
 const spanMs = frames[frames.length - 1].ms - frames[0].ms
-console.log(`  distinct sprite frames shown: ${cells.size}`)
-console.log(`  frame advances              : ${changes.length} over ${(spanMs/1000).toFixed(1)}s -> ${(changes.length / (spanMs/1000)).toFixed(1)} fps`)
-console.log(cells.size > 20 ? '  VERDICT: the sprite is playing.' : '  VERDICT: THE SPRITE IS NOT PLAYING.')
+const restFrames = frames.filter((f) => f.clip === 'rest')
+const restMoves = restFrames.filter((f, i) => i && (f.fx !== restFrames[i-1].fx || f.fy !== restFrames[i-1].fy))
+const alive = frames.filter((f) => f.clip === 'idle')
+console.log(`  over ${(spanMs/1000).toFixed(1)}s he showed: ${real.map((r) => `${r.clip} ${((r.end-r.start)/1000).toFixed(1)}s`).join(' -> ')}`)
+console.log(`  time at rest   : ${(restFrames.length / frames.length * 100).toFixed(0)}%`)
+/* The whole point of resting: nothing should move while he is still. */
+console.log(`  movement while resting: ${restMoves.length} frame advances ${restMoves.length === 0 ? '(nothing — correct)' : '<-- STILL ANIMATING'}`)
+if (alive.length) {
+  const cells = new Set(alive.map((f) => `${f.fx},${f.fy}`))
+  const adv = alive.filter((f, i) => i && (f.fx !== alive[i-1].fx || f.fy !== alive[i-1].fy))
+  const dur = (alive[alive.length-1].ms - alive[0].ms) / 1000
+  console.log(`  came alive for : ${dur.toFixed(2)}s, ${cells.size} distinct frames, ${(adv.length/dur).toFixed(1)} fps`)
+  console.log(`  and settled    : ${seqIdle[seqIdle.length-1] === 'rest' ? 'yes, back to the still' : 'NO'}`)
+} else {
+  console.log(`  NEVER CAME ALIVE in ${SECONDS}s — the interval is ${'25-32s'}, so this may be bad luck; re-run once.`)
+}
 
 const ys = frames.map((f) => f.y)
 const hs = frames.map((f) => f.h)
@@ -285,17 +276,23 @@ async function addEntry(label, pillY, digits = '1', want = null) {
     return
   }
   {
-    const seq = []
-    for (const f of react) if (!seq.length || seq[seq.length - 1] !== f.clip) seq.push(f.clip)
+    const rr = []
+    for (const f of react) {
+      const last = rr[rr.length - 1]
+      if (last && last.clip === f.clip) last.end = f.ms
+      else rr.push({ clip: f.clip, start: f.ms, end: f.ms })
+    }
+    const seq = rr.filter((r) => r.end - r.start >= 100).map((r) => r.clip)
     console.log(`  clips shown   : ${seq.join(' -> ')}`)
     if (want === null) {
-      console.log(`  reaction      : ${seq.length === 1 && seq[0] === 'idle'
-        ? 'none, correctly — this one is not out of the ordinary'
-        : 'REACTED when it should not have: ' + seq.join(' -> ')}`)
+      const reacted = seq.some((c) => c === 'cheer')
+      console.log(`  reaction      : ${reacted
+        ? 'REACTED when it should not have: ' + seq.join(' -> ')
+        : 'none, correctly — no clip for a debit at the moment'}`)
     } else {
       console.log(`  reaction      : ${seq.includes(want) ? `played "${want}"` : `NEVER PLAYED "${want}"`}`)
     }
-    console.log(`  handed back   : ${seq[seq.length - 1] === 'idle' ? 'yes, back on the idle loop' : 'NO — stuck on ' + seq[seq.length - 1]}`)
+    console.log(`  handed back   : ${seq[seq.length - 1] === 'rest' ? 'yes, back to the still' : 'NO — stuck on ' + seq[seq.length - 1]}`)
     const reactFrames = react.filter((f) => f.clip === want)
     if (reactFrames.length) {
       const cells = new Set(reactFrames.map((f) => `${f.fx},${f.fy}`))
@@ -339,10 +336,10 @@ async function addEntry(label, pillY, digits = '1', want = null) {
 }
 
 await addEntry('credit', 522, '1', 'cheer')
-/* A pound-shop debit: the threshold should swallow it silently. */
+/* Both debits do nothing now: the covers-his-eyes clip was withdrawn. The
+ * threshold still runs, so this proves it stays silent rather than erroring. */
 await addEntry('small debit', 590, '1', null)
-/* And one plainly out of the ordinary. */
-await addEntry('big debit', 590, '999999', 'hide')
+await addEntry('big debit', 590, '999999', null)
 
 chrome.kill()
 ws.close()
