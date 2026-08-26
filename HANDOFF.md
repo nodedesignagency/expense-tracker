@@ -79,6 +79,17 @@ An afternoon went on this once. In order of what actually bites:
   External Display"* appears, that is a simulated second screen, not the
   phone: **Window → External Displays → Disabled**, then pick the plain
   device from the Window menu.
+- **To close everything and start clean: `killall node`.** This is the one the
+  owner keeps asking for and it was never written down, so it kept getting
+  lost. It kills every node process, Metro and Expo among them — indiscriminate
+  by design, which is the point, but it will also take out any other node the
+  owner has running. Narrower alternatives if that matters:
+  `pkill -f "expo start"`, or `lsof -ti:8081 | xargs kill -9` for just the port.
+  Then start again with `npx expo start -c`.
+
+  **Not** `xcrun simctl erase all`, which the internet suggests for this and
+  which wipes every simulator's data — the app's stored ledger with it, so any
+  entries added while testing are gone.
 - **`--tunnel` needs `sudo npm install -g @expo/ngrok@^4.1.0`** first, or it
   fails with `exited with non-zero code: 243` — a global-install permission
   error. Only worth it if LAN is blocked.
