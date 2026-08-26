@@ -664,13 +664,21 @@ sheet exists to show.
 Three references were supplied (Brex "Pay in full", a pay-later sheet, and
 Wren's bill detail). What they share, and what was taken:
 
-- **One number owns the screen.** The amount is the hero at 44 with a status
-  line under it — the entry's own colour as a dot, then `Today · Business`.
+- **The identity is the header, left-aligned**: the mark, then the name over
+  the date, with the way out on the right. **There is no title.** "Entry" was a
+  word telling you what you were plainly already looking at.
+- **One number owns the screen**, alone, at 44.
 - **The rows are contained**, in one panel with a flat fill and a hairline,
   rules inset to its padding. **Not `Glass`** — glass on a sheet was built and
   rejected, and this is inside one.
 - **Values are objects, not text.** Category under a tag, method under a card.
 - **The foot is a pair**: a quiet destructive one and a solid affirmative one.
+
+The first cut of this centred all four of mark, name, amount and a status line
+down the middle, and the owner's word for it was **cluttered** — four things
+competing for one axis. The second reference (a wallet's transaction sheet)
+settled it: the identity goes left as the header, and the amount then has the
+middle to itself.
 
 Three decisions inside that are worth not re-litigating:
 
@@ -683,10 +691,16 @@ Three decisions inside that are worth not re-litigating:
   the same fact drawn two ways across that tap reads as two different facts.
   The home row's gradient chip is deliberately not reused: it is lit for the
   glass card it sits on, and on a flat panel it comes out as an outline anyway.
-- **Scope has no row.** It had one, saying "Business" directly under a status
-  line already saying "Business". It is stated once. **Time has no row either**
-  — the composer has no time field, so every entry read `9:00 am`, which is a
-  claim nothing had made. The owner chose to drop it rather than add the field.
+- **The date lives under the name, not in the panel**, and it is written out
+  (`May 12th 2026`) rather than as `Today`. A relative day was tried in a
+  status line and the owner rejected it on sight: *"today, yesterday text part
+  dont make sense as we already have the date in there"*. One date, absolute,
+  one place. **Time has no row at all** — the composer has no time field, so
+  every entry read `9:00 am`, a claim nothing had made.
+- **Scope is a plain row, not a pill.** It briefly had neither: it was dropped
+  while a status line was saying "Business", and came back when that line did
+  not. Left as text so the panel has two chips rather than four things all
+  shaped alike.
 
 ### Editing
 

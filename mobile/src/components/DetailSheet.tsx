@@ -1,7 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { ReactNode } from 'react'
-import { TODAY_ISO } from '../data/seed'
-import { addDays, formatDateHeading } from '../lib/dates'
+import { formatDateHeading } from '../lib/dates'
 import { formatMoney, formatSigned } from '../lib/money'
 import type { Transaction } from '../lib/types'
 import { useAppState, useDispatch } from '../store'
@@ -9,13 +8,6 @@ import { color, radius, sp, type } from '../theme'
 import { Avatar } from './Avatar'
 import { CardIcon, CloseIcon, TagIcon, TrashIcon } from './Icons'
 import { Sheet } from './Sheet'
-
-/** `Today` / `Yesterday`, or the full date. The composer's own words for it. */
-function dayLabel(iso: string): string {
-  if (iso === TODAY_ISO) return 'Today'
-  if (iso === addDays(TODAY_ISO, -1)) return 'Yesterday'
-  return formatDateHeading(iso)
-}
 
 /**
  * One entry, opened from its row.
@@ -57,14 +49,25 @@ export function DetailSheet() {
       onClose={close}
       header={
         /*
-         * The title in the middle with the way out on the right, and a spacer
-         * of the same width on the left to hold it there — the composer's
-         * header, and for the same reason. The spacer draws nothing: a filled
-         * one reads as a control that has lost its glyph.
+         * The identity *is* the header — the reference's own arrangement, and
+         * there is no title. "Entry" was a word telling you what you were
+         * plainly already looking at, and it cost a line at the top of a sheet
+         * the owner called cluttered.
+         *
+         * Left-aligned, and the only thing on this sheet that is: the mark,
+         * then the name over the date. Everything centred in one column was
+         * four things competing down the middle.
          */
         <View style={s.head}>
-          <View style={s.hold} />
-          <Text style={s.headTitle}>Entry</Text>
+          {entry ? <Avatar brand={entry.brand} size={sp(40)} /> : null}
+          <View style={s.identity}>
+            <Text style={s.name} numberOfLines={1}>
+              {entry?.name}
+            </Text>
+            <Text style={s.when} numberOfLines={1}>
+              {entry ? formatDateHeading(entry.date) : ''}
+            </Text>
+          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Close"
@@ -80,16 +83,12 @@ export function DetailSheet() {
     >
       {entry ? (
         <View>
+          {/*
+            * The amount, and nothing beside it. No `numberOfLines`: it is the
+            * prop that turns an overflowing glyph into "A…", and the keypad
+            * caps an amount at seven figures, which fits this width at 360.
+            */}
           <View style={s.hero}>
-            <Avatar brand={entry.brand} size={sp(40)} />
-            <Text style={s.name} numberOfLines={1}>
-              {entry.name}
-            </Text>
-            {/*
-              * No `numberOfLines`: it is the prop that turns an overflowing
-              * glyph into "A…", and the keypad caps an amount at seven figures,
-              * which fits this width at 360 with room to spare.
-              */}
             <Text
               style={[
                 s.amount,
@@ -98,33 +97,21 @@ export function DetailSheet() {
             >
               {formatSigned(entry.amountCents, entry.direction)}
             </Text>
-            <View style={s.status}>
-              <View
-                style={[
-                  s.dot,
-                  {
-                    backgroundColor:
-                      entry.direction === 'credit' ? color.credit : color.debit,
-                  },
-                ]}
-              />
-              <Text style={s.statusText}>
-                {dayLabel(entry.date)} · {entry.scope === 'business' ? 'Business' : 'Personal'}
-              </Text>
-            </View>
           </View>
 
           <View style={s.panel}>
-            <Row label="Date" first>
-              <Text style={s.value}>{formatDateHeading(entry.date)}</Text>
-            </Row>
-
-            <Row label="Category">
+            <Row label="Category" first>
               <Chip icon={<TagIcon size={sp(14)} color={color.textSoft} />} label={entry.category} />
             </Row>
 
             <Row label="Method">
               <Chip icon={<CardIcon size={sp(14)} color={color.textSoft} />} label={entry.method} />
+            </Row>
+
+            <Row label="Scope">
+              <Text style={s.value}>
+                {entry.scope === 'business' ? 'Business' : 'Personal'}
+              </Text>
             </Row>
 
             <Row label="Balance after">
@@ -217,12 +204,17 @@ const s = StyleSheet.create({
   head: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: sp(8),
+    gap: sp(10),
+    paddingBottom: sp(4),
   },
-  headTitle: { ...type.title, fontSize: sp(18), color: color.text },
-  /* The room the title is centred in, drawing nothing. */
-  hold: { width: EXIT, height: EXIT },
+  /*
+   * Spelled out, and `minWidth: 0` with it. `flex` and `flexGrow` are separate
+   * style keys here, and a text block that cannot shrink below its content
+   * pushes the way out off the right edge on a long name.
+   */
+  identity: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, gap: sp(3) },
+  name: { ...type.name, color: color.text },
+  when: { ...type.figure, color: color.textDim },
   exit: {
     width: EXIT,
     height: EXIT,
@@ -232,12 +224,8 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.07)',
   },
 
-  hero: { alignItems: 'center', gap: sp(8), paddingTop: sp(10), paddingBottom: sp(20) },
-  name: { ...type.name, color: color.textSoft, maxWidth: '90%' },
+  hero: { alignItems: 'center', paddingTop: sp(22), paddingBottom: sp(24) },
   amount: { ...type.display, fontSize: sp(44) },
-  status: { flexDirection: 'row', alignItems: 'center', gap: sp(6) },
-  dot: { width: sp(6), height: sp(6), borderRadius: sp(3) },
-  statusText: { ...type.figure, color: color.textDim },
 
   panel: {
     borderRadius: radius.soft,

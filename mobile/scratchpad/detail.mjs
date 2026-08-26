@@ -170,14 +170,17 @@ await shot('11-detail')
 
 const detail = await texts()
 writeFileSync(`${OUT}/detail.json`, JSON.stringify(detail, null, 1))
-const labels = ['Date', 'Category', 'Method', 'Balance after']
+const labels = ['Category', 'Method', 'Scope', 'Balance after']
 console.log('  rows found:', labels.filter((l) => detail.some((n) => n.t === l)).join(', ') || 'NONE')
 console.log('  missing   :', labels.filter((l) => !detail.some((n) => n.t === l)).join(', ') || 'none')
 const amount = detail.filter((n) => /^[-+]?\$[\d,]+/.test(n.t))
 console.log('  figures   :', amount.map((n) => `${n.t}@${n.y}(h${n.h})`).join(' | '))
 console.log('  actions   :', detail.filter((n) => /Delete|Edit entry/.test(n.t)).map((n) => `${n.t}@${n.x},${n.y}`).join(' | ') || 'NONE')
 console.log('  time row  :', detail.some((n) => n.t === 'Time') ? 'STILL PRESENT' : 'gone (correct)')
-console.log('  scope row :', detail.some((n) => n.t === 'Scope') ? 'STILL PRESENT' : 'gone (correct)')
+console.log('  date row  :', detail.some((n) => n.t === 'Date') ? 'STILL PRESENT — it belongs in the header' : 'gone (correct)')
+console.log('  title     :', (await onScreen('Entry')) ? 'STILL PRESENT' : 'gone (correct)')
+console.log('  status ln :', detail.some((n) => /^(Today|Yesterday) ·/.test(n.t)) ? 'STILL PRESENT' : 'gone (correct)')
+console.log('  header    :', (await onScreen('May 12th 2026')) ? 'date sits under the name' : 'DATE MISSING')
 
 /* And into the composer, seeded from that entry. */
 console.log('\ntapping Edit entry…')
