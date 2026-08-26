@@ -167,7 +167,25 @@ await send('Runtime.evaluate', { expression: `
   let card = win ? win.parentElement : null;
   while (card && !(getComputedStyle(card).overflow !== 'visible' &&
                    card.getBoundingClientRect().width > ww + 1)) card = card.parentElement;
+  /*
+   * Plain substring tests, not a regex. A regex here is written inside a
+   * template literal, where an unrecognised escape like \\w quietly collapses to
+   * a bare w — so the pattern never matched, every frame fell through to the
+   * default, and the driver reported a reaction that had never played while
+   * the app was doing it correctly. Third time an escaping detail in this file
+   * has produced a confident wrong answer.
+   */
+  const nameOf = (el) => {
+    const u = getComputedStyle(el).backgroundImage || '';
+    if (u.includes('mascot-cheer')) return 'cheer';
+    if (u.includes('mascot-hide')) return 'hide';
+    if (u.includes('mascot-idle')) return 'idle';
+    return u.includes('mascot') ? 'other' : '?';
+  };
   (function loop() {
+    /* React swaps the source rather than remounting, but if it ever does
+     * remount, a stale reference would silently record one frozen frame. */
+    if (!sheet.isConnected) return;
     const r = win.getBoundingClientRect();
     const c = card.getBoundingClientRect();
     /* Divided through by the card's own scale: a receding page shrinks both. */
@@ -179,7 +197,7 @@ await send('Runtime.evaluate', { expression: `
      */
     const m = new DOMMatrixReadOnly(getComputedStyle(mover).transform);
     window.__pig.push({ ms: performance.now(), y: (r.y - c.y) * k, h: r.height * k,
-                        fx: Math.round(m.m41), fy: Math.round(m.m42) });
+                        fx: Math.round(m.m41), fy: Math.round(m.m42), clip: nameOf(sheet) });
     requestAnimationFrame(loop);
   })();
 ` })
@@ -227,14 +245,16 @@ async function tap(x, y) {
   await sleep(150)
 }
 
-async function addEntry(label, pillY) {
+const KEYPAD = { '1': [99,404], '9': [402,524] }
+
+async function addEntry(label, pillY, digits = '1', want = null) {
   console.log(`\nadding a ${label}, and watching the pig through it…`)
   await send('Runtime.evaluate', { expression: 'window.__pig = []; window.__mark = null' })
   await tap(433, 662)        // Add
   await sleep(600)
   await tap(432, pillY)      // the direction pill
   await sleep(1100)
-  await tap(99, 404)         // '1'
+  for (const d of digits) { await tap(...KEYPAD[d]); await sleep(120) }
   await sleep(300)
 
   const Y = 662
@@ -248,7 +268,10 @@ async function addEntry(label, pillY) {
   /* Caught at the extreme, measured at 1.9s in the run before this. */
   await sleep(1900)
   await shot(`2${label === 'credit' ? 0 : 2}-pig-${label}-peak`)
-  await sleep(2300)
+  /* Long enough for the longest clip: the hide runs 3.83s and starts ~1.5s
+   * after the release. A shorter tail reports it as "stuck" when it simply
+   * had not finished. */
+  await sleep(4700)
 
   const { result: rec2 } = await send('Runtime.evaluate', {
     returnByValue: true,
@@ -262,6 +285,23 @@ async function addEntry(label, pillY) {
     return
   }
   {
+    const seq = []
+    for (const f of react) if (!seq.length || seq[seq.length - 1] !== f.clip) seq.push(f.clip)
+    console.log(`  clips shown   : ${seq.join(' -> ')}`)
+    if (want === null) {
+      console.log(`  reaction      : ${seq.length === 1 && seq[0] === 'idle'
+        ? 'none, correctly — this one is not out of the ordinary'
+        : 'REACTED when it should not have: ' + seq.join(' -> ')}`)
+    } else {
+      console.log(`  reaction      : ${seq.includes(want) ? `played "${want}"` : `NEVER PLAYED "${want}"`}`)
+    }
+    console.log(`  handed back   : ${seq[seq.length - 1] === 'idle' ? 'yes, back on the idle loop' : 'NO — stuck on ' + seq[seq.length - 1]}`)
+    const reactFrames = react.filter((f) => f.clip === want)
+    if (reactFrames.length) {
+      const cells = new Set(reactFrames.map((f) => `${f.fx},${f.fy}`))
+      console.log(`  frames of it  : ${cells.size} distinct over ${((reactFrames[reactFrames.length-1].ms - reactFrames[0].ms)/1000).toFixed(2)}s`)
+    }
+
     const before = react.filter((r) => r.ms < mark)
     const after = react.filter((r) => r.ms >= mark)
     const base = before.length
@@ -289,13 +329,20 @@ async function addEntry(label, pillY) {
     console.log(`  worst step      : ${worst.toFixed(2)} pt across a ${worstGap.toFixed(0)}ms gap`)
     console.log(`  worst rate      : ${worstRate.toFixed(2)} pt per 16ms frame ${worstRate > 8 ? '<-- SNAP' : '(smooth)'}`)
     console.log(`  settled back to : ${settled.toFixed(1)} (baseline ${base.toFixed(1)}, drift ${Math.abs(settled - base).toFixed(2)})`)
-    const want = label === 'credit' ? peak > 6 : peak < -2
-    console.log(want ? `  VERDICT: it ${peak > 0 ? 'hopped' : 'recoiled'}.` : '  VERDICT: WRONG DIRECTION or no reaction.')
+    /*
+     * The box's own movement is no longer the verdict: the clips carry the
+     * hop and the slump inside the frames now, so the window holds still while
+     * the pig moves within it. Whether it reacted is the clip sequence above.
+     */
+    console.log(`  box movement  : ${Math.abs(peak).toFixed(2)}pt (the clip moves the pig, not the box)`)
   }
 }
 
-await addEntry('credit', 522)
-await addEntry('debit', 590)
+await addEntry('credit', 522, '1', 'cheer')
+/* A pound-shop debit: the threshold should swallow it silently. */
+await addEntry('small debit', 590, '1', null)
+/* And one plainly out of the ordinary. */
+await addEntry('big debit', 590, '999999', 'hide')
 
 chrome.kill()
 ws.close()

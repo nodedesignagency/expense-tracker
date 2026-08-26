@@ -397,32 +397,13 @@ export function pageSheetTop(insetTop: number) {
  * or the mascot's placement changes, re-run the driver before changing these.
  */
 
-/** The two idle loops, at deliberately different periods. */
-export const PIG_BOB_MS = 2600
-export const PIG_BREATH_MS = 1900
-/** How far it drifts up, and how much it swells. Both are small on purpose. */
-export const PIG_BOB = 3
-export const PIG_BREATH = 1.018
-
 /*
- * Periods that do not divide into each other, so the bob and the breath drift
- * in and out of phase instead of locking to one visible cycle. 2600 and 1900
- * come back together every 49.4s; at a glance it never repeats.
+ * The bob, the breath, the hop and the slump used to live here, done with
+ * transforms over a still PNG. They are gone: the generated clips carry all
+ * four now, and a transform on top of frame animation fought it. The clips'
+ * own timing lives with the sheets in `Mascot.tsx`, since a frame count and a
+ * tile size are one fact and must not drift apart.
  */
-
-/** The hop a credit gets: anticipation, up, settle. */
-export const PIG_HOP_DIP = 90
-export const PIG_HOP_UP = 220
-export const PIG_HOP_SETTLE = 420
-export const PIG_HOP_RISE = 12
-export const PIG_HOP_SQUASH = 0.97
-export const PIG_HOP_STRETCH = 1.04
-
-/** The recoil a debit gets: a slump, not a shudder. A debit is not an error. */
-export const PIG_DIP_DOWN = 200
-export const PIG_DIP_BACK = 460
-export const PIG_DIP_FALL = 4
-export const PIG_DIP_SHRINK = 0.955
 
 /*
  * When the reaction starts, measured from the entry being filed.

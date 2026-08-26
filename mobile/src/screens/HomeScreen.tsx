@@ -13,12 +13,41 @@ import type { Arrival } from '../components/Mascot'
 import { color, metric, type } from '../theme'
 
 /**
+ * Whether a debit is big enough to be worth a reaction.
+ *
+ * "Bigger than your usual" rather than a fixed figure: a round number is wrong
+ * for a quiet month and wrong for a heavy one, and what actually feels notable
+ * is an entry out of step with how this person normally spends. Twice the mean
+ * debit of the same scope in the same month clears the routine ones.
+ *
+ * Under three debits to compare against there is no usual yet, so everything
+ * counts — better an eager pig than a silent one on a fresh ledger.
+ */
+function isBigDebit(entry: Transaction, ledger: Transaction[]): boolean {
+  const month = entry.date.slice(0, 7)
+  const peers = ledger.filter(
+    (row) =>
+      row.id !== entry.id &&
+      row.direction === 'debit' &&
+      row.scope === entry.scope &&
+      row.date.slice(0, 7) === month,
+  )
+  if (peers.length < 3) return true
+  const mean = peers.reduce((sum, row) => sum + row.amountCents, 0) / peers.length
+  return entry.amountCents >= mean * 2
+}
+
+/**
  * Bumps a nonce whenever an id appears in the ledger that was not there before.
  *
  * Refs rather than state, and computed during render rather than in an effect:
  * the mascot is handed the result on the same commit the entry arrives on, so
  * its reaction and the new row appear together. An effect would land a frame
  * later and the two would separate.
+ *
+ * A credit always cheers. A debit only reacts when it is out of the ordinary —
+ * otherwise he would wince at every coffee, which is how a character stops
+ * being worth watching.
  */
 function useArrival(rows: Transaction[]): Arrival | undefined {
   const known = useRef<Set<string> | null>(null)
@@ -33,8 +62,10 @@ function useArrival(rows: Transaction[]): Arrival | undefined {
 
   const fresh = rows.find((row) => !known.current?.has(row.id))
   if (fresh) {
+    const react =
+      fresh.direction === 'credit' ? 'cheer' : isBigDebit(fresh, rows) ? 'hide' : null
     known.current = new Set(ids)
-    last.current = { nonce: (last.current?.nonce ?? 0) + 1, direction: fresh.direction }
+    if (react) last.current = { nonce: (last.current?.nonce ?? 0) + 1, kind: react }
   } else if (ids.length !== known.current.size) {
     /* A delete. Nothing to react to, but the set must not go stale. */
     known.current = new Set(ids)

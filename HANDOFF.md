@@ -726,21 +726,42 @@ field from that entry instead of clearing. `submit` then branches to
 
 ## The mascot
 
-`Mascot.tsx`. The pig **blinks and breathes** on a 49-frame loop, and reacts
-when an entry lands — a hop on a credit, a slump on a debit.
+`Mascot.tsx`. Three generated clips, all real frame animation:
 
-The idle is real frame animation, generated with Magnific. The reaction is
-still a transform over the top, because there are no generated reaction clips
-yet; it is on its own shared values so it lifts out cleanly when there are.
+| clip | frames | what it is |
+| --- | --- | --- |
+| `mascot-idle` | 49, loops | blinks and breathes |
+| `mascot-cheer` | 32, once | a credit lands |
+| `mascot-hide` | 46, once | a debit bigger than usual |
+
+The transform hop and slump that stood in for the reactions are **gone** — the
+clips carry them now, and a transform over frame animation fought it.
+
+**A credit always cheers; a debit only reacts when it is out of the ordinary.**
+`isBigDebit` in `HomeScreen.tsx` is twice the mean debit of the same scope in
+the same month, with everything counting until there are three debits to
+compare against. A fixed figure was rejected as wrong for a quiet month and
+wrong for a heavy one. Without a threshold he winces at every coffee, which is
+how a character stops being worth watching.
 
 ### How the idle is played
 
-One sprite sheet, `assets/art/mascot-idle.png` — 49 frames, 7 x 7, tile
-224 x 220 at 2x, packed to the union of every frame's silhouette (57% smaller
-than packing the full 392 x 294 box). It is played by sliding the sheet behind
-a window one tile wide, so every frame is a `translate` on the UI thread: no
-image decoding, no source swapping, **and no new native dependency** — plain
-`Image` and Reanimated, which is why it runs in Expo Go unchanged.
+One sheet per clip, each packed to the union of its own frames' silhouettes,
+and played by sliding it behind a window one tile wide. Every frame is a
+`translate` on the UI thread: no decoding per frame, **and no new native
+dependency** — plain `Image` and Reanimated, which is why it runs in Expo Go
+unchanged. Swapping clips swaps the `source`; watch for a first-play stutter
+on device, since that is where the decode happens.
+
+**Each clip carries its own tile size and its own offset**, because they were
+not framed alike: the idle and the cheer came off a 4:3 canvas, the hide off a
+square one, since Kling does not offer 4:3. The offsets are quoted against the
+mascot's own 392 x 294 box so all three land in the same place regardless.
+
+**A reaction is trimmed where it comes to REST, not where the motion stops.**
+Those are different frames — the cheer's last movement is at 29 but it is not
+back on the neutral pose until 31 — and trimming at the movement hands the
+idle a pose it cannot continue from, which pops.
 
 **Key at full resolution, then downscale — never the other way round.** The
 first version scaled the frames to 520x390 and keyed the result, which is
@@ -859,6 +880,12 @@ confident wrong answers first:
 - **Normalise a step to a 16ms frame before calling it a jump.** A 10.11pt
   "snap" on the debit was a dropped frame: the same motion re-measured was
   3.71pt across a true 16ms gap.
+- **Never write a regex inside the driver's JS template literals.** An
+  unrecognised escape like `\w` quietly collapses to a bare `w`, so the pattern
+  never matches and every frame falls through to the default. It reported a
+  reaction that had never played while the app was doing it perfectly — and a
+  backtick inside a comment in the same file broke the string outright. Use
+  plain `includes()` tests.
 - **react-native-web wraps an `Image` in its own div, and this has now fooled
   the driver three times.** The element carrying the `backgroundImage` is not
   the element carrying the animated transform, and it is not the clipping
@@ -870,10 +897,14 @@ confident wrong answers first:
   refusing to animate and calling it broken. `Emulation.setEmulatedMedia` now
   forces `no-preference`.
 
-Current numbers: all 49 sprite frames shown, advancing at exactly 12.0fps.
-Credit rises 14.1pt, worst 3.2pt per frame. Debit sinks 6.3pt, worst 2.1pt.
-Both return to the idle baseline with 0.00 drift. Headroom 72.5pt up, 11pt
-down — nothing clips.
+`mascot.mjs` now checks the clip sequence rather than the box's movement — the
+clips move the pig inside a window that holds still, so box travel says
+nothing. It exercises **both sides of the threshold**, since a debit that
+correctly does nothing looks identical to one that is broken.
+
+Current: idle advancing at exactly 12.0fps; credit plays 32 frames over 2.67s
+and hands back to the idle; a $1 debit correctly does nothing; a large debit
+plays 46 frames over 3.85s and hands back. Headroom 51pt up, 11pt down.
 
 ## Animation rules now being followed
 
