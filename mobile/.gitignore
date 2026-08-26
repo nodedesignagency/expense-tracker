@@ -41,3 +41,7 @@ yarn-error.*
 /android
 scratchpad/shots/
 scratchpad/drive.out
+# Regenerable from scratchpad/pig/clip.mp4 in seconds; the clip itself is kept.
+scratchpad/pig/frames/
+scratchpad/pig/keyed/
+scratchpad/pig/comp/
