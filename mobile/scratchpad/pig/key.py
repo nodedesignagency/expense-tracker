@@ -30,8 +30,17 @@ OUT = f'scratchpad/pig/frames{TAG}'
 KEYED = f'scratchpad/pig/keyed{TAG}'
 FPS = 12
 BOX_W, BOX_H = 392, 294        # the mascot's own box, at the app's 2x artwork
-CANVAS_W, CANVAS_H = 520, 390  # what we sent, so the crop maps back 1:1
-HEAD = 48                    # extra rows kept ABOVE the box
+
+# The canvas the start frame was built on, and where the mascot's box sits in
+# it. Seedance took a 4:3 canvas; Kling only offers 1:1, so its clips come from
+# a square one with far more room overhead. Passed in rather than assumed —
+# getting this wrong slides the pig sideways in the app by exactly the error.
+#   key.py <clip> <tag> [canvasW canvasH boxX boxY]
+CANVAS_W = int(sys.argv[3]) if len(sys.argv) > 3 else 520
+CANVAS_H = int(sys.argv[4]) if len(sys.argv) > 4 else 390
+BOX_X = int(sys.argv[5]) if len(sys.argv) > 5 else 64
+BOX_Y = int(sys.argv[6]) if len(sys.argv) > 6 else 48
+HEAD = BOX_Y                   # every row of green above the box is kept
 
 for d in (OUT, KEYED):
     os.makedirs(d, exist_ok=True)
@@ -80,7 +89,8 @@ sx, sy = NW / CANVAS_W, NH / CANVAS_H
 # and cropping to the box alone sliced them off at the wrist. The canvas has
 # 48px of green above the box, so all of it is kept and the packer works out
 # how far above the box the artwork actually reaches.
-crop = (round(64 * sx), round((48 - HEAD) * sy), round(456 * sx), round(342 * sy))
+crop = (round(BOX_X * sx), round((BOX_Y - HEAD) * sy),
+        round((BOX_X + BOX_W) * sx), round((BOX_Y + BOX_H) * sy))
 OUT_H = BOX_H + HEAD
 print(f'cropping {crop} of the native frame -> {BOX_W}x{OUT_H} ({HEAD}px above the box)')
 
