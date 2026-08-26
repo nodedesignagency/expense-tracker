@@ -3,6 +3,27 @@
 Read this first. It is the state of the work, the decisions already settled,
 and the traps that cost the most time.
 
+## Where this was left — 25 Aug 2026, `29fc884`
+
+The last stretch was all one thing: **the amount's typing animation**, and it
+took far too many rounds. It is now believed finished but **has not been seen
+on a device** — that is the first thing to check.
+
+- **`Figure.tsx` was rewritten to place the figure rather than lay it out.**
+  Every character is an overlay positioned by one `translateX`. See the section
+  on it below; the short version is that correcting for flexbox after the fact
+  is a race against the frame that already moved the character, and it loses.
+- **There is a way to see the app now**, which there was not for most of this
+  work: `scratchpad/drive.mjs` drives the real app in Chromium and measures it.
+  It cut the jump from **18.2pt in a single frame to 4.5pt**, and it would have
+  caught the blank screen that shipped at `09e3f12`. **Use it.**
+- Four attempts at this were shipped without being looked at, and two of them
+  were broken. The owner lost a lot of patience, fairly. Do not push anything
+  that moves without running the driver first.
+
+Still open, and untouched by all of the above: the items under **Open, waiting
+on the owner** at the foot of this file.
+
 ## What this repo is
 
 Two apps built from one Figma frame (Home, node `1:107`, file `mIsWS4v0IA27Z1qGNF8caq`).
