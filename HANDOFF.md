@@ -726,12 +726,60 @@ field from that entry instead of clearing. `submit` then branches to
 
 ## The mascot
 
-`Mascot.tsx`. The pig breathes and bobs on a loop, and reacts when an entry
-lands — a hop on a credit, a slump on a debit.
+`Mascot.tsx`. The pig **blinks and breathes** on a 49-frame loop, and reacts
+when an entry lands — a hop on a credit, a slump on a debit.
 
-**Magnific was considered and is not needed.** The owner's idea was to generate
-an animated pig as a video with no background. Two independent reasons that
-does not work, both worth not rediscovering:
+The idle is real frame animation, generated with Magnific. The reaction is
+still a transform over the top, because there are no generated reaction clips
+yet; it is on its own shared values so it lifts out cleanly when there are.
+
+### How the idle is played
+
+One sprite sheet, `assets/art/mascot-idle.png` — 49 frames, 7 x 7, tile
+224 x 220 at 2x, packed to the union of every frame's silhouette (57% smaller
+than packing the full 392 x 294 box). It is played by sliding the sheet behind
+a window one tile wide, so every frame is a `translate` on the UI thread: no
+image decoding, no source swapping, **and no new native dependency** — plain
+`Image` and Reanimated, which is why it runs in Expo Go unchanged.
+
+`scratchpad/pig/key.py` rebuilds the frames from `scratchpad/pig/clip.mp4` in
+seconds. The clip is committed because it cost credits and the container is
+ephemeral; the frames and keyed output are gitignored.
+
+**Every number in `Mascot.tsx` is printed by the packer and none may be
+guessed** — a tile size one pixel out shears the animation sideways as it
+advances.
+
+### What the generation had to get right
+
+The clip was made with `mascot.png` as **both the start and the end keyframe**,
+on flat green, camera static, 4s, silent. That one choice is what makes the
+loop seamless. Measured afterwards:
+
+| | |
+| --- | --- |
+| background flatness | spread of 2-3 across the frame corners — clean key, no fringe |
+| loop seam | 0px box drift; last frame differs from the first by 1.03/255 |
+| fidelity to the art | 98.8% silhouette overlap with `mascot.png`, 3.7/255 colour |
+| stability | 0.5% area variation across 49 frames, no design drift |
+
+That fidelity figure is the one that matters: it is why swapping the static PNG
+for the sheet causes no visible jump.
+
+**Green was chosen by measurement.** Nothing in the pig comes within distance
+208 of pure green, while the dark background that was first suggested would
+have swallowed his navy suit. A card-coloured background with no key was also
+considered and rejected: the pig's box overlaps the speech bubble (`#1E1E1D`
+against the card's `#0C0C0C`), so a flat rectangle would have shown as a patch.
+
+**The known flaw:** the character has no drawn eyelid, so the model invents
+one, and the closing frames read as flat slits when magnified. At the size the
+phone draws him they are fine. If it ever needs fixing, re-prompt for breathing
+and an ear twitch with no blink.
+
+**Magnific cannot give you a transparent video**, and it does not need to.
+Two reasons the original "animated pig with no background" idea does not work
+as a video, both worth not rediscovering:
 
 - **No Magnific model outputs alpha.** The formats are `mp4` and `mov`, and the
   `mov` option is about colour fidelity. `images_remove_background` is images
@@ -742,16 +790,13 @@ does not work, both worth not rediscovering:
   transparent on both of the owner's devices, and on Android the video surface
   does not composite alpha over the views behind it regardless.
 
-If real character animation is ever wanted — a blink, a wave, an expression
-change, anything where the *drawing* changes rather than its placement — the
-route is Magnific onto a flat keyable background, frames keyed out, exported as
-an animated WebP with alpha, played by `expo-image` (which is in SDK 54 and
-ships inside Expo Go). Both risks are real: these models are not frame-stable,
-so a rendered mascot's suit and face drift between frames, and the background
-is rarely flat enough to key without spill. Test one short clip before
-committing to it.
+So the route is: generate onto flat green, key the frames, pack a sprite sheet,
+play it with a transform. `expo-image` and animated WebP were considered and
+dropped — the sprite sheet needs no new dependency and gives exact control over
+play-once, hold and loop. The frame-drift risk was real but did not bite here;
+the start/end keyframe trick is most of why.
 
-### What the numbers had to be
+### What the reaction's numbers had to be
 
 The card **clips**, so amplitude was measured, not chosen. `scratchpad/mascot.mjs`
 reports the headroom; the PNG's own padding was decoded on top of it:
@@ -799,10 +844,21 @@ confident wrong answers first:
 - **Normalise a step to a 16ms frame before calling it a jump.** A 10.11pt
   "snap" on the debit was a dropped frame: the same motion re-measured was
   3.71pt across a true 16ms gap.
+- **react-native-web wraps an `Image` in its own div, and this has now fooled
+  the driver three times.** The element carrying the `backgroundImage` is not
+  the element carrying the animated transform, and it is not the clipping
+  window either. Reading the wrong one reported `overflow` headroom of 0.0 in
+  every direction once, and a permanently frozen sprite twice. Walk to the
+  element that actually clips, and read the transform off the window's *child*.
+- **Headless Chromium reports `prefers-reduced-motion: reduce`.** The mascot
+  honours that by holding still, so the driver was measuring a pig correctly
+  refusing to animate and calling it broken. `Emulation.setEmulatedMedia` now
+  forces `no-preference`.
 
-Current numbers: idle travels 5.1pt with a 2.65pt breath, worst step 0.13pt.
-Credit rises 16.4pt, worst 5.8pt per frame. Debit sinks 12.6pt, worst 3.7pt per
-frame. Both return to the idle baseline within ~1pt.
+Current numbers: all 49 sprite frames shown, advancing at exactly 12.0fps.
+Credit rises 14.1pt, worst 3.2pt per frame. Debit sinks 6.3pt, worst 2.1pt.
+Both return to the idle baseline with 0.00 drift. Headroom 72.5pt up, 11pt
+down — nothing clips.
 
 ## Animation rules now being followed
 

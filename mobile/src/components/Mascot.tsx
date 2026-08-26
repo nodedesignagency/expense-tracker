@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Image, type StyleProp, type ImageStyle } from 'react-native'
+import { Image, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
 import Animated, {
   Easing,
   cancelAnimation,
@@ -11,13 +11,8 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated'
-import { MASCOT_SRC } from '../assets/registry'
 import type { Direction } from '../lib/types'
 import {
-  PIG_BOB,
-  PIG_BOB_MS,
-  PIG_BREATH,
-  PIG_BREATH_MS,
   PIG_DIP_BACK,
   PIG_DIP_DOWN,
   PIG_DIP_FALL,
@@ -29,11 +24,33 @@ import {
   PIG_HOP_STRETCH,
   PIG_HOP_UP,
   PIG_REACT_DELAY,
+  EASE_ENTER,
+  EASE_LAND,
 } from '../motion'
-import { EASE_ENTER, EASE_LAND } from '../motion'
 import { sp } from '../theme'
 
-const AnimatedImage = Animated.createAnimatedComponent(Image)
+const SHEET = require('../../assets/art/mascot-idle.png')
+
+/*
+ * The sheet's own geometry, in the source pixels it was packed at. Every one
+ * of these is printed by the packer, and none of them may be guessed: a tile
+ * size one pixel out shears the whole animation sideways as it advances.
+ *
+ *   49 frames, 7 x 7, tile 224 x 220, art at 2x
+ *   the tile sits at (88, 43) inside the mascot's own 392 x 294 box
+ */
+const FRAMES = 49
+const COLS = 7
+const FPS = 12
+const ART = 2 // the artwork is drawn at twice the size it is displayed
+
+const TILE_W = sp(224 / ART)
+const TILE_H = sp(220 / ART)
+const OFF_X = sp(88 / ART)
+const OFF_Y = sp(43 / ART)
+const SHEET_W = TILE_W * COLS
+const SHEET_H = TILE_H * Math.ceil(FRAMES / COLS)
+const LOOP_MS = (FRAMES / FPS) * 1000
 
 /*
  * Scaled once, at module load. A worklet cannot call `sp()` — an ordinary
@@ -42,11 +59,6 @@ const AnimatedImage = Animated.createAnimatedComponent(Image)
  */
 const RISE = sp(PIG_HOP_RISE)
 const FALL = sp(PIG_DIP_FALL)
-const BOB = sp(PIG_BOB)
-/* The drawn height, which the breath's counter-translate is solved against. */
-const H = sp(147)
-
-const EASE_IDLE = Easing.inOut(Easing.sin)
 
 export interface Arrival {
   /** Bumped once per entry that lands. Nothing happens while it is 0. */
@@ -55,55 +67,52 @@ export interface Arrival {
 }
 
 interface MascotProps {
-  style?: StyleProp<ImageStyle>
+  /** The absolutely-positioned 196 x 147 box the card already gives it. */
+  style?: StyleProp<ViewStyle>
   arrival?: Arrival
 }
 
 /**
  * The pig, alive.
  *
- * Two things move it, and they are kept on **separate shared values that are
- * summed** rather than one value they take turns owning. An entry landing
- * mid-breath must add to the breath, not replace it — replacing it snaps the
- * idle loop to wherever the reaction starts, and snaps back when it ends.
- * (The same lesson as the figure's glide: add to what is in flight.)
+ * The idle is **real frame animation**, not a transform on a still: 49 frames
+ * generated from the app's own `mascot.png` and keyed off a green screen, so
+ * he blinks and breathes rather than merely moving about. They are packed into
+ * one sheet and played by sliding it behind a window the size of one tile —
+ * so every frame of this is a `translate`, on the UI thread, with no image
+ * decoding, no source swapping and no new native dependency.
  *
- * Only transform and opacity, so every frame of this is on the UI thread.
+ * The loop is seamless because the clip was generated with `mascot.png` as
+ * **both** its start and its end keyframe: measured, the last frame differs
+ * from the first by 1.03/255.
+ *
+ * The arrival reaction is still a transform over the top — a hop on a credit,
+ * a slump on a debit — because there are no generated reaction clips yet. It
+ * is deliberately kept on **separate shared values that are summed** with
+ * nothing else, so that when reaction clips do arrive it lifts out cleanly.
  *
  * **No rotation.** `TILT` is `false` everywhere else in this app for the
- * reason that applies here too: these are flat images with the depth painted
- * in, so turning one reveals no side face and it simply squashes.
+ * reason that applies here too: flat art with the depth painted in has no side
+ * face to reveal.
  */
 export function Mascot({ style, arrival }: MascotProps) {
-  const idleY = useSharedValue(0)
-  const breath = useSharedValue(1)
+  const frame = useSharedValue(0)
   const reactY = useSharedValue(0)
   const reactScale = useSharedValue(1)
-
-  /*
-   * Honoured rather than ignored: this loop never stops, and a permanently
-   * moving thing is exactly what the setting is for. The reactions still play
-   * — they are brief and they are a response to something the user just did.
-   */
   const reduced = useReducedMotion()
 
   useEffect(() => {
     if (reduced) return
-    idleY.set(
-      withRepeat(withTiming(-BOB, { duration: PIG_BOB_MS / 2, easing: EASE_IDLE }), -1, true),
+    /*
+     * Linear, and to the frame *count* rather than the last index: the floor
+     * below turns this into a step, so it must sweep the whole of the last
+     * frame's slot rather than arriving at it and stopping.
+     */
+    frame.set(
+      withRepeat(withTiming(FRAMES, { duration: LOOP_MS, easing: Easing.linear }), -1, false),
     )
-    breath.set(
-      withRepeat(
-        withTiming(PIG_BREATH, { duration: PIG_BREATH_MS / 2, easing: EASE_IDLE }),
-        -1,
-        true,
-      ),
-    )
-    return () => {
-      cancelAnimation(idleY)
-      cancelAnimation(breath)
-    }
-  }, [reduced, idleY, breath])
+    return () => cancelAnimation(frame)
+  }, [reduced, frame])
 
   /*
    * Keyed on the nonce, not on the entry: the ledger re-sorts and re-filters
@@ -117,7 +126,6 @@ export function Mascot({ style, arrival }: MascotProps) {
     seen.current = nonce
 
     if (arrival?.direction === 'credit') {
-      /* Anticipation down, then up, then home. */
       reactScale.set(
         withDelay(
           PIG_REACT_DELAY,
@@ -160,18 +168,40 @@ export function Mascot({ style, arrival }: MascotProps) {
     }
   }, [arrival, reactY, reactScale])
 
-  const animated = useAnimatedStyle(() => {
-    const s = breath.get() * reactScale.get()
-    /*
-     * Scaling about the centre pushes the bottom edge down by H(s-1)/2, which
-     * reads as the whole pig inflating. Cancelling that keeps its feet planted
-     * and puts the swell into its chest, which is what a breath looks like.
-     */
-    const plant = (H * (s - 1)) / 2
-    return { transform: [{ translateY: idleY.get() + reactY.get() - plant }, { scale: s }] }
+  /* Which tile is showing. A step, so the sheet never sits between frames. */
+  const sheet = useAnimatedStyle(() => {
+    const i = Math.min(FRAMES - 1, Math.max(0, Math.floor(frame.get())))
+    return {
+      transform: [
+        { translateX: -(i % COLS) * TILE_W },
+        { translateY: -Math.floor(i / COLS) * TILE_H },
+      ],
+    }
   })
 
+  const react = useAnimatedStyle(() => ({
+    transform: [{ translateY: reactY.get() }, { scale: reactScale.get() }],
+  }))
+
   return (
-    <AnimatedImage source={MASCOT_SRC} style={[style, animated]} resizeMode="contain" />
+    <Animated.View style={[style, react]} pointerEvents="none">
+      {/* One tile's worth of window, where the artwork sits in its own box. */}
+      <View style={[s.window, { left: OFF_X, top: OFF_Y, width: TILE_W, height: TILE_H }]}>
+        <Animated.Image
+          source={SHEET}
+          style={[{ width: SHEET_W, height: SHEET_H }, sheet]}
+          resizeMode="stretch"
+          fadeDuration={0}
+        />
+      </View>
+    </Animated.View>
   )
 }
+
+const s = StyleSheet.create({
+  /*
+   * `overflow: hidden` is what makes this a sprite player at all — without it
+   * the whole sheet draws and you get 49 pigs in a grid.
+   */
+  window: { position: 'absolute', overflow: 'hidden' },
+})

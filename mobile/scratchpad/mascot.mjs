@@ -67,6 +67,15 @@ ws.onmessage = (e) => {
 await new Promise((r) => (ws.onopen = r))
 await send('Page.enable')
 await send('Runtime.enable')
+/*
+ * Headless Chromium reports `prefers-reduced-motion: reduce` by default, and
+ * the mascot honours that setting by holding still — so the driver was
+ * measuring a pig that was correctly refusing to animate, and calling it
+ * broken. Emulate a viewer who has not asked for reduced motion.
+ */
+await send('Emulation.setEmulatedMedia', {
+  features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
+})
 
 console.log('navigating…')
 await send('Page.navigate', { url: APP })
@@ -86,27 +95,35 @@ await sleep(1200)
  * whichever parent actually has overflow hidden.
  */
 const FIND = `(() => {
-  const pig = [...document.querySelectorAll('div')].find(
-    (el) => (getComputedStyle(el).backgroundImage || '').includes('mascot'))
-  if (!pig) return null
   /*
-   * The first ancestor that both clips AND is bigger than the pig. Walking to
-   * the nearest clipper alone stops at the Image's own wrapper, which
-   * react-native-web gives \`overflow: hidden\` and the pig's exact bounds — it
-   * reported 0.0 headroom in every direction, which is true and useless.
+   * react-native-web wraps an Image in its own div, so the sheet's *parent* is
+   * not the clip window — it is a wrapper the same size as the sheet. Walk up
+   * to the first ancestor that actually clips AND is narrower than the sheet;
+   * that is the one-tile window. Then keep going for the card.
    */
-  const p0 = pig.getBoundingClientRect()
-  let clip = pig.parentElement
-  while (clip) {
-    const r = clip.getBoundingClientRect()
-    const clips = getComputedStyle(clip).overflow !== 'visible'
-    if (clips && (r.height > p0.height + 1 || r.width > p0.width + 1)) break
-    clip = clip.parentElement
-  }
-  const p = pig.getBoundingClientRect()
-  const c = clip ? clip.getBoundingClientRect() : null
+  const sheet = [...document.querySelectorAll('div')].find(
+    (e) => (getComputedStyle(e).backgroundImage || '').includes('mascot'));
+  const sw = sheet.getBoundingClientRect().width;
+  let win = sheet.parentElement;
+  while (win && !(getComputedStyle(win).overflow !== 'visible' &&
+                  win.getBoundingClientRect().width < sw - 1)) win = win.parentElement;
+  const ww = win ? win.getBoundingClientRect().width : 0;
+  /*
+   * The animated style lands on react-native-web's Image *wrapper*, which is
+   * the window's own child — not on the inner div that carries the background.
+   * Reading the inner one gives a transform of none, forever, which reads as
+   * a frozen sprite. This wrapper has now fooled the driver three times.
+   */
+  const mover = (win && win.firstElementChild) || sheet;
+  let card = win ? win.parentElement : null;
+  while (card && !(getComputedStyle(card).overflow !== 'visible' &&
+                   card.getBoundingClientRect().width > ww + 1)) card = card.parentElement;
+  if (!sheet || !win || !card) return null
+  const p = win.getBoundingClientRect()
+  const c = card.getBoundingClientRect()
   return { pig: { x: p.x, y: p.y, w: p.width, h: p.height },
-           clip: c ? { x: c.x, y: c.y, w: c.width, h: c.height } : null }
+           clip: { x: c.x, y: c.y, w: c.width, h: c.height },
+           sheet: sw }
 })()`
 
 const { result: geo } = await send('Runtime.evaluate', { returnByValue: true, expression: FIND })
@@ -127,23 +144,42 @@ if (clip) {
 console.log(`\nrecording ${SECONDS}s of idle…`)
 await send('Runtime.evaluate', { expression: `
   window.__pig = [];
-  const el = [...document.querySelectorAll('div')].find(
+  /*
+   * react-native-web wraps an Image in its own div, so the sheet's *parent* is
+   * not the clip window — it is a wrapper the same size as the sheet. Walk up
+   * to the first ancestor that actually clips AND is narrower than the sheet;
+   * that is the one-tile window. Then keep going for the card.
+   */
+  const sheet = [...document.querySelectorAll('div')].find(
     (e) => (getComputedStyle(e).backgroundImage || '').includes('mascot'));
-  /* The card it lives in, so the page's own movement divides out. */
-  const p0 = el.getBoundingClientRect();
-  let card = el.parentElement;
-  while (card) {
-    const r = card.getBoundingClientRect();
-    if (getComputedStyle(card).overflow !== 'visible' &&
-        (r.height > p0.height + 1 || r.width > p0.width + 1)) break;
-    card = card.parentElement;
-  }
+  const sw = sheet.getBoundingClientRect().width;
+  let win = sheet.parentElement;
+  while (win && !(getComputedStyle(win).overflow !== 'visible' &&
+                  win.getBoundingClientRect().width < sw - 1)) win = win.parentElement;
+  const ww = win ? win.getBoundingClientRect().width : 0;
+  /*
+   * The animated style lands on react-native-web's Image *wrapper*, which is
+   * the window's own child — not on the inner div that carries the background.
+   * Reading the inner one gives a transform of none, forever, which reads as
+   * a frozen sprite. This wrapper has now fooled the driver three times.
+   */
+  const mover = (win && win.firstElementChild) || sheet;
+  let card = win ? win.parentElement : null;
+  while (card && !(getComputedStyle(card).overflow !== 'visible' &&
+                   card.getBoundingClientRect().width > ww + 1)) card = card.parentElement;
   (function loop() {
-    const r = el.getBoundingClientRect();
+    const r = win.getBoundingClientRect();
     const c = card.getBoundingClientRect();
     /* Divided through by the card's own scale: a receding page shrinks both. */
     const k = c.height ? 193.5 / c.height : 1;
-    window.__pig.push({ ms: performance.now(), y: (r.y - c.y) * k, h: r.height * k });
+    /*
+     * The sheet's offset behind the window IS the frame number. The pig's box
+     * no longer moves while it idles — the sheet does — so measuring the box
+     * alone would report a frozen pig on every run.
+     */
+    const m = new DOMMatrixReadOnly(getComputedStyle(mover).transform);
+    window.__pig.push({ ms: performance.now(), y: (r.y - c.y) * k, h: r.height * k,
+                        fx: Math.round(m.m41), fy: Math.round(m.m42) });
     requestAnimationFrame(loop);
   })();
 ` })
@@ -153,7 +189,15 @@ const { result: rec } = await send('Runtime.evaluate', {
   returnByValue: true, expression: 'JSON.stringify(window.__pig)',
 })
 const frames = JSON.parse(rec.value)
+if (!frames.length) { console.log('  RECORDED NOTHING — the locate failed'); chrome.kill(); ws.close(); process.exit(1) }
 writeFileSync(`${OUT}/pig.json`, rec.value)
+
+const cells = new Set(frames.map((f) => `${f.fx},${f.fy}`))
+const changes = frames.filter((f, i) => i && (f.fx !== frames[i-1].fx || f.fy !== frames[i-1].fy))
+const spanMs = frames[frames.length - 1].ms - frames[0].ms
+console.log(`  distinct sprite frames shown: ${cells.size}`)
+console.log(`  frame advances              : ${changes.length} over ${(spanMs/1000).toFixed(1)}s -> ${(changes.length / (spanMs/1000)).toFixed(1)} fps`)
+console.log(cells.size > 20 ? '  VERDICT: the sprite is playing.' : '  VERDICT: THE SPRITE IS NOT PLAYING.')
 
 const ys = frames.map((f) => f.y)
 const hs = frames.map((f) => f.h)
@@ -167,7 +211,7 @@ console.log(`  ${frames.length} frames over ${(frames[frames.length - 1].ms - fr
 console.log(`  vertical travel : ${span(ys).toFixed(2)} pt  (top ${Math.min(...ys).toFixed(1)} → ${Math.max(...ys).toFixed(1)})`)
 console.log(`  height change   : ${span(hs).toFixed(2)} pt  (the breath)`)
 console.log(`  worst step      : ${worst.toFixed(2)} pt in one frame, at ${worstAt.toFixed(0)}ms`)
-console.log(span(ys) < 0.5 && span(hs) < 0.5 ? '  VERDICT: not moving at all.' : '  VERDICT: moving.')
+console.log(`  (the box itself holds still while idling now — the sheet moves behind it)`)
 
 /*
  * And the reaction. The pig sits on the home screen *behind* the composer, so
