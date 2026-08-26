@@ -14,7 +14,14 @@ import { TODAY_ISO } from '../data/seed'
 import { addDays, formatDateHeading } from '../lib/dates'
 import { parseAmountToCents } from '../lib/money'
 import type { BrandKey, Category, Direction, Method } from '../lib/types'
-import { createTransaction, useAppState, useCategories, useDispatch, useVisibleLedger } from '../store'
+import {
+  createTransaction,
+  reviseTransaction,
+  useAppState,
+  useCategories,
+  useDispatch,
+  useVisibleLedger,
+} from '../store'
 import { Easing, useSharedValue, withTiming } from 'react-native-reanimated'
 import { CELEBRATE, HANDOFF } from '../motion'
 import { capTrim, color, font, radius, sp, type } from '../theme'
@@ -160,6 +167,19 @@ function display(raw: string): string {
   return part === undefined ? grouped : `${grouped}.${part}`
 }
 
+/**
+ * Cents back to what the pad would have produced: `2050` -> `"20.50"`.
+ *
+ * The inverse of `parseAmountToCents`, and deliberately unformatted — the
+ * grouping is `display()`'s job, and seeding the raw state with commas in it
+ * would put them through `parseAmountToCents` again on save.
+ */
+function centsToInput(cents: number): string {
+  const whole = Math.floor(cents / 100)
+  const rest = cents % 100
+  return rest === 0 ? String(whole) : `${whole}.${String(rest).padStart(2, '0')}`
+}
+
 function dayLabel(iso: string): string {
   if (iso === TODAY_ISO) return 'Today'
   if (iso === addDays(TODAY_ISO, -1)) return 'Yesterday'
@@ -188,10 +208,12 @@ function dayLabel(iso: string): string {
  * type a number, did nothing at all.
  */
 export function Composer() {
-  const { composerOpen, composerDirection, scope, transactions } = useAppState()
+  const { composerOpen, composerDirection, composerEditId, scope, transactions } = useAppState()
   const categories = useCategories()
   const ledger = useVisibleLedger()
   const dispatch = useDispatch()
+  /* The entry being revised, or null when this is a new one. */
+  const editing = transactions.find((row) => row.id === composerEditId) ?? null
 
   const [direction, setDirection] = useState<Direction>('debit')
   const [amount, setAmount] = useState('')
@@ -217,9 +239,30 @@ export function Composer() {
    */
   useEffect(() => {
     if (!composerOpen) return
-    setDirection(composerDirection)
-    setAmount('')
-    setName('')
+    /*
+     * Opened on an entry, every field is that entry's; opened without one, the
+     * amount and the name clear and the rest stay where they were left, which
+     * is the behaviour a run of entries in the same category depends on.
+     *
+     * The figure arrives whole rather than a digit at a time. Every character
+     * mounts with `lands` set, so they all rise and fade in together on the
+     * same frame — one arrival for the sheet, which is the event, instead of
+     * a replay of typing that never happened.
+     */
+    if (editing) {
+      setDirection(editing.direction)
+      setAmount(centsToInput(editing.amountCents))
+      /* The label falls back to the category when blank, so a name equal to it
+       * was never typed — show the field empty rather than inventing a name. */
+      setName(editing.name === editing.category ? '' : editing.name)
+      setCategory(editing.category)
+      setMethod(editing.method)
+      setDate(editing.date)
+    } else {
+      setDirection(composerDirection)
+      setAmount('')
+      setName('')
+    }
     setPicker(null)
     setNaming(false)
     setDating(false)
@@ -228,7 +271,10 @@ export function Composer() {
     setError(null)
     setLanded(false)
     celebrate.set(0)
-  }, [composerOpen, composerDirection, celebrate])
+    /* Keyed on the id, not the entry: re-seeding on every ledger change would
+     * throw away whatever is being typed. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [composerOpen, composerDirection, composerEditId, celebrate])
 
   const close = () => {
     setError(null)
@@ -289,20 +335,47 @@ export function Composer() {
      */
     const label = name.trim() || category
 
-    const transaction = createTransaction(
-      {
-        name: label,
-        amountCents,
-        direction,
-        category,
-        method,
-        date,
-        time: '09:00',
-        scope,
-        brand: inferBrand(label),
-      },
-      transactions,
-    )
+    /*
+     * A revision keeps the entry's id and its time — the composer has no time
+     * field, so `09:00` is what a new entry gets, and an edit must not quietly
+     * overwrite a time that came from the seed with it. Everything else on the
+     * screen is what the entry becomes.
+     */
+    const transaction = editing
+      ? reviseTransaction(
+          {
+            ...editing,
+            name: label,
+            amountCents,
+            direction,
+            category,
+            method,
+            date,
+            /*
+             * Only re-guessed when the label actually changed. `inferBrand` is
+             * a guess for a name nobody has drawn a mark for yet — run over an
+             * unchanged name it *overwrites* the mark the entry already had,
+             * which is how saving an untouched edit turned a Wise entry into
+             * the grey fallback hexagon.
+             */
+            brand: label === editing.name ? editing.brand : inferBrand(label),
+          },
+          transactions,
+        )
+      : createTransaction(
+          {
+            name: label,
+            amountCents,
+            direction,
+            category,
+            method,
+            date,
+            time: '09:00',
+            scope,
+            brand: inferBrand(label),
+          },
+          transactions,
+        )
     /*
      * The screen fills with light before the sheet goes anywhere. The entry
      * is built now, against the ledger as it stands; only its arrival waits,
@@ -319,7 +392,15 @@ export function Composer() {
      * so what the bloom uncovers is already home. Waiting until the end meant
      * the composer reappeared to leave, which is the one thing this is for.
      */
-    setTimeout(() => dispatch({ type: 'addTransaction', transaction }), CELEBRATE * HANDOFF)
+    setTimeout(
+      () =>
+        dispatch(
+          editing
+            ? { type: 'updateTransaction', transaction }
+            : { type: 'addTransaction', transaction },
+        ),
+      CELEBRATE * HANDOFF,
+    )
     /* And the modal is held open past that, or the light dies with it. */
     setTimeout(() => setLanded(false), CELEBRATE)
     return true
@@ -399,7 +480,9 @@ export function Composer() {
             progress={celebrate}
             spec={BLOB[direction]}
             tint={BLOOM[direction]}
-            label={direction === 'credit' ? 'Credit added' : 'Debit added'}
+            label={
+              editing ? 'Changes saved' : direction === 'credit' ? 'Credit added' : 'Debit added'
+            }
           />
         ) : null
       }
@@ -420,7 +503,7 @@ export function Composer() {
       footer={
         <SlideAction
           width={INNER_W}
-          label="Swipe to add entry"
+          label={editing ? 'Swipe to save changes' : 'Swipe to add entry'}
           active={(parseAmountToCents(amount) ?? 0) > 0}
           glow={LIGHT[direction].glow}
           trail={LIGHT[direction].trail}

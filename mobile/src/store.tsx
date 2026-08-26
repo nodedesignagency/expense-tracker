@@ -37,6 +37,14 @@ export interface AppState {
    * on the side the user actually picked rather than always on debit.
    */
   composerDirection: Direction
+  /**
+   * The entry the composer is revising, by id, or `null` when it is adding.
+   *
+   * The composer is one screen for both jobs: opened with an id it seeds every
+   * field from that entry and files the result back over it, opened without
+   * one it starts clean. Nothing else distinguishes the two.
+   */
+  composerEditId: string | null
   /** Entry shown in the detail sheet, by id. */
   detailId: string | null
 }
@@ -54,9 +62,10 @@ export type Action =
   | { type: 'clearFilters' }
   | { type: 'setTab'; tab: Tab }
   | { type: 'toggleQuickAdd'; open?: boolean }
-  | { type: 'openComposer'; direction?: Direction }
+  | { type: 'openComposer'; direction?: Direction; editId?: string }
   | { type: 'closeComposer' }
   | { type: 'addTransaction'; transaction: Transaction }
+  | { type: 'updateTransaction'; transaction: Transaction }
   | { type: 'deleteTransaction'; id: string }
   | { type: 'openDetail'; id: string | null }
   | { type: 'resetLedger' }
@@ -100,6 +109,7 @@ export function initialState(): AppState {
     quickAddOpen: false,
     composerOpen: false,
     composerDirection: 'debit',
+    composerEditId: null,
     detailId: null,
   }
 }
@@ -168,16 +178,39 @@ export function reducer(state: AppState, action: Action): AppState {
         composerOpen: true,
         quickAddOpen: false,
         composerDirection: action.direction ?? state.composerDirection,
+        composerEditId: action.editId ?? null,
         detailId: null,
       }
     case 'closeComposer':
-      return { ...state, composerOpen: false }
+      return { ...state, composerOpen: false, composerEditId: null }
     case 'addTransaction':
       return {
         ...state,
         transactions: sortNewestFirst([...state.transactions, action.transaction]),
         composerOpen: false,
         quickAddOpen: false,
+        composerEditId: null,
+        scope: action.transaction.scope,
+        selectedDate: action.transaction.date,
+        weekAnchor: action.transaction.date,
+      }
+    /*
+     * A revision lands where the entry now belongs, not where it was: the row
+     * is replaced in place and the ledger re-sorted, since editing the date
+     * moves it. The week follows it for the same reason a new entry's does —
+     * an entry pushed into another week would otherwise vanish on save.
+     */
+    case 'updateTransaction':
+      return {
+        ...state,
+        transactions: sortNewestFirst(
+          state.transactions.map((row) =>
+            row.id === action.transaction.id ? action.transaction : row,
+          ),
+        ),
+        composerOpen: false,
+        composerEditId: null,
+        detailId: null,
         scope: action.transaction.scope,
         selectedDate: action.transaction.date,
         weekAnchor: action.transaction.date,
@@ -198,6 +231,22 @@ export function reducer(state: AppState, action: Action): AppState {
     default:
       return state
   }
+}
+
+/**
+ * Re-files an existing entry, keeping its id and re-deriving its balance.
+ *
+ * The running balance is read from the ledger **without this entry in it** —
+ * an edit that changes the amount, the date, the side or the scope would
+ * otherwise be measured against a net that still counts the old version of
+ * itself. Same rule as `createTransaction`, which sees a ledger the entry is
+ * not in yet because it does not exist.
+ */
+export function reviseTransaction(entry: Transaction, ledger: Transaction[]): Transaction {
+  const others = ledger.filter((row) => row.id !== entry.id)
+  const previous = netBalanceCents(others, entry.scope, entry.date)
+  const delta = entry.direction === 'credit' ? entry.amountCents : -entry.amountCents
+  return { ...entry, balanceCents: previous + delta }
 }
 
 /** Builds a ledger entry, deriving its running balance from the current net. */

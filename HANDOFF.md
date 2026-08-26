@@ -3,25 +3,30 @@
 Read this first. It is the state of the work, the decisions already settled,
 and the traps that cost the most time.
 
-## Where this was left — 25 Aug 2026, `29fc884`
+## Where this was left — 26 Aug 2026
 
-The last stretch was all one thing: **the amount's typing animation**, and it
-took far too many rounds. It is **done — confirmed working on the owner's
-devices**. Leave it alone unless asked.
+The entry detail sheet was rebuilt from three references the owner supplied,
+and an **edit path** was added behind it. The app could add and delete an
+entry before this; it could not change one.
 
-- **`Figure.tsx` was rewritten to place the figure rather than lay it out.**
-  Every character is an overlay positioned by one `translateX`. See the section
-  on it below; the short version is that correcting for flexbox after the fact
-  is a race against the frame that already moved the character, and it loses.
-- **There is a way to see the app now**, which there was not for most of this
-  work: `scratchpad/drive.mjs` drives the real app in Chromium and measures it.
-  It cut the jump from **18.2pt in a single frame to 4.5pt**, and it would have
-  caught the blank screen that shipped at `09e3f12`. **Use it.**
-- Four attempts at this were shipped without being looked at, and two of them
-  were broken — one drew a blank screen. The owner lost a lot of patience,
-  fairly, and the thing that finally settled it was measuring rather than
-  reasoning. **Do not push anything that moves without running the driver
-  first.**
+- **`DetailSheet.tsx` is a new design.** The figure leads, the facts sit in one
+  contained panel, and each value is drawn as what it is rather than as another
+  line of white text. Full reasoning under **The entry detail sheet** below.
+- **The composer is one screen for two jobs now.** Opened with `composerEditId`
+  set it seeds every field from that entry and files the result back over it;
+  opened without one it starts clean, exactly as before.
+- **`scratchpad/detail.mjs`** drives the new surface the way `drive.mjs` drives
+  the composer, and carries an edit all the way through the slider to read the
+  ledger back. It caught the one real bug in the pass — see the trap about
+  `inferBrand` below.
+- **The typing animation was not touched and is still settled.** `drive.mjs`
+  after this work: *every movement is a smooth step, no instant jump*, worst
+  frame 5.4pt. The non-edit branch of the composer's open effect is the same
+  logic it always was.
+
+**Checked in Chromium at 500pt through both drivers. Not yet seen on either
+device** — the owner's Android and the iPhone 17 Pro simulator are both still
+to look at this.
 
 Still open, and untouched by all of the above: the items under **Open, waiting
 on the owner** at the foot of this file.
@@ -130,7 +135,19 @@ reads that back and prints the worst single-frame movement.
 npx expo start --web --port 8081      # leave running
 node scratchpad/drive.mjs             # screenshots -> scratchpad/shots/
 node scratchpad/analyse.mjs           # the numbers
+node scratchpad/detail.mjs            # the detail sheet and the edit path
 ```
+
+`drive.mjs` is the composer's measurement rig and is **left alone**, so its
+numbers stay comparable run to run. `detail.mjs` is the other surface: home →
+row → detail sheet → Edit → change the amount → carry the slider → read the
+ledger back, asserting at each step. Its taps are derived from real boxes
+rather than hard-coded, so a layout change moves the tap with it.
+
+One thing learned writing it: **a check that lies is worse than no check.** Its
+first version scraped only leaf `div`/`span`, so it reported a confident
+`slider: NONE` for a caption plainly visible in the screenshot beside it. If an
+assertion disagrees with the png, suspect the assertion.
 
 **This settled an argument that four rounds of reasoning could not.** The
 figure's jerk was reported as "sometimes", "in a few places", "3rd or 4th
@@ -635,6 +652,64 @@ Behind all of this, `App.tsx` **recedes the page** — scales it to `RECEDE`,
 rounds its corners, drops it back and dims it. The recede's geometry lives in
 `motion.ts` because the sheet is measured off it; changing one moves the other.
 
+## The entry detail sheet, and editing
+
+`DetailSheet.tsx` opens from a row. It was six identical rows of grey label and
+white value under a 64pt avatar, with a 30pt amount and one flat red bar at the
+foot — the owner's word for it was **plain**, and the diagnosis is that nothing
+on it had a rank. A category, a payment rail and a scope were all drawn as
+though they were the same kind of thing, and the mark outweighed the number the
+sheet exists to show.
+
+Three references were supplied (Brex "Pay in full", a pay-later sheet, and
+Wren's bill detail). What they share, and what was taken:
+
+- **One number owns the screen.** The amount is the hero at 44 with a status
+  line under it — the entry's own colour as a dot, then `Today · Business`.
+- **The rows are contained**, in one panel with a flat fill and a hairline,
+  rules inset to its padding. **Not `Glass`** — glass on a sheet was built and
+  rejected, and this is inside one.
+- **Values are objects, not text.** Category under a tag, method under a card.
+- **The foot is a pair**: a quiet destructive one and a solid affirmative one.
+
+Three decisions inside that are worth not re-litigating:
+
+- **Edit is the solid button, not delete.** The reference puts its primary on
+  the right, and the affirmative action here is the edit. Making delete the big
+  filled target on a sheet reached by *tapping a row* is how an entry gets
+  destroyed by a thumb. Solid white on dark is already this app's word for
+  "selected", from the filter chips.
+- **The chips are the composer's, mark for mark.** Edit is one tap away, and
+  the same fact drawn two ways across that tap reads as two different facts.
+  The home row's gradient chip is deliberately not reused: it is lit for the
+  glass card it sits on, and on a flat panel it comes out as an outline anyway.
+- **Scope has no row.** It had one, saying "Business" directly under a status
+  line already saying "Business". It is stated once. **Time has no row either**
+  — the composer has no time field, so every entry read `9:00 am`, which is a
+  claim nothing had made. The owner chose to drop it rather than add the field.
+
+### Editing
+
+There is no separate edit screen. `openComposer` takes an optional `editId`,
+which lands in `composerEditId`, and the composer's open effect seeds every
+field from that entry instead of clearing. `submit` then branches to
+`reviseTransaction` rather than `createTransaction`.
+
+- **`reviseTransaction` re-derives the balance from a ledger the entry is not
+  in.** Same rule `createTransaction` gets for free by not existing yet — an
+  edit that changes the amount, the date, the side or the scope would otherwise
+  be measured against a net still counting the old version of itself.
+- **The entry's `time` is preserved**, not overwritten with the `09:00` a new
+  entry gets. A seeded entry has a real time and an edit must not eat it.
+- **The figure arrives whole.** Every character mounts with `lands` set, so a
+  seeded amount rises and fades in together on one frame — one arrival for the
+  sheet, which is the event, rather than a replay of typing that never happened.
+  Nothing in `Figure.tsx` was changed to get this.
+- `openComposer` clears `detailId` itself, so the detail sheet closes on the
+  same dispatch the composer opens on. One state change, not a close racing an
+  open — this app avoids modal-over-modal (it is why the calendar is an
+  `overlay` inside the sheet rather than a sheet of its own).
+
 ## Animation rules now being followed
 
 From the skills repo the owner supplied — `github.com/emilkowalski/skills`,
@@ -679,6 +754,12 @@ These are settled; do not regress them:
   heaviest at the corners, where a rounded ring is widest. If a rounded, filled
   thing needs a hairline, **draw the hairline as a sibling over the fill**
   (`pillEdge` in `SlideAction.tsx`), not as the container's border.
+- **`inferBrand` is a guess for a name nobody has drawn a mark for yet, and it
+  overwrites one that exists.** Re-run over an *unchanged* name on save, it
+  turned a Wise entry into the grey fallback hexagon — the mark came from the
+  seed, not from the name, and "J. Jonah Jameson" infers nothing. It is now
+  only re-guessed when the label actually changed. The screenshot is what
+  caught this; every assertion in the run was green.
 - **SF Pro Rounded has no glyph at U+232B.** The backspace key is a drawn icon.
 - **Widths come out of the font file.** `scratchpad/ttf.py` reads `hmtx`
   advances through `cmap`, and follows the `GSUB` `tnum` lookups for the
@@ -810,7 +891,10 @@ of mistake here that kills the app outright rather than looking wrong.
 - **The wider animation pass has not been done.** List entrances, press
   feedback, the nav — the skills repo enables it, the owner has not asked yet.
 - **The composer has no time field.** It was removed in the rebuild; entries
-  default to `'09:00'`. Flagged, not decided.
+  default to `'09:00'`. Asked again during the detail-sheet rebuild: the owner
+  chose to **drop the Time row** from that sheet rather than add the field, so
+  nothing on screen now claims a time that was never entered. An edit preserves
+  whatever time the entry already had. The field itself is still not built.
 - **An unnamed entry is labelled with its category.** The name is optional now
   (the owner asked; it had been blocking the commit with "Say who it is for").
   Left blank the entry takes its category — always set, and it is what the
@@ -819,6 +903,24 @@ of mistake here that kills the app outright rather than looking wrong.
   a category named for a brand still picks its mark up. **The fallback is a
   guess, not a decision** — "Untitled", the direction, or a blank were the
   alternatives.
+- **Running balances do not cascade, and editing makes that visible.** Every
+  entry stores the balance it settled at, solved when it was filed. Nothing
+  recomputes the entries *after* it — deleting has always left them stale, and
+  now so does editing. Concretely: change an entry's amount by $198,003 and its
+  own row is right (`Balance: -$130,217`, re-derived), while the **Net Balance
+  header does not move**, because that reads the newest entry's stored balance
+  and that entry was filed against the old number.
+
+  Two honest options: leave it, which is consistent with delete; or recompute
+  every running balance on any add, edit or delete. The second is what a ledger
+  actually does, but it rewrites `balanceCents` on the seeded data too, so it
+  is the owner's call rather than a bug fix. **Not touched.**
+
+- **An edit leaves its category and method as the composer's next defaults.**
+  Edit a Salary entry, then hit Add, and the chips still say Salary. That is
+  the same "last used" behaviour new entries have always had, now reachable
+  from an edit. Left alone; say if it should reset.
+
 - **"New category" exists for categories but not for payment methods.**
 - **`TILT` is `false` and should stay.** It was built and rejected: the icons
   are flat images with the depth painted in, so a rotation has no side face to
