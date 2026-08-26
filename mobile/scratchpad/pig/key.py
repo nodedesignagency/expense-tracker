@@ -1,27 +1,34 @@
 """
 Turn the generated clip into transparent frames, and measure whether it worked.
 
-The clip comes back opaque, on green. This pulls the frames, keys the green to
-real alpha, de-spills the edge, then measures the two things that decide
-whether this route is usable at all:
+**Key at full resolution, then downscale.** The first version scaled the frames
+down first and keyed the result, which is backwards: the downscale had already
+blended green into every edge pixel, and thresholding that blend gives a hard,
+stair-stepped matte. Measured, it left 0.7% of the silhouette at a partial
+alpha where the hand-drawn original has 3.1% — which is exactly what the owner
+saw as "not smooth".
 
-  - **How flat the background stayed.** The key is only as good as the green.
-  - **How much the pig drifted.** These models are not frame-stable, and on a
-    clean 3D render a wobbling tie reads as broken rather than as animation.
+Keying at native 1664x1248 and resampling afterwards puts ~3x3 source pixels
+into every output pixel, so the anti-aliasing comes out of the arithmetic
+rather than having to be invented.
 
-Channel arithmetic rather than a per-pixel loop: 48 frames of 2M pixels in
-Python is minutes, the same work through Pillow's C paths is a second.
+The resample is **premultiplied**. Resizing RGBA channel-by-channel drags the
+RGB of fully transparent pixels into the edge — and those pixels are green.
+Premultiplying, resampling, then dividing the colour back out is the only way
+the edge stays the pig's own colour.
 
-Run: python3 scratchpad/pig/key.py <clip.mp4>
+Run: python3 scratchpad/pig/key.py [clip.mp4]
 """
 import subprocess, sys, os, glob
-from PIL import Image, ImageChops
+import numpy as np
+from PIL import Image
 import imageio_ffmpeg
 
 SRC = sys.argv[1] if len(sys.argv) > 1 else 'scratchpad/pig/clip.mp4'
 OUT, KEYED = 'scratchpad/pig/frames', 'scratchpad/pig/keyed'
-FPS = 12          # decimated: fewer frames to carry, and less drift to see
-W, H = 520, 390   # back to the canvas we sent, so the crop maps 1:1
+FPS = 12
+BOX_W, BOX_H = 392, 294        # the mascot's own box, at the app's 2x artwork
+CANVAS_W, CANVAS_H = 520, 390  # what we sent, so the crop maps back 1:1
 
 for d in (OUT, KEYED):
     os.makedirs(d, exist_ok=True)
@@ -29,49 +36,62 @@ for d in (OUT, KEYED):
         os.remove(f)
 
 ff = imageio_ffmpeg.get_ffmpeg_exe()
+# No scale filter: native resolution, so the key sees the real edge.
 subprocess.run([ff, '-y', '-loglevel', 'error', '-i', SRC,
-                '-vf', f'fps={FPS},scale={W}:{H}:flags=lanczos',
-                f'{OUT}/%03d.png'], check=True)
+                '-vf', f'fps={FPS}', f'{OUT}/%03d.png'], check=True)
 frames = sorted(glob.glob(f'{OUT}/*.png'))
-print(f'{len(frames)} frames at {FPS}fps, {W}x{H}')
 if not frames:
     sys.exit('no frames came out')
+NW, NH = Image.open(frames[0]).size
+print(f'{len(frames)} frames at native {NW}x{NH}')
 
-# How flat the green stayed, in the corners where the pig never reaches.
-print('\nbackground flatness (corner samples):')
-for i in (0, len(frames) // 2, len(frames) - 1):
-    px = Image.open(frames[i]).convert('RGB').load()
-    pts = [(6, 6), (W - 7, 6), (6, H - 7), (W - 7, H - 7)]
-    gs = [px[p] for p in pts]
-    spread = max(max(abs(a[c] - b[c]) for c in range(3)) for a in gs for b in gs)
-    print(f'  frame {i:3d}: {gs[0]}  spread across corners: {spread}')
+def key(path):
+    a = np.asarray(Image.open(path).convert('RGB')).astype(np.float32)
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    # How much greener than both neighbours. Measured: nothing in the pig comes
+    # within 208 of pure green, so this cannot bite into him.
+    excess = g - np.maximum(r, b)
+    # A wide, smooth ramp. The narrow one was half of why the edge went hard.
+    SOFT, CUT = 4.0, 90.0
+    alpha = np.clip((CUT - excess) / (CUT - SOFT), 0.0, 1.0)
+    # De-spill: no pixel keeps more green than its own neighbours plus a hair.
+    g = np.minimum(g, np.maximum(r, b) + 10.0)
+    rgb = np.stack([r, g, b], -1)
+    return rgb, alpha[..., None]
 
-# excess = G - max(R,B). Measured earlier: nothing in the pig comes within 208
-# of pure green, so a threshold here cannot bite into him.
-CUT, SOFT = 60, 12
-ramp = bytes(0 if e > CUT else (255 if e <= SOFT
-             else int(255 * (1 - (e - SOFT) / (CUT - SOFT)))) for e in range(256))
+def resample(rgb, alpha, size):
+    """Premultiplied resize, then the colour divided back out."""
+    prem = rgb * alpha
+    def small(arr, mode):
+        im = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8).squeeze(), mode)
+        return np.asarray(im.resize(size, Image.LANCZOS)).astype(np.float32)
+    p = np.stack([small(prem[..., i:i+1], 'L') for i in range(3)], -1)
+    a = small(alpha * 255.0, 'L')[..., None] / 255.0
+    rgb2 = np.where(a > 1e-3, p / np.maximum(a, 1e-3), 0.0)
+    out = np.concatenate([np.clip(rgb2, 0, 255), np.clip(a * 255.0, 0, 255)], -1)
+    return Image.fromarray(out.astype(np.uint8), 'RGBA')
 
-print('\nkeying…')
-areas, boxes = [], []
+# Where the mascot's 392x294 box sits inside the native frame.
+sx, sy = NW / CANVAS_W, NH / CANVAS_H
+crop = (round(64 * sx), round(48 * sy), round(456 * sx), round(342 * sy))
+print(f'cropping {crop} of the native frame -> {BOX_W}x{BOX_H}')
+
+print('keying at full resolution…')
 for i, f in enumerate(frames):
-    rgb = Image.open(f).convert('RGB')
-    r, g, b = rgb.split()
-    excess = ImageChops.subtract(g, ImageChops.lighter(r, b))
-    alpha = excess.point(ramp)
-    # De-spill: nothing keeps more green than its own neighbours plus a hair.
-    g2 = ImageChops.darker(g, ImageChops.lighter(r, b).point(lambda v: min(255, v + 12)))
-    out = Image.merge('RGBA', (r, g2, b, alpha))
-    out.save(f'{KEYED}/{i:03d}.png')
-    areas.append(sum(alpha.point(lambda v: 1 if v > 127 else 0).getdata()))
-    boxes.append(alpha.point(lambda v: 255 if v > 24 else 0).getbbox())
+    rgb, alpha = key(f)
+    rgb = rgb[crop[1]:crop[3], crop[0]:crop[2]]
+    alpha = alpha[crop[1]:crop[3], crop[0]:crop[2]]
+    resample(rgb, alpha, (BOX_W, BOX_H)).save(f'{KEYED}/{i:03d}.png')
 
-first, last = boxes[0], boxes[-1]
-print(f'\nsubject box first frame : {first}')
-print(f'subject box last  frame : {last}')
-print(f'  loop drift            : {max(abs(a-b) for a,b in zip(first,last))}px on the worst edge')
-print(f'  x range {min(b[0] for b in boxes)}..{max(b[2] for b in boxes)}'
-      f'   y range {min(b[1] for b in boxes)}..{max(b[3] for b in boxes)}')
-amin, amax = min(areas), max(areas)
-print(f'  opaque pixels {amin}..{amax}  ({100*(amax-amin)/amax:.1f}% variation)')
+# Did the edge come back? The original art is the yardstick.
+def softness(im):
+    a = np.asarray(im.convert('RGBA'))[..., 3]
+    return int(((a > 8) & (a < 248)).sum()), int((a >= 248).sum())
+
+ref = Image.open('assets/art/mascot.png').crop((88, 43, 312, 263))
+rp, rs = softness(ref)
+gp, gs = softness(Image.open(f'{KEYED}/000.png').crop((88, 43, 312, 263)))
+print(f'\nedge softness (partial-alpha pixels as a share of the solid area):')
+print(f'  original art : {rp:5d}  ({100*rp/rs:.1f}%)')
+print(f'  generated    : {gp:5d}  ({100*gp/gs:.1f}%)')
 print(f'\nkeyed -> {KEYED}/')

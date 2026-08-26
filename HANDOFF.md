@@ -742,6 +742,21 @@ a window one tile wide, so every frame is a `translate` on the UI thread: no
 image decoding, no source swapping, **and no new native dependency** — plain
 `Image` and Reanimated, which is why it runs in Expo Go unchanged.
 
+**Key at full resolution, then downscale — never the other way round.** The
+first version scaled the frames to 520x390 and keyed the result, which is
+backwards: the downscale had already blended green into every edge pixel, and
+thresholding that blend gives a hard, stair-stepped matte. The owner spotted it
+on device immediately — *"the character is not smooth at all"* — and it
+measures cleanly: **0.7% of the silhouette at a partial alpha, where the
+hand-drawn original has 3.1%.** Keying at native 1664x1248 and resampling
+afterwards puts ~3x3 source pixels into each output pixel, so the
+anti-aliasing falls out of the arithmetic. After the fix: **3.3%**.
+
+The resample must also be **premultiplied**. Resizing RGBA channel by channel
+drags the RGB of fully transparent pixels into the edge, and those pixels are
+green. Premultiply, resample, divide the colour back out. `numpy` is a
+scratchpad-only dependency for exactly this; nothing in the app needs it.
+
 `scratchpad/pig/key.py` rebuilds the frames from `scratchpad/pig/clip.mp4` in
 seconds. The clip is committed because it cost credits and the container is
 ephemeral; the frames and keyed output are gitignored.

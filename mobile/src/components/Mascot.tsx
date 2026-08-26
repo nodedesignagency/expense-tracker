@@ -36,17 +36,17 @@ const SHEET = require('../../assets/art/mascot-idle.png')
  * of these is printed by the packer, and none of them may be guessed: a tile
  * size one pixel out shears the whole animation sideways as it advances.
  *
- *   49 frames, 7 x 7, tile 224 x 220, art at 2x
- *   the tile sits at (88, 43) inside the mascot's own 392 x 294 box
+ *   49 frames, 7 x 7, tile 226 x 220, art at 2x
+ *   the tile sits at (87, 43) inside the mascot's own 392 x 294 box
  */
 const FRAMES = 49
 const COLS = 7
 const FPS = 12
 const ART = 2 // the artwork is drawn at twice the size it is displayed
 
-const TILE_W = sp(224 / ART)
+const TILE_W = sp(226 / ART)
 const TILE_H = sp(220 / ART)
-const OFF_X = sp(88 / ART)
+const OFF_X = sp(87 / ART)
 const OFF_Y = sp(43 / ART)
 const SHEET_W = TILE_W * COLS
 const SHEET_H = TILE_H * Math.ceil(FRAMES / COLS)
