@@ -6,8 +6,8 @@ and the traps that cost the most time.
 ## Where this was left — 25 Aug 2026, `29fc884`
 
 The last stretch was all one thing: **the amount's typing animation**, and it
-took far too many rounds. It is now believed finished but **has not been seen
-on a device** — that is the first thing to check.
+took far too many rounds. It is **done — confirmed working on the owner's
+devices**. Leave it alone unless asked.
 
 - **`Figure.tsx` was rewritten to place the figure rather than lay it out.**
   Every character is an overlay positioned by one `translateX`. See the section
@@ -18,8 +18,10 @@ on a device** — that is the first thing to check.
   It cut the jump from **18.2pt in a single frame to 4.5pt**, and it would have
   caught the blank screen that shipped at `09e3f12`. **Use it.**
 - Four attempts at this were shipped without being looked at, and two of them
-  were broken. The owner lost a lot of patience, fairly. Do not push anything
-  that moves without running the driver first.
+  were broken — one drew a blank screen. The owner lost a lot of patience,
+  fairly, and the thing that finally settled it was measuring rather than
+  reasoning. **Do not push anything that moves without running the driver
+  first.**
 
 Still open, and untouched by all of the above: the items under **Open, waiting
 on the owner** at the foot of this file.
