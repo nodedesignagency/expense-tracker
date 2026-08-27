@@ -49,7 +49,14 @@ export function WeekStrip() {
   )
 }
 
-function DayCircle({ iso, selected, future }: { iso: string; selected: boolean; future: boolean }) {
+/**
+ * One day, as a circle. **Exported, and the calendar uses this exact
+ * component** — the owner asked for the modal to use what the top of the page
+ * already has, and reimplementing it there would be two things to keep in
+ * step. Filled and rimmed when it has happened, a dashed outline when it has
+ * not, and the accent fill when it is the one chosen.
+ */
+export function DayCircle({ iso, selected, future }: { iso: string; selected: boolean; future: boolean }) {
   const label = (
     <Text style={[s.dayNum, selected ? { color: color.textBright } : null]}>
       {dayOfMonth(iso)}

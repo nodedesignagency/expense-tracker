@@ -1,9 +1,17 @@
 import { useMemo, useState } from 'react'
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native'
-import { addDays, fromISODate, toISODate } from '../lib/dates'
+import {
+  addDays,
+  formatMonthYear,
+  fromISODate,
+  toISODate,
+  weekOf,
+  weekdayShort,
+} from '../lib/dates'
 import type { Transaction } from '../lib/types'
-import { capTrim, color, font, radius, sp, type } from '../theme'
+import { capTrim, color, metric, radius, sp, type } from '../theme'
 import { ChevronLeftIcon, ChevronRightIcon } from './Icons'
+import { DayCircle } from './WeekStrip'
 
 /*
  * A month, in the week strip's own language: a circle per day, the number
@@ -25,25 +33,43 @@ import { ChevronLeftIcon, ChevronRightIcon } from './Icons'
  * floats six clear of either side, draws a border and pads twenty inside it,
  * and a percentage width would take no account of the gaps between the cells.
  */
+const PAD = sp(14)
 const COL_W = Math.floor(
-  ((Dimensions.get('window').width - sp(6) * 2 - 2 - 20 * 2 - sp(28)) / 7) * 100,
+  ((Dimensions.get('window').width - sp(6) * 2 - 2 - 20 * 2 - sp(44)) / 7) * 100,
 ) / 100
-/** The circle itself, capped so it never outgrows the week strip's. */
-const DISC = Math.min(COL_W - sp(6), sp(38))
-/** Room under the disc for the mark, so it sits outside rather than over. */
+/**
+ * The card's width, **declared rather than inherited**.
+ *
+ * It had none, and a wrapping grid has no natural width to give it, so the
+ * card took everything available — the full screen — while the seven columns
+ * only filled the left of it. That left a band of dead space down the right
+ * hand side, which is exactly what the owner drew a line beside. Seven columns
+ * and the padding is all it ever needs to be.
+ */
+const BORDER = 1
+/*
+ * **The border is part of the width.** Without the two pixels below, the
+ * content box came out `COL_W * 7 - 2`, seven columns did not fit, and the
+ * grid wrapped at six — the whole Saturday column was empty and every date
+ * after the first sat one day to the left. HANDOFF has warned about this
+ * exact thing since the keypad wrapped to six rows of two.
+ */
+const CARD_W = COL_W * 7 + PAD * 2 + BORDER * 2
+/** Room under the circle for the mark, so it sits outside rather than over. */
 const MARK_ROW = sp(9)
 
-/** Monday first, which is how the reference reads and how a week is worked. */
-const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+/**
+ * Sunday first, and the strip's own words for the days.
+ *
+ * It was Monday first, which is defensible on its own but not beside a week
+ * strip that starts on Sunday — one app cannot start its week twice. Taken
+ * from `weekOf` rather than written out, so the two orders cannot diverge.
+ */
+const WEEKDAYS = weekOf('2026-01-01').map(weekdayShort)
 
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-]
-
-/** Monday-based index: JS puts Sunday at 0, and a ledger week does not. */
+/** Sunday-based, matching `weekOf` and therefore the week strip. */
 function weekIndex(d: Date): number {
-  return (d.getDay() + 6) % 7
+  return d.getDay()
 }
 
 function monthGrid(anchor: string): (string | null)[] {
@@ -118,11 +144,8 @@ export function Calendar({ value, today, ledger, onPick, onClose }: CalendarProp
             <ChevronLeftIcon size={sp(18)} color={color.text} />
           </Pressable>
 
-          {/* Year over month, so the month is the thing being read. */}
-          <View style={s.title}>
-            <Text style={s.year}>{fromISODate(anchor).getFullYear()}</Text>
-            <Text style={s.month}>{MONTHS[fromISODate(anchor).getMonth()]}</Text>
-          </View>
+          {/* One line. Stacking the year over the month read as clutter. */}
+          <Text style={s.month}>{formatMonthYear(anchor)}</Text>
 
           <Pressable
             accessibilityRole="button"
@@ -147,7 +170,6 @@ export function Calendar({ value, today, ledger, onPick, onClose }: CalendarProp
           {cells.map((iso, i) => {
             if (!iso) return <View key={`gap${i}`} style={s.col} />
             const chosen = iso === value
-            const isToday = iso === today
             return (
               <Pressable
                 key={iso}
@@ -157,20 +179,9 @@ export function Calendar({ value, today, ledger, onPick, onClose }: CalendarProp
                 onPress={() => onPick(iso)}
                 style={s.col}
               >
-                <View
-                  style={[
-                    s.disc,
-                    /* Today is a ring; the chosen day is filled. Both at once
-                     * would be two marks saying different things in one place. */
-                    !chosen && isToday ? s.discToday : null,
-                    chosen ? s.discOn : null,
-                  ]}
-                >
-                  <Text style={[s.day, chosen ? s.dayOn : null]}>
-                    {fromISODate(iso).getDate()}
-                  </Text>
-                </View>
-                {/* Under the disc, not over the number. */}
+                {/* The week strip's own day, not a copy of it. */}
+                <DayCircle iso={iso} selected={chosen} future={iso > today} />
+                {/* Under the circle, not over the number. */}
                 <View style={s.markRow}>
                   {marked.has(iso) ? <View style={s.mark} /> : null}
                 </View>
@@ -179,13 +190,6 @@ export function Calendar({ value, today, ledger, onPick, onClose }: CalendarProp
           })}
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => onPick(today)}
-          style={s.todayButton}
-        >
-          <Text style={s.todayText}>Today</Text>
-        </Pressable>
       </View>
     </View>
   )
@@ -202,18 +206,22 @@ const s = StyleSheet.create({
   /*
    * The sheets' own fill and hairline. It was a blur under a warm
    * `rgba(40,34,34,0.86)` wash, which is why it read as a different colour
-   * from everything around it — the owner spotted that immediately. Nothing
-   * else in this app blurs a panel; the sheets are flat and so is this.
+   * from everything around it. Nothing else in this app blurs a panel.
+   *
+   * The width is declared: a wrapping grid has no natural width to give a
+   * parent, so the card took the whole screen and left a band of dead space
+   * down its right hand side.
    */
   card: {
+    width: CARD_W,
     borderRadius: radius.sheet,
-    borderWidth: 1,
+    borderWidth: BORDER,
     borderColor: 'rgba(255,255,255,0.08)',
     backgroundColor: '#141414',
     overflow: 'hidden',
-    paddingHorizontal: sp(14),
+    paddingHorizontal: PAD,
     paddingTop: sp(14),
-    paddingBottom: sp(14),
+    paddingBottom: sp(16),
   },
 
   head: {
@@ -230,28 +238,15 @@ const s = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: 'rgba(255,255,255,0.07)',
   },
-  title: { alignItems: 'center', gap: sp(1) },
-  year: { fontFamily: font.r400, fontSize: sp(11), color: color.textDim },
   month: { ...type.name, ...capTrim(sp(16)), color: color.text },
 
   /** One column per weekday, shared by the header and the grid. */
   col: { width: COL_W, alignItems: 'center' },
-  week: { flexDirection: 'row', paddingBottom: sp(8) },
-  weekText: { fontFamily: font.r500, fontSize: sp(11), color: color.textDim },
+  week: { flexDirection: 'row', paddingBottom: sp(10) },
+  /* The strip's own label style, so the two rows of weekdays match. */
+  weekText: { ...type.weekday, color: color.text, textAlign: 'center' },
 
-  grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: sp(6) },
-  disc: {
-    width: DISC,
-    height: DISC,
-    borderRadius: DISC / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  /* The week strip's own ring, so today is marked the same way in both. */
-  discToday: { borderWidth: 1, borderColor: color.strokeAccent },
-  discOn: { backgroundColor: color.accentSolid },
-  day: { fontFamily: font.r500, fontSize: sp(15), color: color.textSoft },
-  dayOn: { color: color.text },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: sp(8) },
 
   markRow: { height: MARK_ROW, alignItems: 'center', justifyContent: 'center' },
   mark: {
@@ -260,14 +255,4 @@ const s = StyleSheet.create({
     borderRadius: sp(2),
     backgroundColor: color.credit,
   },
-
-  todayButton: {
-    marginTop: sp(10),
-    height: sp(40),
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  todayText: { ...type.chip, ...capTrim(sp(14)), color: color.text },
 })

@@ -284,16 +284,34 @@ were real:
   row should be — the cells were heavy enough that four missing ones read as
   damage rather than as a calendar. Circles the size the week strip already
   uses do not.
-- **It read as belonging to another app.** It is in the week strip's language
-  now: a circle per day, the same `strokeAccent` ring marking today, the same
-  filled `accentSolid` marking the chosen day. Both at once was rejected — two
-  marks saying different things in one place.
+- **It read as belonging to another app.** A second pass invented its own
+  circles; the owner's answer was to stop inventing — *"use what we have in top
+  of the page"*. So `DayCircle` is **exported from `WeekStrip.tsx` and used
+  here directly**. Filled and rimmed when the day has happened, a dashed
+  outline when it has not, the accent fill when it is chosen. Reimplementing it
+  would be two things to keep in step.
 
-Weekday labels are single letters rather than chips, and the mark for a day
-carrying entries sits **under** the disc rather than over the number.
+Weekday labels are the strip's own words through `weekdayShort`, and the mark
+for a day carrying entries sits **under** the circle rather than over the
+number.
 
-**Today is a ring, the chosen day is filled.** If today *is* the chosen day it
-is filled only.
+**Sunday first.** It was Monday first, which is defensible alone but not beside
+a week strip that starts on Sunday — one app cannot start its week twice. The
+order comes from `weekOf` rather than being written out, so the two cannot
+diverge.
+
+**The header is one line, `May 2026`.** Year stacked over month was tried and
+read as clutter. There is no "Today" button: the chip that opens the calendar
+already says Today when that is the date.
+
+**The card declares its width.** A wrapping grid has no natural width to give a
+parent, so the card took the whole screen and the seven columns filled only the
+left of it — a band of dead space down the right hand side, which is what the
+owner drew a line beside. `CARD_W` is seven columns, the padding, **and the
+border**: without those two pixels the content box came out two short, seven
+columns did not fit, and the grid wrapped at six — an empty Saturday column
+with every date after the first sitting a day to the left. That trap is the
+same one that once wrapped the keypad to six rows of two.
 
 ## The bottom nav
 
