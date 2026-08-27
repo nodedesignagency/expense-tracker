@@ -11,7 +11,7 @@ import {
 } from 'react-native'
 import { BlurView } from 'expo-blur'
 import { TODAY_ISO } from '../data/seed'
-import { addDays, formatDateHeading } from '../lib/dates'
+import { addDays, formatDateShort } from '../lib/dates'
 import { parseAmountToCents } from '../lib/money'
 import type { BrandKey, Category, Direction, Method } from '../lib/types'
 import {
@@ -180,10 +180,15 @@ function centsToInput(cents: number): string {
   return rest === 0 ? String(whole) : `${whole}.${String(rest).padStart(2, '0')}`
 }
 
+/*
+ * What the date chip says. `Today` and `Yesterday` are worth their width; any
+ * other day is numeric, because the chip shares its row with the category and
+ * the method and `May 20th 2026` pushed the third one off the screen.
+ */
 function dayLabel(iso: string): string {
   if (iso === TODAY_ISO) return 'Today'
   if (iso === addDays(TODAY_ISO, -1)) return 'Yesterday'
-  return formatDateHeading(iso)
+  return formatDateShort(iso)
 }
 
 /**

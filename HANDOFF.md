@@ -131,8 +131,9 @@ per-device (see `sp()` below). Both are live and both are checked.
 - **`react-native-gesture-handler`** — the slide-to-add control. Not
   `PanResponder`; see the animation rules below.
 - **`expo-haptics`** — the slider's detent and its result.
-- **`expo-blur`** — the composer's anchored menus and the calendar overlay
-  only. The sheets themselves are flat; glass on them was built and rejected.
+- **`expo-blur`** — the composer's anchored menus **only** now. The sheets are
+  flat, glass on them was built and rejected, and the calendar's blur went the
+  same way (see below).
 
 ## Drive the app in a browser and MEASURE it
 
@@ -264,6 +265,35 @@ after**, which is part of what the owner saw as cluttering.
 The bubble moved right and up from the frame's 54/26 to 38/10, on the owner's
 note that it and the pig were crowding each other. Moving it *right* also gives
 the figure room, since the bubble's left edge travels with it.
+
+## The calendar
+
+`Calendar.tsx`, an overlay over the composer rather than a panel inside it: a
+month will not fit where the number pad sits without the cells dropping under a
+size a thumb can find, and growing the sheet would move the form out from under
+the hand mid-entry.
+
+The first cut drew large filled rounded rectangles under a row of chipped
+weekday labels, on a `BlurView`. The owner named three faults and all three
+were real:
+
+- **It was a different colour from the app.** A warm `rgba(40,34,34,0.86)` wash
+  over a dark blur, against the app's neutral near-black. Nothing else here
+  blurs a panel. It is flat `#141414` with the sheets' own hairline now.
+- **A month starting late in the week left a conspicuous hole** where its first
+  row should be — the cells were heavy enough that four missing ones read as
+  damage rather than as a calendar. Circles the size the week strip already
+  uses do not.
+- **It read as belonging to another app.** It is in the week strip's language
+  now: a circle per day, the same `strokeAccent` ring marking today, the same
+  filled `accentSolid` marking the chosen day. Both at once was rejected — two
+  marks saying different things in one place.
+
+Weekday labels are single letters rather than chips, and the mark for a day
+carrying entries sits **under** the disc rather than over the number.
+
+**Today is a ring, the chosen day is filled.** If today *is* the chosen day it
+is filled only.
 
 ## The bottom nav
 

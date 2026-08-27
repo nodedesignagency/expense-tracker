@@ -1,27 +1,45 @@
 import { useMemo, useState } from 'react'
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native'
-import { BlurView } from 'expo-blur'
-import { addDays, formatMonthYear, fromISODate, toISODate } from '../lib/dates'
+import { addDays, fromISODate, toISODate } from '../lib/dates'
 import type { Transaction } from '../lib/types'
 import { capTrim, color, font, radius, sp, type } from '../theme'
 import { ChevronLeftIcon, ChevronRightIcon } from './Icons'
 
 /*
- * A month, laid out the way the reference does it: seven columns of rounded
- * cells with the weekday over each, the number low in the cell, and a mark on
- * the days that have something on them.
+ * A month, in the week strip's own language: a circle per day, the number
+ * inside it, and a mark under the days that carry something.
+ *
+ * The first cut drew large filled rounded rectangles under a row of chipped
+ * weekday labels, on a blurred panel. Three things were wrong with it and the
+ * owner named them: the panel was a **different colour from everything else**
+ * (a warm `rgba(40,34,34)` wash over a blur, against the app's neutral near
+ * black), the cells were heavy enough that a month starting late in the week
+ * left a conspicuous hole where its first row should be, and it read as
+ * belonging to another app.
+ *
+ * So it is flat now, in the sheets' own `#141414` with the same hairline, and
+ * the cells are circles the size the week strip already uses. Empty leading
+ * cells stop being a hole when what surrounds them is light.
  *
  * Measured the way the number pad is, and for the same reason — the sheet
  * floats six clear of either side, draws a border and pads twenty inside it,
  * and a percentage width would take no account of the gaps between the cells.
  */
-const GAP = sp(5)
-const INNER_W = Dimensions.get('window').width - sp(6) * 2 - 2 - 20 * 2 - sp(28)
-const CELL_W = Math.floor(((INNER_W - GAP * 6) / 7) * 100) / 100
-const CELL_H = Math.round(CELL_W * 1.12)
+const COL_W = Math.floor(
+  ((Dimensions.get('window').width - sp(6) * 2 - 2 - 20 * 2 - sp(28)) / 7) * 100,
+) / 100
+/** The circle itself, capped so it never outgrows the week strip's. */
+const DISC = Math.min(COL_W - sp(6), sp(38))
+/** Room under the disc for the mark, so it sits outside rather than over. */
+const MARK_ROW = sp(9)
 
 /** Monday first, which is how the reference reads and how a week is worked. */
-const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
+const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
 
 /** Monday-based index: JS puts Sunday at 0, and a ledger week does not. */
 function weekIndex(d: Date): number {
@@ -89,14 +107,6 @@ export function Calendar({ value, today, ledger, onPick, onClose }: CalendarProp
       />
 
       <View style={s.card}>
-        <BlurView
-          intensity={54}
-          tint="dark"
-          experimentalBlurMethod="dimezisBlurView"
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={s.wash} pointerEvents="none" />
-
         <View style={s.head}>
           <Pressable
             accessibilityRole="button"
@@ -108,7 +118,11 @@ export function Calendar({ value, today, ledger, onPick, onClose }: CalendarProp
             <ChevronLeftIcon size={sp(18)} color={color.text} />
           </Pressable>
 
-          <Text style={s.month}>{formatMonthYear(anchor)}</Text>
+          {/* Year over month, so the month is the thing being read. */}
+          <View style={s.title}>
+            <Text style={s.year}>{fromISODate(anchor).getFullYear()}</Text>
+            <Text style={s.month}>{MONTHS[fromISODate(anchor).getMonth()]}</Text>
+          </View>
 
           <Pressable
             accessibilityRole="button"
@@ -122,8 +136,8 @@ export function Calendar({ value, today, ledger, onPick, onClose }: CalendarProp
         </View>
 
         <View style={s.week}>
-          {WEEKDAYS.map((d) => (
-            <View key={d} style={s.weekCell}>
+          {WEEKDAYS.map((d, i) => (
+            <View key={`${d}${i}`} style={s.col}>
               <Text style={s.weekText}>{d}</Text>
             </View>
           ))}
@@ -131,8 +145,9 @@ export function Calendar({ value, today, ledger, onPick, onClose }: CalendarProp
 
         <View style={s.grid}>
           {cells.map((iso, i) => {
-            if (!iso) return <View key={`gap${i}`} style={s.blank} />
+            if (!iso) return <View key={`gap${i}`} style={s.col} />
             const chosen = iso === value
+            const isToday = iso === today
             return (
               <Pressable
                 key={iso}
@@ -140,12 +155,25 @@ export function Calendar({ value, today, ledger, onPick, onClose }: CalendarProp
                 accessibilityState={{ selected: chosen }}
                 accessibilityLabel={iso}
                 onPress={() => onPick(iso)}
-                style={[s.cell, chosen ? s.cellOn : null]}
+                style={s.col}
               >
-                {marked.has(iso) ? <View style={s.dot} /> : null}
-                <Text style={[s.day, iso === today ? s.dayToday : null]}>
-                  {fromISODate(iso).getDate()}
-                </Text>
+                <View
+                  style={[
+                    s.disc,
+                    /* Today is a ring; the chosen day is filled. Both at once
+                     * would be two marks saying different things in one place. */
+                    !chosen && isToday ? s.discToday : null,
+                    chosen ? s.discOn : null,
+                  ]}
+                >
+                  <Text style={[s.day, chosen ? s.dayOn : null]}>
+                    {fromISODate(iso).getDate()}
+                  </Text>
+                </View>
+                {/* Under the disc, not over the number. */}
+                <View style={s.markRow}>
+                  {marked.has(iso) ? <View style={s.mark} /> : null}
+                </View>
               </Pressable>
             )
           })}
@@ -171,22 +199,28 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(6,4,4,0.55)',
     zIndex: 10,
   },
+  /*
+   * The sheets' own fill and hairline. It was a blur under a warm
+   * `rgba(40,34,34,0.86)` wash, which is why it read as a different colour
+   * from everything around it — the owner spotted that immediately. Nothing
+   * else in this app blurs a panel; the sheets are flat and so is this.
+   */
   card: {
     borderRadius: radius.sheet,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#141414',
     overflow: 'hidden',
     paddingHorizontal: sp(14),
-    paddingTop: sp(12),
+    paddingTop: sp(14),
     paddingBottom: sp(14),
   },
-  wash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(40,34,34,0.86)' },
 
   head: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: sp(10),
+    paddingBottom: sp(14),
   },
   step: {
     width: sp(32),
@@ -196,46 +230,39 @@ const s = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: 'rgba(255,255,255,0.07)',
   },
+  title: { alignItems: 'center', gap: sp(1) },
+  year: { fontFamily: font.r400, fontSize: sp(11), color: color.textDim },
   month: { ...type.name, ...capTrim(sp(16)), color: color.text },
 
-  week: { flexDirection: 'row', gap: GAP, paddingBottom: GAP },
-  weekCell: {
-    width: CELL_W,
-    height: sp(24),
+  /** One column per weekday, shared by the header and the grid. */
+  col: { width: COL_W, alignItems: 'center' },
+  week: { flexDirection: 'row', paddingBottom: sp(8) },
+  weekText: { fontFamily: font.r500, fontSize: sp(11), color: color.textDim },
+
+  grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: sp(6) },
+  disc: {
+    width: DISC,
+    height: DISC,
+    borderRadius: DISC / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.05)',
   },
-  weekText: { fontFamily: font.r500, fontSize: sp(9.5), color: color.textDim },
+  /* The week strip's own ring, so today is marked the same way in both. */
+  discToday: { borderWidth: 1, borderColor: color.strokeAccent },
+  discOn: { backgroundColor: color.accentSolid },
+  day: { fontFamily: font.r500, fontSize: sp(15), color: color.textSoft },
+  dayOn: { color: color.text },
 
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: GAP },
-  blank: { width: CELL_W, height: CELL_H },
-  cell: {
-    width: CELL_W,
-    height: CELL_H,
-    borderRadius: sp(12),
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingBottom: sp(6),
-  },
-  cellOn: { backgroundColor: color.accentSolid },
-  /* Top-right, out of the number's way, the way the reference marks a day. */
-  dot: {
-    position: 'absolute',
-    top: sp(6),
-    right: sp(6),
-    width: sp(5),
-    height: sp(5),
-    borderRadius: sp(2.5),
+  markRow: { height: MARK_ROW, alignItems: 'center', justifyContent: 'center' },
+  mark: {
+    width: sp(4),
+    height: sp(4),
+    borderRadius: sp(2),
     backgroundColor: color.credit,
   },
-  day: { fontFamily: font.r500, fontSize: sp(13), color: color.textSoft },
-  dayToday: { color: color.text },
 
   todayButton: {
-    marginTop: sp(12),
+    marginTop: sp(10),
     height: sp(40),
     borderRadius: radius.pill,
     alignItems: 'center',

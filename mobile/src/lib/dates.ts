@@ -62,6 +62,38 @@ export function formatMonthYear(iso: string): string {
   return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`
 }
 
+/*
+ * `20/05/26` — or `05/20/26` in the United States, and `20.05.26` in Germany.
+ *
+ * The order is the **locale's own**, not a flag we set: `Intl` already knows
+ * that the US puts the month first and almost nowhere else does, so asking it
+ * for two-digit parts gets every locale right without a table to maintain.
+ * Built once, at module load, the way the money formatters are.
+ *
+ * Why numeric at all: the composer's date chip sits in a row with the category
+ * and the method, and `May 20th 2026` pushed the third chip off the edge — the
+ * owner saw `Credit Ca…` cut in half. Eight characters always fit.
+ */
+const SHORT = (() => {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+    })
+  } catch {
+    return null
+  }
+})()
+
+export function formatDateShort(iso: string): string {
+  const d = fromISODate(iso)
+  if (SHORT) return SHORT.format(d)
+  /* Day first, which is the majority order, if Intl is somehow unavailable. */
+  const p = (n: number) => `${n}`.padStart(2, '0')
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${p(d.getFullYear() % 100)}`
+}
+
 /** `8:20 am` from a 24h `HH:MM`. */
 export function formatTime(hhmm: string): string {
   const [h, m] = hhmm.split(':').map(Number)
