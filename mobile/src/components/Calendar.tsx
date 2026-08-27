@@ -1,5 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native'
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated'
+import { scheduleOnRN } from 'react-native-worklets'
+import { CAL_FROM, CAL_IN, CAL_OUT, EASE_SHEET } from '../motion'
 import {
   addDays,
   formatMonthYear,
@@ -107,13 +115,51 @@ interface CalendarProps {
  */
 export function Calendar({ value, today, ledger, onPick, onClose }: CalendarProps) {
   const [anchor, setAnchor] = useState(value)
+
+  /*
+   * 0 to 1 across the opening.
+   *
+   * The exit is run **here**, before the caller is told: the parent drops this
+   * component the moment it hears, so an animation started after that has
+   * nothing left to animate. Every way out therefore goes through `leave`.
+   */
+  const show = useSharedValue(0)
+  useEffect(() => {
+    show.set(withTiming(1, { duration: CAL_IN, easing: EASE_SHEET }))
+  }, [show])
+
+  const leave = (then: () => void) => {
+    show.set(
+      withTiming(0, { duration: CAL_OUT, easing: EASE_SHEET }, (done) => {
+        'worklet'
+        /* scheduleOnRN, not runOnJS — the latter is gone in Reanimated 4. */
+        if (done) scheduleOnRN(then)
+      }),
+    )
+  }
+
+  const scrim = useAnimatedStyle(() => ({ opacity: show.get() }))
+  const panel = useAnimatedStyle(() => ({
+    opacity: show.get(),
+    transform: [{ scale: interpolate(show.get(), [0, 1], [CAL_FROM, 1]) }],
+  }))
   const cells = useMemo(() => monthGrid(anchor), [anchor])
 
-  /* Which days carry an entry, so the month says something before it is read. */
+  /*
+   * What each day held, so the month says something before it is read — and
+   * says *which way* it went. One green dot for a day that took money in, one
+   * red for a day that paid out, both when it did both. A single colour for
+   * "something happened" was throwing away the half that matters.
+   */
   const marked = useMemo(() => {
-    const set = new Set<string>()
-    for (const row of ledger) set.add(row.date)
-    return set
+    const map = new Map<string, { credit: boolean; debit: boolean }>()
+    for (const row of ledger) {
+      const at = map.get(row.date) ?? { credit: false, debit: false }
+      if (row.direction === 'credit') at.credit = true
+      else at.debit = true
+      map.set(row.date, at)
+    }
+    return map
   }, [ledger])
 
   const shiftMonth = (delta: number) => {
@@ -125,14 +171,15 @@ export function Calendar({ value, today, ledger, onPick, onClose }: CalendarProp
 
   return (
     <View style={s.root}>
+      <Animated.View style={[s.scrim, scrim]} pointerEvents="none" />
       <Pressable
         style={StyleSheet.absoluteFill}
-        onPress={onClose}
+        onPress={() => leave(onClose)}
         accessibilityRole="button"
         accessibilityLabel="Dismiss the calendar"
       />
 
-      <View style={s.card}>
+      <Animated.View style={[s.card, panel]}>
         <View style={s.head}>
           <Pressable
             accessibilityRole="button"
@@ -176,21 +223,28 @@ export function Calendar({ value, today, ledger, onPick, onClose }: CalendarProp
                 accessibilityRole="button"
                 accessibilityState={{ selected: chosen }}
                 accessibilityLabel={iso}
-                onPress={() => onPick(iso)}
+                onPress={() => leave(() => onPick(iso))}
                 style={s.col}
               >
                 {/* The week strip's own day, not a copy of it. */}
-                <DayCircle iso={iso} selected={chosen} future={iso > today} />
+                <DayCircle
+                  iso={iso}
+                  selected={chosen}
+                  future={iso > today}
+                  today={iso === today}
+                />
                 {/* Under the circle, not over the number. */}
                 <View style={s.markRow}>
-                  {marked.has(iso) ? <View style={s.mark} /> : null}
+                  {marked.get(iso)?.credit ? (
+                    <View style={[s.mark, s.markCredit]} />
+                  ) : null}
+                  {marked.get(iso)?.debit ? <View style={[s.mark, s.markDebit]} /> : null}
                 </View>
               </Pressable>
             )
           })}
         </View>
-
-      </View>
+      </Animated.View>
     </View>
   )
 }
@@ -200,9 +254,10 @@ const s = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(6,4,4,0.55)',
     zIndex: 10,
   },
+  /* Its own layer, so it can fade while the card scales. */
+  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(6,4,4,0.55)' },
   /*
    * The sheets' own fill and hairline. It was a blur under a warm
    * `rgba(40,34,34,0.86)` wash, which is why it read as a different colour
@@ -248,11 +303,14 @@ const s = StyleSheet.create({
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: sp(8) },
 
-  markRow: { height: MARK_ROW, alignItems: 'center', justifyContent: 'center' },
-  mark: {
-    width: sp(4),
-    height: sp(4),
-    borderRadius: sp(2),
-    backgroundColor: color.credit,
+  markRow: {
+    height: MARK_ROW,
+    flexDirection: 'row',
+    gap: sp(3),
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  mark: { width: sp(4), height: sp(4), borderRadius: sp(2) },
+  markCredit: { backgroundColor: color.credit },
+  markDebit: { backgroundColor: color.debit },
 })

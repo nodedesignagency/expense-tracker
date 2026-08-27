@@ -20,6 +20,7 @@ await new Promise(r => (ws.onopen = r))
 await send('Runtime.enable')
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] })
 
+const probe = async (e) => (await send('Runtime.evaluate', { returnByValue: true, expression: e })).result.value
 const texts = async () => (await send('Runtime.evaluate', { returnByValue: true, expression: `(() => {
   const out = []; document.querySelectorAll('div,span').forEach(el => { if (el.children.length) return;
     const t = (el.textContent||'').trim(); if (!t) return; const r = el.getBoundingClientRect();
@@ -49,7 +50,44 @@ console.log('  chip row:', chips.map(n => `"${n.t}" x${n.x}..${n.x+n.w}`).join('
 
 /* The chip reads "Today" when the composer opens; the identical-looking
  * "May 12th 2026" the scraper also sees is the list heading behind the sheet. */
-await tapText(/^Today$/, 'the date chip'); await sleep(900)
+/*
+ * Recorded per frame, started BEFORE the tap.
+ *
+ * The first attempt sampled in a loop after tapping — but `tap` sleeps 200ms
+ * and the entrance is 190, so it always read a finished animation and called
+ * it "no animation". An entrance that never ran and one that ran instantly
+ * look identical once they have settled.
+ */
+await send('Runtime.evaluate', { expression: `
+  window.__cal = [];
+  (function loop() {
+    requestAnimationFrame(loop);
+    /* The composer's own sheet is #141414 too, and it comes first in the
+     * document — so take the NARROWEST match, which is the calendar's card. */
+    const cards = [...document.querySelectorAll('div')]
+      .filter((e) => getComputedStyle(e).backgroundColor === 'rgb(20, 20, 20)')
+      .sort((a, b) => a.getBoundingClientRect().width - b.getBoundingClientRect().width);
+    const card = cards[0];
+    if (!card) return;
+    const m = new DOMMatrixReadOnly(getComputedStyle(card).transform);
+    window.__cal.push({ ms: performance.now(), o: +getComputedStyle(card).opacity,
+                        s: +m.a.toFixed(3) });
+  })();
+` })
+await tapText(/^Today$/, 'the date chip')
+await sleep(700)
+const open = (await probe('JSON.stringify(window.__cal)')) || '[]'
+const seen = JSON.parse(open)
+if (!seen.length) console.log('  the card never appeared')
+else {
+  const scales = seen.map((o) => o.s)
+  const span = seen[seen.length - 1].ms - seen[0].ms
+  console.log(`  ${seen.length} frames over ${span.toFixed(0)}ms`)
+  console.log('  scale:', scales.slice(0, 12).join(' '))
+  console.log(`  ${Math.min(...scales)} -> ${Math.max(...scales)}  ` +
+    (Math.min(...scales) < 0.99 ? '(it animates in)' : '<-- NO ANIMATION'))
+}
+await sleep(900)
 await shot('31-calendar')
 
 /* Where the calendar's panel actually sits, and how the grid fills it. */
@@ -74,4 +112,10 @@ console.log('  chip row now:', row.map((n) => `"${n.t}" ${n.x}..${n.x + n.w}`).j
 const right = Math.max(...row.map((n) => n.x + n.w))
 console.log(`  rightmost text ends at ${right} of a ${geo.viewport}pt viewport ` +
   `${right > geo.viewport - 20 ? '<-- STILL CUT OFF' : '(clear of the edge)'}`)
+
+/* Reopened with another day chosen, which is the only state where today's
+ * own ring is visible — chosen and today are mutually exclusive marks. */
+await tapText(/^\d{2}\/\d{2}\/\d{2}$/, 'the date chip again')
+await sleep(900)
+await shot('33-today-ring')
 chrome.kill(); ws.close()

@@ -40,7 +40,12 @@ export function WeekStrip() {
               onPress={() => dispatch({ type: 'selectDate', date: isSelected ? null : iso })}
             >
               <Text style={s.label}>{weekdayShort(iso)}</Text>
-              <DayCircle iso={iso} selected={isSelected} future={isFuture} />
+              <DayCircle
+                iso={iso}
+                selected={isSelected}
+                future={isFuture}
+                today={iso === today}
+              />
             </Pressable>
           </Fragment>
         )
@@ -56,7 +61,18 @@ export function WeekStrip() {
  * step. Filled and rimmed when it has happened, a dashed outline when it has
  * not, and the accent fill when it is the one chosen.
  */
-export function DayCircle({ iso, selected, future }: { iso: string; selected: boolean; future: boolean }) {
+export function DayCircle({
+  iso,
+  selected,
+  future,
+  today = false,
+}: {
+  iso: string
+  selected: boolean
+  future: boolean
+  /** Marks today when today is not the day chosen. */
+  today?: boolean
+}) {
   const label = (
     <Text style={[s.dayNum, selected ? { color: color.textBright } : null]}>
       {dayOfMonth(iso)}
@@ -78,7 +94,7 @@ export function DayCircle({ iso, selected, future }: { iso: string; selected: bo
     return <View style={[s.circle, s.circleFuture]}>{label}</View>
   }
 
-  return (
+  const disc = (
     <Glass
       rim={rim.soft}
       fill={fill.surface}
@@ -91,6 +107,23 @@ export function DayCircle({ iso, selected, future }: { iso: string; selected: bo
     >
       {label}
     </Glass>
+  )
+
+  if (!today) return disc
+
+  /*
+   * Today, when today is not what is chosen: a brighter ring over the fill.
+   *
+   * A **sibling over the fill**, not a border on it. A rounded, filled thing
+   * given its own `borderWidth` stops its children one unit inside it and the
+   * ring shows through — that is the trap the slider's thumb already walked
+   * into, at the corners, where a rounded ring is widest.
+   */
+  return (
+    <View style={{ width: metric.day, height: metric.day }}>
+      {disc}
+      <View style={s.circleToday} pointerEvents="none" />
+    </View>
   )
 }
 
@@ -115,6 +148,12 @@ const s = StyleSheet.create({
     overflow: 'hidden',
   },
   circleAccent: { borderWidth: 1, borderColor: color.strokeAccent },
+  circleToday: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: metric.day / 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.42)',
+  },
   circleFuture: {
     borderWidth: sp(1.143),
     borderColor: color.strokeDashed,

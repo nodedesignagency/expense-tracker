@@ -415,3 +415,16 @@ export function pageSheetTop(insetTop: number) {
  * screen that can see it.
  */
 export const PIG_REACT_DELAY = CELEBRATE * (1 - HANDOFF)
+
+/*
+ * The calendar overlay.
+ *
+ * It appeared and vanished on the same frame it was asked for, which reads as
+ * a jump cut rather than as something opening. Slower in than out, the way a
+ * sheet is: arriving is the thing being watched, leaving is getting out of the
+ * way. Transform and opacity only, so it never touches layout.
+ */
+export const CAL_IN = 190
+export const CAL_OUT = 140
+/** How small it starts. Any deeper and it reads as flying at you. */
+export const CAL_FROM = 0.94

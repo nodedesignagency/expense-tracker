@@ -295,6 +295,25 @@ Weekday labels are the strip's own words through `weekdayShort`, and the mark
 for a day carrying entries sits **under** the circle rather than over the
 number.
 
+**Today keeps a brighter ring when another day is chosen.** Chosen and today
+are mutually exclusive marks — the accent fill wins when they are the same day
+— so without it today simply disappeared into the other past days. It is drawn
+as a **sibling over the fill**, not as a border on it: a rounded, filled thing
+given its own `borderWidth` stops its children one unit inside and the ring
+shows through, which is the trap the slider's thumb already walked into. The
+week strip gets it too, from the same component.
+
+**The marks say which way the day went.** Green for a day that took money in,
+red for one that paid out, both when it did both. One colour for "something
+happened" threw away the half that matters.
+
+**It opens and closes on a curve.** It used to appear and vanish on the frame
+it was asked for, which reads as a jump cut. `CAL_IN`/`CAL_OUT` in `motion.ts`,
+slower in than out the way a sheet is. **The exit runs inside `Calendar`,
+before the caller is told** — the parent drops the component the moment it
+hears, so an animation started after that has nothing left to animate. Every
+way out goes through `leave()`, the pick included.
+
 **Sunday first.** It was Monday first, which is defensible alone but not beside
 a week strip that starts on Sunday — one app cannot start its week twice. The
 order comes from `weekOf` rather than being written out, so the two cannot
@@ -1036,6 +1055,15 @@ confident wrong answers first:
   read, including the ones with nothing to apply: setting it only alongside a
   successful hydrate leaves a fresh install waiting for a signal that never
   comes.
+- **Sample an animation from a frame loop started BEFORE the tap.** `tap()`
+  sleeps 200ms and the calendar's entrance is 190, so a poll that begins after
+  the tap always reads a finished animation — it reported "NO ANIMATION" for
+  one that was running perfectly. An entrance that never ran and one that ran
+  instantly look identical once settled.
+- **`#141414` is not unique.** The composer's sheet and the calendar's card
+  share it, and `find` returns the first in document order, which is the sheet.
+  The driver measured the sheet's transform and called the calendar static.
+  Disambiguate by size.
 - **Never write a regex inside the driver's JS template literals.** An
   unrecognised escape like `\w` quietly collapses to a bare `w`, so the pattern
   never matches and every frame falls through to the default. It reported a
