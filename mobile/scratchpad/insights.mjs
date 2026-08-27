@@ -36,6 +36,9 @@ await send('Page.navigate', { url: 'http://127.0.0.1:8081' })
 for (let i = 0; i < 40; i++) { await sleep(500); if ((await texts()).length > 20) break }
 await sleep(900)
 
+/* The scope persists in storage between runs, so the previous run's choice
+ * carried over and the shots labelled business were personal. Set it. */
+await tapText(/^Business$/, 'the Business scope'); await sleep(400)
 await tapText(/^Insights$/, 'the Insights tab'); await sleep(700)
 for (const [label, period] of [['month', /^Month$/], ['quarter', /^Quarter$/], ['year', /^Year$/]]) {
   if (label !== 'month') { await tapText(period, label); await sleep(500) }

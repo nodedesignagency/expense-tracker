@@ -3,16 +3,35 @@ import type { Scope, Transaction } from '../lib/types'
 import { generateTransactions, sortChronological, TODAY_ISO } from './generate'
 
 /**
- * Reference figures from the product design. The generated ledger is calibrated
- * to land on them exactly so the balance card reads the way the design does:
- * a $69,786 net position, with $45,786 in and $97,664 out across May 2026.
+ * What the ledger is calibrated to land on.
+ *
+ * **The net position is still the design's**, because it is the hero figure on
+ * the balance card and the one number the frame is read for. The month's flows
+ * are not any more: the frame's $45,786 in against $97,664 out is an agency
+ * spending twice what it earns, and calibration was forcing that shape onto
+ * every generated month — the insights page then reported it faithfully and
+ * looked broken. A freelancer's month is the other way round, by a lot.
+ *
+ * Change these and the whole history rescales; nothing else needs touching.
  */
 export const REFERENCE = {
   netBalanceCents: 6_978_600,
-  monthCreditCents: 4_578_600,
-  monthDebitCents: 9_766_400,
+  /** A good month: three invoices in, subscriptions and a desk out. */
+  monthCreditCents: 1_284_000,
+  /*
+   * Room for the authored $2,000 draw **and** a month of subscriptions.
+   * Set to 214,000 it left $140 for everything that was not the draw, because
+   * calibration scales only the generated rows and the authored ones come off
+   * the target first — so May's costs came out as rounding error.
+   */
+  monthDebitCents: 272_000,
   month: '2026-05',
-  entryCount: 290,
+  /*
+   * Fewer than before. A freelancer's business ledger is a handful of invoices
+   * and a tail of small subscriptions, not sixty entries a month — and the
+   * count is what made the old one read as a company.
+   */
+  entryCount: 124,
 } as const
 
 const PERSONAL_NET_CENTS = 1_248_000
@@ -37,18 +56,26 @@ const HERO_ROWS: Transaction[] = [
     note: 'May retainer, paid out',
   },
   {
-    id: 'hero-2-claude',
-    name: 'Claude',
-    brand: 'claude',
+    /*
+     * A client payment, not a refund from a tool vendor.
+     *
+     * This was a $2,000 credit from Claude filed under Tools, which made a
+     * subscription the largest payer on the insights page — 16% of everything
+     * that came in, from a company you pay. The frame wants one in and one out
+     * on the current day; it does not care who.
+     */
+    id: 'hero-2-northwind',
+    name: 'Northwind Studio',
+    brand: 'stripe',
     scope: 'business',
     direction: 'credit',
     amountCents: 200_000,
     balanceCents: 0,
-    category: 'Tools',
-    method: 'Credit Card',
+    category: 'Client',
+    method: 'Bank Transfer',
     date: TODAY_ISO,
     time: '08:20',
-    note: 'Annual plan refund',
+    note: 'May retainer',
   },
 ]
 

@@ -28,40 +28,78 @@ interface Counterparty {
   max: number
   /** Relative likelihood of being drawn. */
   weight: number
+  /**
+   * Once a month, on a stable day, instead of drawn at random.
+   *
+   * Rent, subscriptions, insurance and the owner's draw do not happen by
+   * chance — and drawn by weight they landed two and three times some months
+   * and not at all in others. The insights page reported it: rent at 82% of
+   * personal spend and "usually $4,383" against a $1,450 tenancy, which is
+   * three rents a month.
+   */
+  monthly?: boolean
 }
 
+/*
+ * A freelancer's business, not an agency's.
+ *
+ * The first book paid **two salaries and an office rent**, which is a company
+ * with staff — and the insights page reported it faithfully: money out running
+ * at twice money in, every month. What a freelancer actually looks like is a
+ * handful of clients paying irregularly against a long tail of small
+ * subscriptions, so income dwarfs costs and the month is decided by whether
+ * the invoices landed.
+ *
+ * Weights are frequency, not size. The retainer is drawn often and is small;
+ * a project invoice is drawn rarely and is large. That difference is what
+ * makes the income lumpy rather than smooth, which is the whole texture of
+ * freelance work and the thing the insights page exists to show.
+ */
 const BUSINESS_BOOK: Counterparty[] = [
-  { name: 'J. Jonah Jameson', brand: 'wise', category: 'Salary', method: 'Wise', direction: 'debit', min: 1800, max: 2600, weight: 5 },
-  { name: 'Daily Bugle Media', brand: 'generic', category: 'Client', method: 'Bank Transfer', direction: 'credit', min: 3200, max: 9800, weight: 7 },
-  { name: 'Oscorp Industries', brand: 'generic', category: 'Client', method: 'Wise', direction: 'credit', min: 2400, max: 12000, weight: 6 },
-  { name: 'Stark Retainer', brand: 'stripe', category: 'Client', method: 'Bank Transfer', direction: 'credit', min: 4000, max: 15000, weight: 5 },
-  { name: 'Claude', brand: 'claude', category: 'Tools', method: 'Credit Card', direction: 'debit', min: 40, max: 300, weight: 6 },
-  { name: 'Figma', brand: 'figma', category: 'Software', method: 'Credit Card', direction: 'debit', min: 45, max: 180, weight: 4 },
-  { name: 'Stripe Payout', brand: 'stripe', category: 'Client', method: 'Bank Transfer', direction: 'credit', min: 900, max: 6400, weight: 6 },
-  { name: 'Amazon Business', brand: 'amazon', category: 'Shopping', method: 'Credit Card', direction: 'debit', min: 60, max: 1400, weight: 5 },
-  { name: 'WeWork Studio', brand: 'generic', category: 'Rent', method: 'Bank Transfer', direction: 'debit', min: 2100, max: 4200, weight: 3 },
-  { name: 'Uber Business', brand: 'uber', category: 'Travel', method: 'Apple Pay', direction: 'debit', min: 18, max: 240, weight: 5 },
-  { name: 'Delta Air Lines', brand: 'generic', category: 'Travel', method: 'Credit Card', direction: 'debit', min: 320, max: 1900, weight: 3 },
-  { name: 'M. Watson', brand: 'wise', category: 'Salary', method: 'Wise', direction: 'debit', min: 1200, max: 5200, weight: 5 },
-  { name: 'AWS', brand: 'generic', category: 'Software', method: 'Credit Card', direction: 'debit', min: 180, max: 2400, weight: 5 },
-  { name: 'Notion Labs', brand: 'generic', category: 'Software', method: 'Credit Card', direction: 'debit', min: 24, max: 160, weight: 3 },
-  { name: 'Katz Deli', brand: 'generic', category: 'Food', method: 'Credit Card', direction: 'debit', min: 40, max: 420, weight: 4 },
-  { name: 'Vault Transfer', brand: 'generic', category: 'Transfer', method: 'Bank Transfer', direction: 'credit', min: 500, max: 3000, weight: 2 },
+  /* Income: one steady retainer, two irregular clients, and card takings. */
+  { monthly: true, name: 'Northwind Studio', brand: 'stripe', category: 'Client', method: 'Bank Transfer', direction: 'credit', min: 3000, max: 3400, weight: 7 },
+  { name: 'Kestrel Labs', brand: 'generic', category: 'Client', method: 'Wise', direction: 'credit', min: 1800, max: 6500, weight: 5 },
+  { name: 'Vellum Press', brand: 'generic', category: 'Client', method: 'Bank Transfer', direction: 'credit', min: 600, max: 2400, weight: 4 },
+  { name: 'Stripe Payout', brand: 'stripe', category: 'Client', method: 'Bank Transfer', direction: 'credit', min: 120, max: 900, weight: 5 },
+
+  /* Costs: subscriptions, a desk, and the occasional trip. All small. */
+  { name: 'Claude', brand: 'claude', category: 'Tools', method: 'Credit Card', direction: 'debit', min: 20, max: 100, weight: 6 },
+  { monthly: true, name: 'Figma', brand: 'figma', category: 'Software', method: 'Credit Card', direction: 'debit', min: 15, max: 45, weight: 5 },
+  { name: 'AWS', brand: 'generic', category: 'Software', method: 'Credit Card', direction: 'debit', min: 30, max: 180, weight: 5 },
+  { monthly: true, name: 'Notion Labs', brand: 'generic', category: 'Software', method: 'Credit Card', direction: 'debit', min: 10, max: 24, weight: 4 },
+  { monthly: true, name: 'Adobe', brand: 'generic', category: 'Software', method: 'Credit Card', direction: 'debit', min: 23, max: 60, weight: 4 },
+  { monthly: true, name: 'Deskspace', brand: 'generic', category: 'Rent', method: 'Bank Transfer', direction: 'debit', min: 160, max: 220, weight: 4 },
+  { name: 'Amazon Business', brand: 'amazon', category: 'Shopping', method: 'Credit Card', direction: 'debit', min: 18, max: 180, weight: 4 },
+  { name: 'Uber Business', brand: 'uber', category: 'Travel', method: 'Apple Pay', direction: 'debit', min: 9, max: 60, weight: 4 },
+  { name: 'Delta Air Lines', brand: 'generic', category: 'Travel', method: 'Credit Card', direction: 'debit', min: 180, max: 620, weight: 1 },
+  { monthly: true, name: 'Freelancer Cover', brand: 'generic', category: 'Health', method: 'Credit Card', direction: 'debit', min: 88, max: 120, weight: 3 },
+  /*
+   * Paying yourself. Without it the business ledger showed a burn of about a
+   * thousand a month against a five-figure balance, and runway came out at
+   * fifty-nine months — arithmetically right and useless, because the largest
+   * regular thing leaving the account was missing.
+   */
+  { monthly: true, name: 'Owner Draw', brand: 'wise', category: 'Salary', method: 'Wise', direction: 'debit', min: 1800, max: 2400, weight: 5 },
 ]
 
+/*
+ * The same person's own money: a draw from the business, rent, food, and the
+ * small stuff. Costs sit a little under income, so the personal ledger drifts
+ * upward slowly rather than swinging.
+ */
 const PERSONAL_BOOK: Counterparty[] = [
-  { name: 'Monthly Payroll', brand: 'wise', category: 'Salary', method: 'Bank Transfer', direction: 'credit', min: 4200, max: 5600, weight: 4 },
-  { name: 'Whole Foods', brand: 'generic', category: 'Food', method: 'Apple Pay', direction: 'debit', min: 22, max: 240, weight: 9 },
-  { name: 'Spotify', brand: 'spotify', category: 'Software', method: 'Credit Card', direction: 'debit', min: 11, max: 19, weight: 3 },
-  { name: 'Landlord 9th St', brand: 'generic', category: 'Rent', method: 'Bank Transfer', direction: 'debit', min: 1850, max: 2200, weight: 3 },
-  { name: 'Uber', brand: 'uber', category: 'Travel', method: 'Apple Pay', direction: 'debit', min: 9, max: 88, weight: 7 },
-  { name: 'Amazon', brand: 'amazon', category: 'Shopping', method: 'Credit Card', direction: 'debit', min: 15, max: 460, weight: 7 },
-  { name: 'Blue Bottle', brand: 'generic', category: 'Food', method: 'Apple Pay', direction: 'debit', min: 5, max: 24, weight: 8 },
-  { name: 'Equinox', brand: 'generic', category: 'Health', method: 'Credit Card', direction: 'debit', min: 68, max: 260, weight: 3 },
-  { name: 'Mom', brand: 'generic', category: 'Transfer', method: 'PayPal', direction: 'credit', min: 40, max: 400, weight: 2 },
-  { name: 'Sunday Market', brand: 'generic', category: 'Food', method: 'Cash', direction: 'debit', min: 8, max: 70, weight: 5 },
-  { name: 'Delta Air Lines', brand: 'generic', category: 'Travel', method: 'Credit Card', direction: 'debit', min: 180, max: 940, weight: 2 },
-  { name: 'Side Project', brand: 'stripe', category: 'Client', method: 'PayPal', direction: 'credit', min: 120, max: 1800, weight: 3 },
+  { monthly: true, name: 'From Business', brand: 'wise', category: 'Transfer', method: 'Bank Transfer', direction: 'credit', min: 3200, max: 3800, weight: 6 },
+  { name: 'Side Project', brand: 'stripe', category: 'Client', method: 'PayPal', direction: 'credit', min: 120, max: 900, weight: 2 },
+
+  { monthly: true, name: 'Landlord 9th St', brand: 'generic', category: 'Rent', method: 'Bank Transfer', direction: 'debit', min: 1400, max: 1500, weight: 3 },
+  { name: 'Whole Foods', brand: 'generic', category: 'Food', method: 'Apple Pay', direction: 'debit', min: 22, max: 140, weight: 9 },
+  { name: 'Blue Bottle', brand: 'generic', category: 'Food', method: 'Apple Pay', direction: 'debit', min: 4, max: 14, weight: 8 },
+  { name: 'Sunday Market', brand: 'generic', category: 'Food', method: 'Cash', direction: 'debit', min: 8, max: 45, weight: 5 },
+  { name: 'Amazon', brand: 'amazon', category: 'Shopping', method: 'Credit Card', direction: 'debit', min: 12, max: 180, weight: 6 },
+  { name: 'Uber', brand: 'uber', category: 'Travel', method: 'Apple Pay', direction: 'debit', min: 8, max: 40, weight: 6 },
+  { monthly: true, name: 'Spotify', brand: 'spotify', category: 'Software', method: 'Credit Card', direction: 'debit', min: 11, max: 13, weight: 3 },
+  { monthly: true, name: 'Equinox', brand: 'generic', category: 'Health', method: 'Credit Card', direction: 'debit', min: 68, max: 68, weight: 3 },
+  { name: 'Delta Air Lines', brand: 'generic', category: 'Travel', method: 'Credit Card', direction: 'debit', min: 180, max: 520, weight: 1 },
 ]
 
 function pickWeighted(book: Counterparty[], rand: () => number): Counterparty {
@@ -112,7 +150,10 @@ export function generateTransactions({
   hours = [7, 21],
 }: GenerateOptions): Transaction[] {
   const rand = lcg(seed)
-  const book = scope === 'business' ? BUSINESS_BOOK : PERSONAL_BOOK
+  const all = scope === 'business' ? BUSINESS_BOOK : PERSONAL_BOOK
+  /* The recurring ones are placed, not drawn; the rest fill in around them. */
+  const book = all.filter((p) => !p.monthly)
+  const recurring = all.filter((p) => p.monthly)
   // A single-day window is span 0, not 1 — clamping up to 1 let entries land
   // on the day after `endDate`.
   const span = Math.max(
@@ -121,6 +162,38 @@ export function generateTransactions({
   )
 
   const rows: Transaction[] = []
+
+  /*
+   * One row per recurring party per month in the window, on a day of the month
+   * that is stable for that party — rent lands on the same day each month the
+   * way rent does, rather than wandering.
+   */
+  const first = new Date(`${startDate}T00:00:00`)
+  const last = new Date(`${endDate}T00:00:00`)
+  for (const party of recurring) {
+    const day = 1 + Math.floor(rand() * 27)
+    const cursor = new Date(first.getFullYear(), first.getMonth(), 1)
+    while (cursor <= last) {
+      const when = new Date(cursor.getFullYear(), cursor.getMonth(), day)
+      if (when >= first && when <= last) {
+        rows.push({
+          id: `${scope}-${seed}-m-${party.name}-${when.getMonth()}-${when.getFullYear()}`,
+          name: party.name,
+          brand: party.brand,
+          scope,
+          direction: party.direction,
+          amountCents: drawAmountCents(party, rand),
+          balanceCents: 0,
+          category: party.category,
+          method: party.method,
+          date: toISODate(when),
+          time: drawTime(rand, hours),
+        })
+      }
+      cursor.setMonth(cursor.getMonth() + 1)
+    }
+  }
+
   for (let i = 0; i < count; i += 1) {
     // Bias toward the recent end of the window: two draws, keep the larger.
     const t = Math.max(rand(), rand())

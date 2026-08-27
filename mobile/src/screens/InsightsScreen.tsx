@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
+import { Consistency, Donut, FlowChart, Meter, VsUsual } from '../components/Charts'
 import { PeriodBar } from '../components/PeriodBar'
 import { PeriodShape } from '../components/PeriodShape'
 import { businessLines, personalLines, type Line } from '../lib/insights'
@@ -8,7 +9,11 @@ import {
   categoryBreakdown,
   changeVs,
   counterpartyBreakdown,
+  dailySeries,
+  daysInMonth,
   filterLedger,
+  monthlySeries,
+  netBalanceCents,
   rangeOf,
   rowsInRange,
   stepPeriod,
@@ -73,6 +78,77 @@ export function InsightsScreen() {
   const heroLabel = business ? 'Kept this period' : 'Spent this period'
   const heroText = formatMoney(heroCents)
 
+  /* The lead chart. A month reads per day; anything longer reads per month —
+   * 365 bars a millimetre apart is texture, not information. */
+  const flow = useMemo(() => {
+    if (range.months === 1) {
+      return dailySeries(inRange, range.from.slice(0, 7), daysInMonth(range.from)).map(
+        (d, i) => ({
+          key: d.date,
+          label: `${i + 1}`,
+          creditCents: d.creditCents,
+          debitCents: d.debitCents,
+        }),
+      )
+    }
+    return monthlySeries(inRange, range).map((m) => ({
+      key: m.month,
+      label: m.label,
+      creditCents: m.creditCents,
+      debitCents: m.debitCents,
+    }))
+  }, [inRange, range])
+
+  /*
+   * How long the money on hand covers the way it is currently going out.
+   *
+   * Averaged over six months rather than taken from this one: a freelancer's
+   * quiet month would otherwise read as years of runway, and a heavy one as
+   * days.
+   */
+  const runway = useMemo(() => {
+    const balance = netBalanceCents(transactions, scope, today)
+    const since = stepPeriod(today, 'month', -6)
+    const recent = rows.filter((r) => r.date >= since && r.date <= today && r.direction === 'debit')
+    const perMonth = recent.reduce((sum, r) => sum + r.amountCents, 0) / 6
+    return { balance, perMonth, months: perMonth > 0 ? balance / perMonth : null }
+  }, [transactions, rows, scope, today])
+
+  /* Twelve months back from today, lit where anything came in. */
+  const consistency = useMemo(() => {
+    const paid = new Set(
+      rows.filter((r) => r.direction === 'credit').map((r) => r.date.slice(0, 7)),
+    )
+    return Array.from({ length: 12 }, (_, i) => {
+      const key = stepPeriod(today, 'month', i - 11).slice(0, 7)
+      return { key, paid: paid.has(key) }
+    })
+  }, [rows, today])
+
+  /* This period against the three before it, per category. */
+  const vsUsual = useMemo(() => {
+    const nowBy = categoryBreakdown(inRange, 'debit').slice(0, 4)
+    const past = [1, 2, 3].map((back) => rowsInRange(rows, rangeOf(stepPeriod(anchor, period, -back), period)))
+    return nowBy.map((slice) => {
+      const totals = past.map(
+        (set) =>
+          set
+            .filter((r) => r.direction === 'debit' && r.category === slice.category)
+            .reduce((sum, r) => sum + r.amountCents, 0),
+      )
+      const seen = totals.filter((t) => t > 0)
+      return {
+        key: slice.category,
+        name: slice.category,
+        nowCents: slice.cents,
+        usualCents: seen.length ? Math.round(seen.reduce((a, b) => a + b, 0) / seen.length) : 0,
+      }
+    })
+  }, [inRange, rows, anchor, period])
+
+  const clients = useMemo(() => counterpartyBreakdown(inRange, 'credit'), [inRange])
+  const spend = useMemo(() => categoryBreakdown(inRange, 'debit'), [inRange])
+
   const atLatest = range.to >= today
 
   return (
@@ -100,56 +176,109 @@ export function InsightsScreen() {
         <Delta now={heroCents} before={heroBefore} goodWhenUp={business} />
       </View>
 
-      <View style={s.split}>
-        <Tile label="In" cents={totals.creditCents} tint={color.credit} />
-        <Tile label="Out" cents={totals.debitCents} tint={color.debit} />
-        <Tile
-          label={business ? 'Entries' : 'Net'}
-          cents={business ? null : totals.netCents}
-          count={business ? totals.count : undefined}
-          tint={color.text}
-        />
+      {/* The lead. A chart, not a paragraph — the first cut led with three
+        * sentences in a box and the owner's word for it was text-heavy. */}
+      <View style={s.panel}>
+        <View style={s.flowHead}>
+          <Legend tint={color.credit} label="In" value={formatMoney(totals.creditCents, { forceWhole: true })} />
+          <Legend tint={color.debit} label="Out" value={formatMoney(totals.debitCents, { forceWhole: true })} />
+        </View>
+        <FlowChart points={flow} />
       </View>
 
-      {lines.length ? (
+      {/* One line, as a caption. Three was a wall. */}
+      {lines.length ? <Sentence line={lines[0]} /> : null}
+
+      <View style={s.panel}>
+        <Text style={s.panelTitle}>{business ? 'Who paid you' : 'Where it went'}</Text>
+        {(business ? clients : spend).length === 0 ? (
+          <Text style={s.quiet}>
+            {business ? 'No payments in this period.' : 'Nothing went out in this period.'}
+          </Text>
+        ) : (
+          <Donut
+            slices={
+              business
+                ? clients.map((c) => ({ key: c.name, name: c.name, cents: c.cents, share: c.share, count: c.count }))
+                : spend.map((c) => ({ key: c.category, name: c.category, cents: c.cents, share: c.share, count: c.count }))
+            }
+            /* The centre carries the concentration, which costs no extra
+             * space and is the signal a freelancer actually needs: most of
+             * your income coming from one client is a risk, not a triumph. */
+            centreValue={`${Math.round(((business ? clients : spend)[0]?.share ?? 0) * 100)}%`}
+            /* Short enough to fit the hole. The name it refers to is the
+             * first row of the legend, an inch to the right. */
+            centreLabel={business ? 'top payer' : 'top category'}
+          />
+        )}
+      </View>
+
+      {business ? (
         <View style={s.panel}>
-          {lines.map((line) => (
-            <Sentence key={line.key} line={line} />
-          ))}
+          <Meter
+            label="Set aside for tax"
+            value={formatMoney(Math.round(totals.creditCents * taxRate), { forceWhole: true })}
+            fill={taxRate}
+            tint={color.text}
+            note={
+              totals.creditCents === 0
+                ? 'Nothing invoiced in this period.'
+                : `${Math.round(taxRate * 100)}% of the ${formatMoney(totals.creditCents, {
+                    forceWhole: true,
+                  })} you invoiced. Change the rate in Settings.`
+            }
+          />
         </View>
       ) : null}
 
-      {business ? <TaxCard incomeCents={totals.creditCents} rate={taxRate} /> : null}
+      <View style={s.pair}>
+        <View style={[s.panel, s.half]}>
+          <Meter
+            label="Runway"
+            /* A decimal is noise past ten months; nobody plans to 0.1 of one. */
+            value={
+              runway.months === null
+                ? '—'
+                : runway.months >= 10
+                  ? `${Math.round(runway.months)} mo`
+                  : `${runway.months.toFixed(1)} mo`
+            }
+            /* Six months is the comfortable mark, so the bar fills against it
+             * rather than against a total that does not exist. */
+            fill={runway.months === null ? 0 : runway.months / 6}
+            tint={runway.months !== null && runway.months < 2 ? color.debit : color.credit}
+            note={
+              runway.months === null
+                ? 'Nothing going out to measure against.'
+                : `at ${formatMoney(Math.round(runway.perMonth), { forceWhole: true })} a month`
+            }
+          />
+        </View>
+        {business ? (
+          <View style={[s.panel, s.half]}>
+            <Consistency months={consistency} />
+          </View>
+        ) : null}
+      </View>
+
+      {!business && vsUsual.length ? (
+        <View style={s.panel}>
+          <Text style={s.panelTitle}>Against your usual</Text>
+          <VsUsual rows={vsUsual} />
+        </View>
+      ) : null}
 
       <PeriodShape rows={inRange} range={range} />
+    </View>
+  )
+}
 
-      {business ? (
-        <Breakdown
-          title="Who paid you"
-          empty="No payments in this period."
-          rows={counterpartyBreakdown(inRange, 'credit').slice(0, 6).map((slice) => ({
-            key: slice.name,
-            name: slice.name,
-            cents: slice.cents,
-            share: slice.share,
-            count: slice.count,
-          }))}
-          tint={color.credit}
-        />
-      ) : (
-        <Breakdown
-          title="Where it went"
-          empty="Nothing went out in this period."
-          rows={categoryBreakdown(inRange, 'debit').slice(0, 6).map((slice) => ({
-            key: slice.category,
-            name: slice.category,
-            cents: slice.cents,
-            share: slice.share,
-            count: slice.count,
-          }))}
-          tint={color.debit}
-        />
-      )}
+function Legend({ tint, label, value }: { tint: string; label: string; value: string }) {
+  return (
+    <View style={s.legendItem}>
+      <View style={[s.swatch, { backgroundColor: tint }]} />
+      <Text style={s.legendLabel}>{label}</Text>
+      <Text style={s.legendValue}>{value}</Text>
     </View>
   )
 }
@@ -224,107 +353,6 @@ function Sentence({ line }: { line: Line }) {
   )
 }
 
-/**
- * What to put aside, and what is left after it.
- *
- * The one number a ledger cannot derive: what came in is not what is kept.
- * The rate lives in Settings because it is a standing fact about the person
- * rather than about the period being looked at.
- */
-function TaxCard({ incomeCents, rate }: { incomeCents: number; rate: number }) {
-  const setAside = Math.round(incomeCents * rate)
-  return (
-    <View style={[s.panel, s.tax]}>
-      <View style={s.taxHead}>
-        <Text style={s.panelTitle}>Set aside for tax</Text>
-        <Text style={s.taxRate}>{`${Math.round(rate * 100)}%`}</Text>
-      </View>
-      {/* Whole pounds: cents on a figure you are going to move in one lump
-        * is precision nobody acts on. */}
-      <Text style={s.taxFigure}>{formatMoney(setAside, { forceWhole: true })}</Text>
-      <Text style={s.taxNote}>
-        {incomeCents === 0
-          ? 'Nothing invoiced in this period, so nothing to reserve.'
-          : `of the ${formatMoney(incomeCents)} you invoiced. Change the rate in Settings.`}
-      </Text>
-    </View>
-  )
-}
-
-interface Slice {
-  key: string
-  name: string
-  cents: number
-  share: number
-  count: number
-}
-
-function Breakdown({
-  title,
-  empty,
-  rows,
-  tint,
-}: {
-  title: string
-  empty: string
-  rows: Slice[]
-  tint: string
-}) {
-  return (
-    <View style={s.panel}>
-      <Text style={s.panelTitle}>{title}</Text>
-      {rows.length === 0 ? (
-        <Text style={s.quiet}>{empty}</Text>
-      ) : (
-        rows.map((slice) => (
-          <View key={slice.key} style={s.slice}>
-            <View style={s.sliceHead}>
-              <Text style={s.sliceName} numberOfLines={1}>
-                {slice.name}
-              </Text>
-              <Text style={s.sliceValue}>{formatMoney(slice.cents)}</Text>
-            </View>
-            <View style={s.track}>
-              <View
-                style={[
-                  s.fill,
-                  { width: `${Math.max(2, slice.share * 100)}%`, backgroundColor: tint },
-                ]}
-              />
-            </View>
-            <Text style={s.sliceMeta}>
-              {`${Math.round(slice.share * 100)}% · ${slice.count} ${
-                slice.count === 1 ? 'entry' : 'entries'
-              }`}
-            </Text>
-          </View>
-        ))
-      )}
-    </View>
-  )
-}
-
-function Tile({
-  label,
-  cents,
-  count,
-  tint,
-}: {
-  label: string
-  cents: number | null
-  count?: number
-  tint: string
-}) {
-  return (
-    <View style={s.tile}>
-      <Text style={s.tileLabel}>{label}</Text>
-      <Text style={[s.tileValue, { color: tint }]} numberOfLines={1}>
-        {cents === null ? `${count ?? 0}` : formatMoney(cents)}
-      </Text>
-    </View>
-  )
-}
-
 const s = StyleSheet.create({
   screen: { paddingHorizontal: metric.gutter, paddingTop: metric.rhythm, gap: sp(18) },
 
@@ -340,21 +368,16 @@ const s = StyleSheet.create({
   deltaText: { ...type.figure },
   deltaFlat: { ...type.figure, color: color.textDim },
 
-  split: { flexDirection: 'row', gap: sp(10) },
-  tile: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 0,
-    gap: sp(6),
-    paddingVertical: sp(12),
-    paddingHorizontal: sp(12),
-    borderRadius: radius.soft,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    backgroundColor: 'rgba(255,255,255,0.035)',
-  },
-  tileLabel: { ...type.tooltip, color: color.textDim },
-  tileValue: { ...type.amount },
+  /* The chart's own key doubles as the period's totals, so a row of tiles
+   * repeating them is not needed. It was, and it was filler. */
+  flowHead: { flexDirection: 'row', gap: sp(16) },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: sp(6) },
+  swatch: { width: sp(8), height: sp(8), borderRadius: sp(2) },
+  legendLabel: { ...type.tooltip, color: color.textDim },
+  legendValue: { ...type.chip, color: color.text },
+
+  pair: { flexDirection: 'row', gap: sp(10) },
+  half: { flexGrow: 1, flexShrink: 1, flexBasis: 0 },
 
   panel: {
     borderRadius: radius.soft,
@@ -373,22 +396,5 @@ const s = StyleSheet.create({
   inDebit: { color: color.debit },
   inStrong: { color: color.text },
 
-  tax: { gap: sp(6) },
-  taxHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  taxRate: { ...type.chip, color: color.text },
-  taxFigure: { ...type.display, fontSize: sp(30), ...capTrim(sp(30)), color: color.text },
-  taxNote: { ...type.figure, color: color.textDim },
 
-  slice: { gap: sp(6) },
-  sliceHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: sp(10) },
-  sliceName: { ...type.chip, color: color.text, flexShrink: 1 },
-  sliceValue: { ...type.amount, color: color.text },
-  track: {
-    height: sp(6),
-    borderRadius: sp(3),
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    overflow: 'hidden',
-  },
-  fill: { height: '100%', borderRadius: sp(3) },
-  sliceMeta: { ...type.tooltip, color: color.textDim },
 })

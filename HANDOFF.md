@@ -1179,6 +1179,60 @@ It lives in `theme.ts` because the balance card and the insights hero are the
 same figure in different boxes, and a second copy drifts — the card shipped
 `-$6,599,...` elided before it existed.
 
+### It is chart-led, and that was the second attempt
+
+The first rebuild was prose with a number on top: three sentences in a box,
+three tiles of raw figures, and one shape on the entire screen. The owner's
+word for it was **text-heavy**, and the references they had sent were the
+inverse — a chart leads, the words are a caption. So: the flow chart is the
+lead, the donut carries the breakdown, the sentence is cut to **one**, and the
+tiles are gone entirely (the chart's own key states the same two totals, so
+they were filler).
+
+`Charts.tsx`, in `react-native-svg` which the app already depends on. Nothing
+new was added for any of it.
+
+- **Paired bars, not stacked.** Stacked, a month that earned and spent heavily
+  is the same height as one that did neither, and the gap between them — the
+  whole point — cannot be seen.
+- **The donut's centre carries the concentration**, not the total: most of your
+  income coming from one client is a risk a freelancer needs told, and putting
+  it in the hole costs no space. Top five keep their own colour and the rest
+  sum into one grey wedge; eleven coloured slices is a colour wheel.
+- **The wedge colours are deliberately not the ledger's green and red.** Those
+  two mean direction everywhere else, and a category wearing them reads as
+  money coming in.
+- **The donut starts at twelve o'clock via the dash phase**, not a `rotation`
+  on a `<G>`: react-native-svg's web build turns that into a DOM
+  `transform-origin`, which React rejects on every render.
+- **Runway averages six months of outgoings**, not this month's: a quiet month
+  would otherwise read as years of runway and a heavy one as days.
+
+### The seeded ledger was an agency, not a freelancer
+
+Worth knowing before trusting anything the page says. The old book **paid two
+salaries and an office rent**, and `calibrateMonth` was force-fitting May to
+the frame's $45,786 in against $97,664 out — so every generated month showed a
+business spending twice what it earned, and the page reported it faithfully.
+
+Three things were wrong and all three are fixed:
+
+- **The book.** Now a retainer, two irregular clients and card takings against
+  a tail of small subscriptions, a desk and insurance. Income dwarfs costs, the
+  way freelance work actually runs.
+- **An authored $2,000 credit from Claude**, filed under Tools and noted
+  "annual plan refund", made a company you *pay* the largest payer on the
+  page. It is a client payment now.
+- **Nothing recurred.** Rent, subscriptions and the owner's draw were drawn by
+  weight like everything else, so they landed two and three times some months
+  and never in others — rent came out at 82% of personal spend, "usually
+  $4,383" against a $1,450 tenancy. Counterparties can now be marked `monthly`
+  and are placed once per month on a stable day instead of drawn.
+
+**`REFERENCE.netBalanceCents` is still the design's $69,786** — it is the hero
+figure on the balance card and the number the frame is read for. The month's
+flows are not, and cannot be: the frame's shape is the thing that was wrong.
+
 **The Insights screen never went through the design system** and was the only
 screen using raw numbers instead of `sp()`. It does now.
 
