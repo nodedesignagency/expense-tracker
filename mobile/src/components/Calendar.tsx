@@ -1,13 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native'
 import Animated, {
+  Extrapolation,
   interpolate,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated'
 import { scheduleOnRN } from 'react-native-worklets'
-import { CAL_FROM, CAL_IN, CAL_OUT, EASE_SHEET } from '../motion'
+import {
+  CAL_FROM,
+  CAL_IN,
+  CAL_OUT,
+  CAL_OVER,
+  CAL_POP,
+  CAL_RISE,
+  CAL_SETTLE,
+  EASE_ENTER,
+  EASE_MOVE,
+  EASE_SHEET,
+} from '../motion'
 import {
   addDays,
   formatMonthYear,
@@ -66,6 +79,13 @@ const CARD_W = COL_W * 7 + PAD * 2 + BORDER * 2
 /** Room under the circle for the mark, so it sits outside rather than over. */
 const MARK_ROW = sp(9)
 
+/*
+ * Scaled once, at module load. A worklet cannot call `sp()` — an ordinary
+ * function reached from the UI thread aborts the app on the spot, with no red
+ * box and nothing in the log.
+ */
+const RISE = sp(CAL_RISE)
+
 /**
  * Sunday first, and the strip's own words for the days.
  *
@@ -117,18 +137,35 @@ export function Calendar({ value, today, ledger, onPick, onClose }: CalendarProp
   const [anchor, setAnchor] = useState(value)
 
   /*
-   * 0 to 1 across the opening.
+   * Two values, not one.
+   *
+   * `show` is the fade and the rise, and finishes early so the card is solid
+   * while it is still growing. `scale` overshoots and settles, which is the
+   * part that makes it read as arriving rather than as resizing — a single
+   * value driving both could not do one without the other.
    *
    * The exit is run **here**, before the caller is told: the parent drops this
    * component the moment it hears, so an animation started after that has
    * nothing left to animate. Every way out therefore goes through `leave`.
    */
   const show = useSharedValue(0)
+  const scale = useSharedValue(CAL_FROM)
+
   useEffect(() => {
-    show.set(withTiming(1, { duration: CAL_IN, easing: EASE_SHEET }))
-  }, [show])
+    show.set(withTiming(1, { duration: CAL_IN, easing: EASE_ENTER }))
+    scale.set(
+      withSequence(
+        /* EASE_MOVE, not EASE_ENTER: it keeps moving into the peak instead of
+         * creeping the last few percent and stalling there. */
+        withTiming(CAL_OVER, { duration: CAL_POP, easing: EASE_MOVE }),
+        withTiming(1, { duration: CAL_SETTLE, easing: EASE_MOVE }),
+      ),
+    )
+  }, [show, scale])
 
   const leave = (then: () => void) => {
+    /* No overshoot on the way out: leaving is getting out of the way. */
+    scale.set(withTiming(CAL_FROM, { duration: CAL_OUT, easing: EASE_SHEET }))
     show.set(
       withTiming(0, { duration: CAL_OUT, easing: EASE_SHEET }, (done) => {
         'worklet'
@@ -139,10 +176,17 @@ export function Calendar({ value, today, ledger, onPick, onClose }: CalendarProp
   }
 
   const scrim = useAnimatedStyle(() => ({ opacity: show.get() }))
-  const panel = useAnimatedStyle(() => ({
-    opacity: show.get(),
-    transform: [{ scale: interpolate(show.get(), [0, 1], [CAL_FROM, 1]) }],
-  }))
+  const panel = useAnimatedStyle(() => {
+    const p = show.get()
+    return {
+      /* Solid well before the scale has finished, so the pop is not a fade. */
+      opacity: interpolate(p, [0, 0.55], [0, 1], Extrapolation.CLAMP),
+      transform: [
+        { translateY: interpolate(p, [0, 1], [RISE, 0], Extrapolation.CLAMP) },
+        { scale: scale.get() },
+      ],
+    }
+  })
   const cells = useMemo(() => monthGrid(anchor), [anchor])
 
   /*

@@ -307,12 +307,31 @@ week strip gets it too, from the same component.
 red for one that paid out, both when it did both. One colour for "something
 happened" threw away the half that matters.
 
-**It opens and closes on a curve.** It used to appear and vanish on the frame
-it was asked for, which reads as a jump cut. `CAL_IN`/`CAL_OUT` in `motion.ts`,
-slower in than out the way a sheet is. **The exit runs inside `Calendar`,
-before the caller is told** — the parent drops the component the moment it
-hears, so an animation started after that has nothing left to animate. Every
-way out goes through `leave()`, the pick included.
+**It pops.** It used to appear and vanish on the frame it was asked for. The
+first fix eased 0.94 to 1 over 190ms and the owner could not tell it from no
+animation at all — fair, because six percent of growth ending exactly where it
+was heading is a *transition*, not an arrival.
+
+So it **overshoots**: 0.85 out to 1.04 and back to 1. Two timings in sequence
+rather than a spring, since the rule here is that a spring carries a finger's
+velocity through an interruption and there is no finger on this.
+
+Three things it took to make that read:
+
+- **Two shared values, not one.** `show` is the fade and the rise and finishes
+  early, so the card is solid while it is still growing; `scale` overshoots and
+  settles. One value driving both could not do one without the other, and the
+  pop came out as a fade.
+- **The growth is shorter than the settle** (170 out, 200 back). A pop is a
+  quick departure and a slow arrival, not the reverse.
+- **`EASE_MOVE` on the growth, not `EASE_ENTER`.** `EASE_ENTER` is a hard
+  ease-out that reaches its target inside 60% of its duration, so the card sat
+  at the top for **130ms, measured** — grow, pause, shrink. Now 33ms.
+
+**The exit runs inside `Calendar`, before the caller is told** — the parent
+drops the component the moment it hears, so an animation started after that has
+nothing left to animate. Every way out goes through `leave()`, the pick
+included. No overshoot on the way out: leaving is getting out of the way.
 
 **Sunday first.** It was Monday first, which is defensible alone but not beside
 a week strip that starts on Sunday — one app cannot start its week twice. The

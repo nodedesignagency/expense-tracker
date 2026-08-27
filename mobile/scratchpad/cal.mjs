@@ -83,9 +83,20 @@ else {
   const scales = seen.map((o) => o.s)
   const span = seen[seen.length - 1].ms - seen[0].ms
   console.log(`  ${seen.length} frames over ${span.toFixed(0)}ms`)
-  console.log('  scale:', scales.slice(0, 12).join(' '))
-  console.log(`  ${Math.min(...scales)} -> ${Math.max(...scales)}  ` +
-    (Math.min(...scales) < 0.99 ? '(it animates in)' : '<-- NO ANIMATION'))
+  console.log('  scale:', scales.slice(0, 22).join(' '))
+  const lo = Math.min(...scales), hi = Math.max(...scales)
+  const rest = scales[scales.length - 1]
+  console.log(`  from ${lo}  peak ${hi}  rest ${rest}`)
+  /* A pop is growth AND an overshoot that comes back. Growth alone is a
+   * resize, which is exactly what the owner could not tell from nothing. */
+  console.log(`  grows ${((1 - lo) * 100).toFixed(0)}%, overshoots ${((hi - 1) * 100).toFixed(1)}% ` +
+    (hi > 1.015 && lo < 0.9 ? '(reads as a pop)' : '<-- TOO SUBTLE'))
+  /* How long it sits at the top. A pop that pauses there reads as
+   * grow-pause-shrink rather than as one movement. */
+  const at = seen.filter((o) => Math.abs(o.s - hi) < 0.002)
+  const plateau = at.length > 1 ? at[at.length - 1].ms - at[0].ms : 0
+  console.log(`  holds the peak for ${plateau.toFixed(0)}ms ` +
+    (plateau > 60 ? '<-- PAUSES at the top' : '(no pause)'))
 }
 await sleep(900)
 await shot('31-calendar')

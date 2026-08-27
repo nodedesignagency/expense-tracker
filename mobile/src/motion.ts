@@ -420,11 +420,35 @@ export const PIG_REACT_DELAY = CELEBRATE * (1 - HANDOFF)
  * The calendar overlay.
  *
  * It appeared and vanished on the same frame it was asked for, which reads as
- * a jump cut rather than as something opening. Slower in than out, the way a
- * sheet is: arriving is the thing being watched, leaving is getting out of the
- * way. Transform and opacity only, so it never touches layout.
+ * a jump cut. The first attempt at fixing that eased 0.94 to 1 over 190ms and
+ * the owner could not tell it apart from no animation at all — which is fair:
+ * six percent of growth, ending exactly where it was heading, is a transition
+ * rather than an arrival.
+ *
+ * So it **overshoots**. It starts noticeably small, grows past full size, and
+ * settles back. Two timings in sequence rather than a spring, because the rule
+ * here is that a spring carries a finger's velocity through an interruption
+ * and there is no finger on this.
+ *
+ * Transform and opacity only, so it never touches layout.
  */
-export const CAL_IN = 190
-export const CAL_OUT = 140
-/** How small it starts. Any deeper and it reads as flying at you. */
-export const CAL_FROM = 0.94
+/** How small it starts. Small enough that the growth is the event. */
+export const CAL_FROM = 0.85
+/** How far past full size it goes before settling. This is the "pop". */
+export const CAL_OVER = 1.04
+/*
+ * Out to the overshoot, then back to rest.
+ *
+ * The growth is deliberately **shorter than the settle**, and rides a gentler
+ * curve than the fade does. `EASE_ENTER` is a hard ease-out that arrives at
+ * its target inside 60% of its duration, so a long growth phase left the card
+ * sitting at the top for 130ms — measured — which reads as grow, pause,
+ * shrink rather than as one movement.
+ */
+export const CAL_POP = 170
+export const CAL_SETTLE = 200
+/** The fade and the rise, which finish while the scale is still overshooting. */
+export const CAL_IN = 180
+export const CAL_OUT = 150
+/** How far it rises into place, in frame units. */
+export const CAL_RISE = 12
