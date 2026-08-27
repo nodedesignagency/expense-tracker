@@ -231,6 +231,40 @@ Say which check was actually run — the owner asks.
   by the sheets — see below.
 - `mobile/src/motion.ts` — every duration and curve, with the reasoning.
 
+## The balance figure, and the bubble beside it
+
+`BalanceCard.tsx`.
+
+**The figure sizes itself to fit.** At a fixed 40 the column holds seven
+characters and no more, so a balance in the millions came out as
+`-$6,599,...` — `numberOfLines` turns an overflow into an ellipsis, and the
+owner caught it on device. `figureSize()` solves the size from the string's
+real width instead: 40 down to a floor of 24, which still clears nine digits
+and a sign.
+
+The advances are read out of `sf-pro-rounded-600.ttf` by `scratchpad/ttf.py`,
+not estimated. It uses the **widest of the ten digits** for every digit rather
+than each glyph's own, so the size depends on how *many* digits there are and
+not which — measured per character, the figure would resize as the balance
+ticked from 1 to 2.
+
+| balance | size |
+| --- | --- |
+| `$69,786` | 40 |
+| `$690,786` | 40 |
+| `-$6,599,123` | 31 |
+| `-$699,599,123` | 26 |
+
+**The bubble's column is derived, never restated.** `head`'s `marginRight`
+comes from `BUBBLE_RIGHT + BUBBLE_W - PAD`. It used to be written out as
+`54 + 82 - 18`, and when the bubble was widened from 82 to 96 that number was
+not updated — so **the bubble overlapped the figure by 14 for every render
+after**, which is part of what the owner saw as cluttering.
+
+The bubble moved right and up from the frame's 54/26 to 38/10, on the owner's
+note that it and the pig were crowding each other. Moving it *right* also gives
+the figure room, since the bubble's left edge travels with it.
+
 ## The bottom nav
 
 Rebuilt from its own Figma frame (node `11:19`), 52 tall. One pill, and it
@@ -819,6 +853,13 @@ scratchpad-only dependency for exactly this; nothing in the app needs it.
 `scratchpad/pig/key.py` rebuilds the frames from `scratchpad/pig/clip.mp4` in
 seconds. The clip is committed because it cost credits and the container is
 ephemeral; the frames and keyed output are gitignored.
+
+**Re-key every clip when the crop geometry changes.** `key.py` grew a headroom
+row above the mascot's box for the cheer, and the idle was left keyed without
+one — then repacked with the new offset arithmetic anyway, which put the pig
+**24pt too high**. The owner spotted it immediately. The frames and the offsets
+are one fact: if the crop moves, everything is re-keyed, not just the clip that
+needed it.
 
 **Every number in `Mascot.tsx` is printed by the packer and none may be
 guessed** — a tile size one pixel out shears the animation sideways as it

@@ -17,6 +17,67 @@ interface BalanceCardProps {
 /* Frame: 345 x 189, padding 18, inner gap 16, legend gap 10. */
 const CARD_W = 345
 const CARD_H = 189
+const PAD = 18
+
+/*
+ * Where the bubble sits, and how wide it is — declared once, because the
+ * figure's column is *derived* from them below. They had drifted: the bubble
+ * was widened from 82 to 96 and the reserved column was not, so the bubble
+ * had been overlapping the figure by 14 ever since.
+ *
+ * Moved right and up from the frame's 54/26 on the owner's note that the two
+ * were cluttering each other. Right frees room for the figure, since the
+ * bubble's left edge comes with it.
+ */
+const BUBBLE_RIGHT = 38
+const BUBBLE_TOP = 10
+const BUBBLE_W = 96
+
+/** What the bubble leaves the figure, in frame units. */
+const FIGURE_W = CARD_W - PAD * 2 - (BUBBLE_RIGHT + BUBBLE_W - PAD)
+
+/*
+ * Advance widths in ems, read out of `sf-pro-rounded-600.ttf` by
+ * `scratchpad/ttf.py`. Estimating a glyph width has never once been the thing
+ * that settled an argument here.
+ *
+ * The digit used is the **widest of the ten** rather than each glyph's own, so
+ * the size depends on how *many* digits there are and not which — measured per
+ * character, the figure would resize as the balance ticked from 1 to 2.
+ */
+const EM_DIGIT = 0.637695
+const EM_SEP = 0.269043
+const EM_DOLLAR = 0.631348
+const EM_MINUS = 0.437012
+
+const FIGURE_MAX = 40
+/* Nine digits and a sign still clear this; below it the figure reads weak. */
+const FIGURE_MIN = 24
+
+/**
+ * The figure's size, solved so it fits rather than being cut off.
+ *
+ * At 40 the column holds seven characters and no more, which is fine until a
+ * balance runs to millions — the owner's read `-$6,599,...` with the rest
+ * elided, because `numberOfLines` turns an overflow into an ellipsis. Shrinking
+ * to fit is what he asked for and it is the right answer: the figure stays
+ * whole and the layout never moves.
+ */
+function figureSize(text: string): number {
+  let em = 0
+  for (const ch of text) {
+    em +=
+      ch === ',' || ch === '.'
+        ? EM_SEP
+        : ch === '$'
+          ? EM_DOLLAR
+          : ch === '-'
+            ? EM_MINUS
+            : EM_DIGIT
+  }
+  if (em <= 0) return FIGURE_MAX
+  return Math.max(FIGURE_MIN, Math.min(FIGURE_MAX, Math.floor(FIGURE_W / em)))
+}
 
 function quipFor(totals: Totals, net: number): string {
   if (net > 50_000_00) return 'Holy moly, you are cooking this month'
@@ -26,6 +87,8 @@ function quipFor(totals: Totals, net: number): string {
 }
 
 export function BalanceCard({ netCents, totals, monthLabel, arrival }: BalanceCardProps) {
+  const net = formatMoney(netCents)
+
   return (
     <Glass
       rim={rim.card}
@@ -40,8 +103,8 @@ export function BalanceCard({ netCents, totals, monthLabel, arrival }: BalanceCa
       <View style={s.body}>
         <View style={s.head}>
           <Text style={s.label}>Net Balance</Text>
-          <Text style={s.amount} numberOfLines={1}>
-            {formatMoney(netCents)}
+          <Text style={[s.amount, { fontSize: sp(figureSize(net)) }]} numberOfLines={1}>
+            {net}
           </Text>
         </View>
 
@@ -87,17 +150,16 @@ const s = StyleSheet.create({
    * The surface has to clip to hold the mascot, so anything over the line is
    * lost rather than overflowing — the debit pill first.
    */
-  inner: { padding: sp(18), minHeight: sp(CARD_H - 2) },
+  inner: { padding: sp(PAD), minHeight: sp(CARD_H - 2) },
   body: { gap: sp(16), alignSelf: 'stretch' },
   /*
-   * Reserve the bubble's column. It ends 54 from the right edge and is 82
-   * wide, so it owns the last 136 of the card — 118 of the content box once
-   * the padding is off. The figure is set at 40 and needs 190 of the 191 that
-   * leaves it, which is tight by design and has nothing spare, so without this
-   * the two simply overlap.
+   * Reserve the bubble's column, derived from where the bubble actually is
+   * rather than restated. Restated, it went stale the moment the bubble was
+   * widened, and the two overlapped for every render after.
    */
-  head: { gap: sp(8), marginRight: sp(54 + 82 - 18) },
+  head: { gap: sp(8), marginRight: sp(BUBBLE_RIGHT + BUBBLE_W - PAD) },
   label: { ...type.label, color: color.textDim, textTransform: 'uppercase' },
+  /* `fontSize` is set per render by `figureSize`, so it is not fixed here. */
   amount: { ...type.display, color: color.text },
   legend: { gap: sp(10), alignItems: 'flex-start' },
   pill: {
@@ -116,10 +178,9 @@ const s = StyleSheet.create({
    */
   bubble: {
     position: 'absolute',
-    right: sp(54),
-    top: sp(26),
-    /* 82 in the frame, widened to hold the line count now the type is 12. */
-    width: sp(96),
+    right: sp(BUBBLE_RIGHT),
+    top: sp(BUBBLE_TOP),
+    width: sp(BUBBLE_W),
     paddingVertical: sp(6),
     paddingHorizontal: sp(8),
     borderRadius: sp(12),

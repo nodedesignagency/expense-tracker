@@ -84,7 +84,7 @@ function clip(
 }
 
 const CLIPS = {
-  idle: clip(require('../../assets/art/mascot-idle.png'), 21, 7, 226, 220, 87, -5),
+  idle: clip(require('../../assets/art/mascot-idle.png'), 21, 7, 226, 220, 87, 43),
   cheer: clip(require('../../assets/art/mascot-cheer.png'), 32, 6, 257, 263, 63, 0),
 } as const
 
