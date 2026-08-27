@@ -1,13 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  Image,
-  PixelRatio,
-  StyleSheet,
-  View,
-  type ImageSourcePropType,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native'
+import { PixelRatio, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
 import Animated, {
   Easing,
   cancelAnimation,
@@ -20,9 +12,36 @@ import { scheduleOnRN } from 'react-native-worklets'
 import { PIG_REACT_DELAY } from '../motion'
 import { sp } from '../theme'
 
+const SHEET = require('../../assets/art/mascot-sheet.png')
+
 const FPS = 12
 /** The artwork is drawn at twice the size it is displayed. */
 const ART = 2
+
+/*
+ * **One sheet, one tile, one window — nothing is ever swapped.**
+ *
+ * Every clip is packed into a single texture against a single union crop, so
+ * the source, the window's size and its position are fixed for the life of the
+ * component and the only thing that changes is a `translate`. That is what
+ * removes the blink: a still and a sheet were two different elements, so React
+ * unmounted one and mounted the other, and the new texture had to decode
+ * before it could paint. There is nothing left to decode mid-flight.
+ *
+ * Printed by the packer in `scratchpad/pig/`; **none of it may be guessed** —
+ * a tile one pixel out shears the animation as it advances, and an offset one
+ * pixel out slides the pig in the card.
+ */
+const FRAMES = 53
+const COLS = 8
+const TILE_W_ART = 257
+const TILE_H_ART = 220 + 43 // 263, the union across every clip
+const OFF_X_ART = 63
+const OFF_Y_ART = 0
+
+/** Where each clip lives in the sheet. Resting is simply parked on frame 0. */
+const IDLE = { from: 0, to: 21 }
+const CHEER = { from: 21, to: FRAMES }
 
 /** How long he stays still between coming alive, in ms. */
 const IDLE_MIN = 25_000
@@ -31,65 +50,21 @@ const IDLE_MAX = 32_000
 /**
  * Snapped to a whole device pixel.
  *
- * **This is what made him shimmer.** A tile is 226 artwork pixels, which is
- * `sp(113)` — and on the owner's 360pt phone `sp` is 0.916, so that is
- * 103.51pt. Every tile boundary then landed on a fraction of a pixel, each
- * frame resampled at a slightly different sub-pixel phase, and the pig
- * appeared to shift about while standing still. Rounding the tile to the
- * device's own grid makes every step an exact whole number of pixels.
+ * **This is what made him shimmer.** A tile of 257 artwork pixels is
+ * `sp(128.5)` — and on the owner's 360pt phone `sp` is 0.916, so every tile
+ * boundary landed on a fraction of a pixel, each frame resampled at a slightly
+ * different sub-pixel phase, and the pig appeared to shift about while
+ * standing still. Rounding to the device's own grid makes every step an exact
+ * whole number of pixels.
  */
 const px = (n: number) => PixelRatio.roundToNearestPixel(sp(n / ART))
 
-interface Clip {
-  source: ImageSourcePropType
-  frames: number
-  cols: number
-  rows: number
-  tileW: number
-  tileH: number
-  offX: number
-  offY: number
-  ms: number
-}
-
-/*
- * Every number here is printed by the packer in `scratchpad/pig/` and **none
- * may be guessed** — a tile one pixel out shears the animation sideways as it
- * advances, and an offset one pixel out slides the pig in the card.
- *
- * The offsets are quoted against the mascot's own 392 x 294 box, so clips
- * framed differently still land in the same place. `offY` may be negative:
- * the idle's artwork reaches slightly above the box.
- */
-function clip(
-  source: ImageSourcePropType,
-  frames: number,
-  cols: number,
-  tw: number,
-  th: number,
-  ox: number,
-  oy: number,
-): Clip {
-  return {
-    source,
-    frames,
-    cols,
-    rows: Math.ceil(frames / cols),
-    tileW: px(tw),
-    tileH: px(th),
-    offX: px(ox),
-    offY: px(oy),
-    ms: (frames / FPS) * 1000,
-  }
-}
-
-const CLIPS = {
-  idle: clip(require('../../assets/art/mascot-idle.png'), 21, 7, 226, 220, 87, 43),
-  cheer: clip(require('../../assets/art/mascot-cheer.png'), 32, 6, 257, 263, 63, 0),
-} as const
-
-/** Frame 0's tile, so the still and the sheet's first frame are identical. */
-const REST = require('../../assets/art/mascot-rest.png')
+const TILE_W = px(TILE_W_ART)
+const TILE_H = px(TILE_H_ART)
+const OFF_X = px(OFF_X_ART)
+const OFF_Y = px(OFF_Y_ART)
+const SHEET_W = TILE_W * COLS
+const SHEET_H = TILE_H * Math.ceil(FRAMES / COLS)
 
 export type Reaction = 'cheer'
 type Mode = 'rest' | 'idle' | Reaction
@@ -109,31 +84,24 @@ interface MascotProps {
 /**
  * The pig.
  *
- * **He is still most of the time.** The idle used to loop without stopping,
- * which the owner found both laggy and wearing — a thing that never rests
- * stops being noticed and never stops costing. So at rest nothing animates at
- * all: a single still frame is drawn and no sheet is touched. Every 25 to 32
- * seconds he comes alive for 1.75s — a blink and a breath — and goes back to
- * being still. A credit gets the cheer.
+ * **He is still most of the time**, parked on the sheet's first frame. Every
+ * 25 to 32 seconds he comes alive for 1.75s — a blink and a breath — and parks
+ * again. A credit gets the cheer. The interval is jittered rather than fixed,
+ * so it never reads as a metronome.
  *
- * The interval is jittered rather than fixed, so it never reads as a metronome.
- *
- * Playback slides a sheet behind a window one tile wide, so every frame is a
- * `translate` on the UI thread — no decoding per frame, and **no new native
- * dependency**, which is why it runs in Expo Go unchanged. Clips were
- * generated with `mascot.png` as both start and end keyframe, so each begins
- * and ends on the resting pose and can hand back without a pop.
+ * Resting is not a different image, it is the same sheet held at frame 0. The
+ * clips were generated with `mascot.png` as both their start and end keyframe,
+ * so every one of them begins and ends on that exact pose — which is what lets
+ * a reaction cut in, and hand back, without anything appearing to jump.
  */
 export function Mascot({ style, arrival }: MascotProps) {
   const [mode, setMode] = useState<Mode>('rest')
-  const frame = useSharedValue(0)
+  const frame = useSharedValue(IDLE.from)
   const reduced = useReducedMotion()
-  /* At rest the window keeps the idle's geometry, since the still is its tile. */
-  const shape = mode === 'cheer' ? CLIPS.cheer : CLIPS.idle
 
   /*
-   * Rescheduled every time he settles, rather than run off one interval: a
-   * repeating timer would keep firing behind a reaction and stack up.
+   * Rescheduled every time he settles, rather than run off one repeating
+   * interval: a repeating timer would keep firing behind a reaction and stack.
    */
   useEffect(() => {
     if (mode !== 'rest' || reduced) return
@@ -143,20 +111,27 @@ export function Mascot({ style, arrival }: MascotProps) {
   }, [mode, reduced])
 
   useEffect(() => {
-    if (mode === 'rest') return
-    const c = CLIPS[mode]
-    frame.set(0)
+    if (mode === 'rest') {
+      frame.set(IDLE.from)
+      return
+    }
+    const { from, to } = mode === 'cheer' ? CHEER : IDLE
+    frame.set(from)
     /*
-     * Linear, and to the frame *count* rather than the last index: the floor
+     * Linear, and to the range's end rather than its last index: the floor
      * below turns this into a step, so it has to sweep the whole of the last
      * frame's slot rather than arriving at it and stopping.
      */
     frame.set(
-      withTiming(c.frames, { duration: c.ms, easing: Easing.linear }, (done) => {
-        'worklet'
-        /* scheduleOnRN, not runOnJS — the latter is gone in Reanimated 4. */
-        if (done) scheduleOnRN(setMode, 'rest')
-      }),
+      withTiming(
+        to,
+        { duration: ((to - from) / FPS) * 1000, easing: Easing.linear },
+        (done) => {
+          'worklet'
+          /* scheduleOnRN, not runOnJS — the latter is gone in Reanimated 4. */
+          if (done) scheduleOnRN(setMode, 'rest')
+        },
+      ),
     )
     return () => cancelAnimation(frame)
   }, [mode, frame])
@@ -192,43 +167,24 @@ export function Mascot({ style, arrival }: MascotProps) {
 
   /* Which tile is showing. A step, so the sheet never sits between frames. */
   const sheet = useAnimatedStyle(() => {
-    const i = Math.min(shape.frames - 1, Math.max(0, Math.floor(frame.get())))
+    const i = Math.min(FRAMES - 1, Math.max(0, Math.floor(frame.get())))
     return {
       transform: [
-        { translateX: -(i % shape.cols) * shape.tileW },
-        { translateY: -Math.floor(i / shape.cols) * shape.tileH },
+        { translateX: -(i % COLS) * TILE_W },
+        { translateY: -Math.floor(i / COLS) * TILE_H },
       ],
     }
   })
 
-  const window = {
-    left: shape.offX,
-    top: shape.offY,
-    width: shape.tileW,
-    height: shape.tileH,
-  }
-
   return (
     <View style={style} pointerEvents="none">
-      <View style={[s.window, window]}>
-        {mode === 'rest' ? (
-          <Image
-            source={REST}
-            style={{ width: shape.tileW, height: shape.tileH }}
-            resizeMode="stretch"
-            fadeDuration={0}
-          />
-        ) : (
-          <Animated.Image
-            source={shape.source}
-            style={[
-              { width: shape.tileW * shape.cols, height: shape.tileH * shape.rows },
-              sheet,
-            ]}
-            resizeMode="stretch"
-            fadeDuration={0}
-          />
-        )}
+      <View style={s.window}>
+        <Animated.Image
+          source={SHEET}
+          style={[{ width: SHEET_W, height: SHEET_H }, sheet]}
+          resizeMode="stretch"
+          fadeDuration={0}
+        />
       </View>
     </View>
   )
@@ -239,5 +195,12 @@ const s = StyleSheet.create({
    * `overflow: hidden` is what makes this a sprite player at all — without it
    * the whole sheet draws and you get every frame at once in a grid.
    */
-  window: { position: 'absolute', overflow: 'hidden' },
+  window: {
+    position: 'absolute',
+    overflow: 'hidden',
+    left: OFF_X,
+    top: OFF_Y,
+    width: TILE_W,
+    height: TILE_H,
+  },
 })

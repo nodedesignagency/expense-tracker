@@ -773,21 +773,40 @@ field from that entry instead of clearing. `submit` then branches to
 
 `Mascot.tsx`. **He is still most of the time.**
 
-| state | frames | when |
-| --- | --- | --- |
-| `mascot-rest` | 1, still | almost always — nothing animates at all |
-| `mascot-idle` | 21, once | every 25-32s, jittered: a blink and a breath |
-| `mascot-cheer` | 32, once | a credit lands |
+**One sheet, one tile, one window — nothing is ever swapped.**
+`assets/art/mascot-sheet.png`, 53 frames at 257 x 263, 8 across:
+
+| frames | when |
+| --- | --- |
+| `0` | resting — almost always, parked, nothing animating |
+| `0..20` | every 25-32s, jittered: a blink and a breath |
+| `21..52` | a credit lands |
+
+Resting is **not a different image**; it is this sheet held at frame 0.
 
 The idle used to loop without stopping and the owner found it **both laggy and
 wearing** — a thing that never rests stops being noticed and never stops
-costing. At rest no sheet is mounted, only a single still, so the steady state
-is free. The interval is jittered rather than fixed so it never reads as a
-metronome.
+costing. Parked, the steady state costs one static transform. The interval is
+jittered rather than fixed so it never reads as a metronome.
 
-`mascot-rest.png` is frame 0's tile exactly, cut from the same union crop as
-the sheet, so swapping between the still and the sheet's first frame cannot
-shift a pixel.
+**Why one sheet rather than three.** The first cut drew a separate still at
+rest and swapped the source to a sheet to play — and the owner saw a blink
+every time: a still and a sheet are two different elements, so React unmounted
+one and mounted the other, and the new texture had to decode before it could
+paint. Making the still pixel-identical to frame 0 did not help, because the
+gap is the decode, not the content. Packing every clip against **one union
+crop** means the source, the window's size and its position are fixed for the
+life of the component and the only thing that ever changes is a `translate`.
+There is nothing left to decode mid-flight.
+
+It costs memory: 2.9MB on disk, **14.4MB decoded and resident**. That is the
+trade for never swapping, and it is worth it — the lag came from animating
+without pause, not from holding a texture.
+
+**`assets/art/mascot.png` is the original artwork and is not generated.** It
+is what every clip was generated from, what `key.py` measures edge softness
+against, and what `MASCOT_SRC` still points at. The packer once wrote its
+output over it; the sheet is `mascot-sheet.png` and must stay a separate name.
 
 **The debit reaction is withdrawn.** Kling's covers-his-eyes merges his
 trotters into his cheeks and does not read as hiding. The clip and the keyer
@@ -815,8 +834,8 @@ unchanged. Swapping clips swaps the `source`; watch for a first-play stutter
 on device, since that is where the decode happens.
 
 **Every tile size and offset is snapped to a whole device pixel**, through
-`PixelRatio.roundToNearestPixel`. This is what made him shimmer. A tile is 226
-artwork pixels, which is `sp(113)` — and on the owner's 360pt phone `sp` is
+`PixelRatio.roundToNearestPixel`. This is what made him shimmer. A tile is 257
+artwork pixels, which is `sp(128.5)` — and on the owner's 360pt phone `sp` is
 0.916, so that is **103.51pt**. Every tile boundary then landed on a fraction
 of a pixel, each frame resampled at a slightly different sub-pixel phase, and
 the pig appeared to shift about while standing still. Measured: **all 7 tile
@@ -825,10 +844,11 @@ never showed on the simulator — at 393pt `sp` is exactly 1, so the numbers wer
 already whole. It was an Android-only fault, invisible on iOS and in the
 browser.
 
-**Each clip carries its own tile size and its own offset**, because they were
-not framed alike: the idle and the cheer came off a 4:3 canvas, the hide off a
-square one, since Kling does not offer 4:3. The offsets are quoted against the
-mascot's own 392 x 294 box so all three land in the same place regardless.
+The clips were not framed alike — the idle and the cheer came off a 4:3
+canvas, the hide off a square one, since Kling does not offer 4:3 — so the
+packer takes a **single union across every frame of every clip** and every
+offset is quoted against the mascot's own 392 x 294 box. That is what lets one
+tile serve all of them.
 
 **A reaction is trimmed where it comes to REST, not where the motion stops.**
 Those are different frames — the cheer's last movement is at 29 but it is not

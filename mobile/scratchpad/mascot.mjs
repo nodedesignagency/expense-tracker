@@ -132,12 +132,19 @@ await send('Runtime.evaluate', { expression: `
     const mover = (win && win.firstElementChild) || sheet;
     return win && card ? { sheet, win, card, mover } : null;
   };
-  window.__nameOf = function (el) {
-    const u = getComputedStyle(el).backgroundImage || '';
-    if (u.includes('mascot-rest')) return 'rest';
-    if (u.includes('mascot-cheer')) return 'cheer';
-    if (u.includes('mascot-idle')) return 'idle';
-    return u.includes('mascot') ? 'other' : '?';
+  /*
+   * There is one sheet now, so which clip is playing cannot be read off the
+   * image URL any more — it is the tile the window is parked on. Frame 0 is
+   * rest, 1..20 the idle, 21..52 the cheer.
+   */
+  window.__frameOf = function (mover, tw, th, cols) {
+    const m = new DOMMatrixReadOnly(getComputedStyle(mover).transform);
+    const col = Math.round(-m.m41 / tw), row = Math.round(-m.m42 / th);
+    return row * cols + col;
+  };
+  window.__clipOf = function (i) {
+    if (i === 0) return 'rest';
+    return i < 21 ? 'idle' : 'cheer';
   };
 ` })
 
@@ -166,7 +173,8 @@ await send('Runtime.evaluate', { expression: `
     const k = c.height ? 193.5 / c.height : 1;
     const m = new DOMMatrixReadOnly(getComputedStyle(R.mover).transform);
     window.__pig.push({ ms: performance.now(), y: (r.y - c.y) * k, h: r.height * k,
-                        fx: Math.round(m.m41), fy: Math.round(m.m42), clip: window.__nameOf(R.sheet) });
+                        fx: Math.round(m.m41), fy: Math.round(m.m42),
+                        clip: window.__clipOf(window.__frameOf(R.mover, r.width, r.height, 8)) });
   })();
 ` })
 await sleep(SECONDS * 1000)
