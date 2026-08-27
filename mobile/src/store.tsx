@@ -56,6 +56,15 @@ export interface AppState {
    * mascot celebrating yesterday's income a second after launch.
    */
   ready: boolean
+  /**
+   * What share of business income to set aside for tax, 0 to 1.
+   *
+   * The one number an expense ledger cannot derive and a freelancer cannot do
+   * without: what came in is not what they keep. Kept in the store rather than
+   * asked for on the insights page, because it is a standing fact about the
+   * person, not about the period being looked at.
+   */
+  taxRate: number
 }
 
 export type Action =
@@ -63,6 +72,7 @@ export type Action =
   /* The read finished and there was nothing to apply. Still the end of it. */
   | { type: 'ready' }
   | { type: 'setScope'; scope: Scope }
+  | { type: 'setTaxRate'; rate: number }
   | { type: 'selectDate'; date: string | null }
   | { type: 'shiftWeek'; delta: number }
   | { type: 'setQuery'; query: string }
@@ -90,6 +100,7 @@ export interface PersistedState {
   scope: Scope
   /** Added in the same shape; absent in anything written before they existed. */
   customCategories?: string[]
+  taxRate?: number
 }
 
 function sortNewestFirst(rows: Transaction[]): Transaction[] {
@@ -123,6 +134,8 @@ export function initialState(): AppState {
     composerEditId: null,
     detailId: null,
     ready: false,
+    /* A common enough starting point that most people only nudge it. */
+    taxRate: 0.3,
   }
 }
 
@@ -134,6 +147,7 @@ function applyPersisted(state: AppState, persisted: PersistedState): AppState {
     transactions: sortNewestFirst([...seeded, ...(persisted.added ?? [])]),
     scope: persisted.scope ?? state.scope,
     customCategories: persisted.customCategories ?? state.customCategories,
+    taxRate: persisted.taxRate ?? state.taxRate,
   }
 }
 
@@ -151,6 +165,10 @@ export function reducer(state: AppState, action: Action): AppState {
       return state.ready ? state : { ...state, ready: true }
     case 'setScope':
       return { ...state, scope: action.scope, detailId: null }
+    case 'setTaxRate':
+      /* Clamped here rather than at every caller: a rate outside 0 to 1 would
+       * quietly produce a set-aside larger than the income it came from. */
+      return { ...state, taxRate: Math.min(1, Math.max(0, action.rate)) }
     case 'selectDate':
       return { ...state, selectedDate: action.date, weekAnchor: action.date ?? state.weekAnchor }
     case 'shiftWeek':
@@ -319,11 +337,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       deletedIds: [...seedIds].filter((id) => !liveIds.has(id)),
       scope: state.scope,
       customCategories: state.customCategories,
+      taxRate: state.taxRate,
     }
     void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload)).catch(() => {
       /* quota or disabled store — the app still works for this session */
     })
-  }, [state.transactions, state.scope, state.customCategories])
+  }, [state.transactions, state.scope, state.customCategories, state.taxRate])
 
   return (
     <StateContext.Provider value={state}>

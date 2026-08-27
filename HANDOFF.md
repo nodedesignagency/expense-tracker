@@ -1119,6 +1119,69 @@ at 11.4fps and settling back to the still. A credit plays 32 frames over 2.65s
 and hands back. Both debits correctly do nothing. Headroom 48.5pt up, 35pt
 down.
 
+## Insights
+
+**The two ledgers ask different questions, so they get different pages.** This
+app is for freelancers: on the business side a period is decided by whether the
+invoices landed, who sent them, and what is owed on the result. On the personal
+side it is decided by where the money went. One layout serving both meant
+showing a category breakdown of your own spending where a client list was the
+thing worth knowing.
+
+They share a spine — period, headline figure, sentences, the shape of the
+period — and each fills the last block with what its own question needs:
+**Who paid you** against **Where it went**, and the tax card on business only.
+
+### There is no health score
+
+It was offered and rejected, and the reasoning is worth keeping. A score
+compresses several unrelated things into one number and the compression is
+where the meaning goes: told 83, nobody does anything differently. For a
+freelancer the things that decide health — an unpaid invoice, a client going
+quiet, a bill due — are exactly the things a ledger cannot see, so a score
+computed without them is confidently wrong. And a score is sticky: once on
+screen it is the first thing read and the first thing distrusted.
+
+**The sentences in `lib/insights.ts` are the same hook without the false
+precision.** Every figure in them traces to a row in the ledger, and the
+figures are tinted inside the prose so the line reads as one thought.
+Deterministic, not generated: nothing there can be wrong in a way the data is
+not already wrong.
+
+### Two things that would otherwise lie
+
+- **A percentage is only stated when both figures are positive.** A net that
+  crosses zero makes one meaningless — +156k to -52k is "down 133%", which is
+  arithmetically true and reads as a third again rather than as a reversal.
+  Where the percentage cannot be trusted the absolute difference is shown,
+  which always can be.
+- **`changeVs` returns null against zero.** "Up 100% from nothing" is
+  arithmetic, not information.
+
+### The shape block
+
+A month draws as a calendar and a quarter or a year as one bar per month.
+Strength by size, hue by direction, empty days left as outlines so they are
+legible as empty. A bar per day across a year is 365 lines a millimetre apart,
+which is texture rather than information.
+
+### Tax
+
+`AppState.taxRate`, persisted, set from Settings as presets rather than a
+field — a rate is picked once and nudged rarely, and a keyboard for two digits
+is a worse trade than six taps that cannot be typed wrong. The set-aside is
+shown in whole units: cents on a figure you move in one lump is precision
+nobody acts on.
+
+### `figureSize` is shared
+
+It lives in `theme.ts` because the balance card and the insights hero are the
+same figure in different boxes, and a second copy drifts — the card shipped
+`-$6,599,...` elided before it existed.
+
+**The Insights screen never went through the design system** and was the only
+screen using raw numbers instead of `sp()`. It does now.
+
 ## Animation rules now being followed
 
 From the skills repo the owner supplied — `github.com/emilkowalski/skills`,

@@ -250,3 +250,45 @@ export const type = {
   /* 9 */
   weekday: { fontFamily: font.label, fontSize: sp(11) },
 } as const
+
+/* ------------------------------------------------------------------ *
+ * Figures that fit
+ * ------------------------------------------------------------------ */
+
+/*
+ * Advance widths in ems, read out of `sf-pro-rounded-600.ttf` by
+ * `scratchpad/ttf.py`. Estimating a glyph width has never once been the thing
+ * that settled an argument here.
+ *
+ * The digit used is the **widest of the ten** rather than each glyph's own, so
+ * a figure's size depends on how *many* digits it has and not which —
+ * measured per character, it would resize as a balance ticked from 1 to 2.
+ */
+const EM_DIGIT = 0.637695
+const EM_SEP = 0.269043
+const EM_DOLLAR = 0.631348
+const EM_MINUS = 0.437012
+
+/**
+ * The largest size at which `text` fits `width`, both in frame units.
+ *
+ * Lives here rather than in a screen because two of them need it and a second
+ * copy would drift: the balance card shipped `-$6,599,...` with the rest
+ * elided, because `numberOfLines` turns an overflow into an ellipsis, and the
+ * insights hero is the same figure in a different box.
+ */
+export function figureSize(text: string, width: number, max: number, min: number): number {
+  let em = 0
+  for (const ch of text) {
+    em +=
+      ch === ',' || ch === '.'
+        ? EM_SEP
+        : ch === '$'
+          ? EM_DOLLAR
+          : ch === '-'
+            ? EM_MINUS
+            : EM_DIGIT
+  }
+  if (em <= 0) return max
+  return Math.max(min, Math.min(max, Math.floor(width / em)))
+}

@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { formatMoney } from '../lib/money'
 import type { Totals } from '../lib/types'
-import { axisFor, color, fill, metric, radius, rim, sp, type } from '../theme'
+import { axisFor, color, figureSize, fill, metric, radius, rim, sp, type } from '../theme'
 import { Glass } from './Glass'
 import { Mascot, type Arrival } from './Mascot'
 
@@ -36,48 +36,9 @@ const BUBBLE_W = 96
 /** What the bubble leaves the figure, in frame units. */
 const FIGURE_W = CARD_W - PAD * 2 - (BUBBLE_RIGHT + BUBBLE_W - PAD)
 
-/*
- * Advance widths in ems, read out of `sf-pro-rounded-600.ttf` by
- * `scratchpad/ttf.py`. Estimating a glyph width has never once been the thing
- * that settled an argument here.
- *
- * The digit used is the **widest of the ten** rather than each glyph's own, so
- * the size depends on how *many* digits there are and not which — measured per
- * character, the figure would resize as the balance ticked from 1 to 2.
- */
-const EM_DIGIT = 0.637695
-const EM_SEP = 0.269043
-const EM_DOLLAR = 0.631348
-const EM_MINUS = 0.437012
-
 const FIGURE_MAX = 40
 /* Nine digits and a sign still clear this; below it the figure reads weak. */
 const FIGURE_MIN = 24
-
-/**
- * The figure's size, solved so it fits rather than being cut off.
- *
- * At 40 the column holds seven characters and no more, which is fine until a
- * balance runs to millions — the owner's read `-$6,599,...` with the rest
- * elided, because `numberOfLines` turns an overflow into an ellipsis. Shrinking
- * to fit is what he asked for and it is the right answer: the figure stays
- * whole and the layout never moves.
- */
-function figureSize(text: string): number {
-  let em = 0
-  for (const ch of text) {
-    em +=
-      ch === ',' || ch === '.'
-        ? EM_SEP
-        : ch === '$'
-          ? EM_DOLLAR
-          : ch === '-'
-            ? EM_MINUS
-            : EM_DIGIT
-  }
-  if (em <= 0) return FIGURE_MAX
-  return Math.max(FIGURE_MIN, Math.min(FIGURE_MAX, Math.floor(FIGURE_W / em)))
-}
 
 function quipFor(totals: Totals, net: number): string {
   if (net > 50_000_00) return 'Holy moly, you are cooking this month'
@@ -103,7 +64,7 @@ export function BalanceCard({ netCents, totals, monthLabel, arrival }: BalanceCa
       <View style={s.body}>
         <View style={s.head}>
           <Text style={s.label}>Net Balance</Text>
-          <Text style={[s.amount, { fontSize: sp(figureSize(net)) }]} numberOfLines={1}>
+          <Text style={[s.amount, { fontSize: sp(figureSize(net, FIGURE_W, FIGURE_MAX, FIGURE_MIN)) }]} numberOfLines={1}>
             {net}
           </Text>
         </View>
