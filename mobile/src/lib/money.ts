@@ -39,9 +39,19 @@ export function parseAmountToCents(input: string): number | null {
   return Math.round(value * 100)
 }
 
-/** Compact form for chart labels: `$12.4k`. */
+/**
+ * Compact form for chart labels: `$12.4k`, `$1.4m`.
+ *
+ * The millions tier is not optional. Without it a $1,358,000 payer rendered as
+ * `$1358k` in the insights legend — four digits and a unit, which is both
+ * uglier and harder to read than the figure it was abbreviating.
+ *
+ * One decimal below ten of a unit, none above: `$1.4m` and `$14m`, never
+ * `$14.3m`, because past ten the tenth is noise at this size.
+ */
 export function formatCompact(cents: number): string {
   const value = Math.abs(cents) / 100
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(value >= 10_000_000 ? 0 : 1)}m`
   if (value >= 1000) return `$${(value / 1000).toFixed(value >= 10_000 ? 0 : 1)}k`
   return `$${Math.round(value)}`
 }

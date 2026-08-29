@@ -3,30 +3,39 @@
 Read this first. It is the state of the work, the decisions already settled,
 and the traps that cost the most time.
 
-## Where this was left — 26 Aug 2026
+## Where this was left — 29 Aug 2026
 
-The entry detail sheet was rebuilt from three references the owner supplied,
-and an **edit path** was added behind it. The app could add and delete an
-entry before this; it could not change one.
+**Insights was rebuilt a third time**, and this pass was about *material*, not
+content. The second version had the right things on it and looked generated:
+flat grey cards at radius 22, six identical blocks down a column, a
+blue-purple-teal donut, no accent anywhere. The owner's words were **AI slop**
+and *you did not even match the vibe we had in home page*, and both were fair.
 
-- **`DetailSheet.tsx` is a new design.** The figure leads, the facts sit in one
-  contained panel, and each value is drawn as what it is rather than as another
-  line of white text. Full reasoning under **The entry detail sheet** below.
-- **The composer is one screen for two jobs now.** Opened with `composerEditId`
-  set it seeds every field from that entry and files the result back over it;
-  opened without one it starts clean, exactly as before.
-- **`scratchpad/detail.mjs`** drives the new surface the way `drive.mjs` drives
-  the composer, and carries an edit all the way through the slider to read the
-  ledger back. It caught the one real bug in the pass — see the trap about
-  `inferBrand` below.
-- **The typing animation was not touched and is still settled.** `drive.mjs`
-  after this work: *every movement is a smooth step, no instant jump*, worst
-  frame 5.4pt. The non-edit branch of the composer's open effect is the same
-  logic it always was.
+- **Everything is `Panel` now** — the balance card's own `Glass`, rim, radius
+  and angled fill. `TickChip` is the balance card's legend chip, lifted out so
+  Home and Insights share the one component. Home renders identically to before.
+- **The hero is two 270deg gauges**, in against out on one scale, gradient
+  strokes, a wash behind each whose opacity tracks its own share.
+- **The flow chart is mirrored** — in above the axis, out below — with the two
+  halves sized to their own peaks at one shared scale, so neither is left blank.
+- **The pig delivers the sentence**, in a bubble, in the one row on the page
+  with no card around it.
+- **The breakdown ramps a single hue** with a gap cut between wedges.
+- Fixed on the way: `$1358k` -> `$1.4m`, axis labels wrapping to two lines,
+  `0%` printed beside a real payer.
 
-**Checked in Chromium at 500pt through both drivers. Not yet seen on either
-device** — the owner's Android and the iPhone 17 Pro simulator are both still
-to look at this.
+**Two things about the drivers matter more than any of the above.**
+
+1. **`--window-size` is ignored by headless-new.** Every screenshot taken here
+   until now was of a **500pt** phone. Pin it with
+   `Emulation.setDeviceMetricsOverride`, before navigating.
+2. **`scratchpad/hostile.mjs` is new** and writes a deliberately awful ledger
+   into storage before driving. Every layout failure the owner has caught on
+   device was unreachable from the seed. Run it.
+
+**Checked in Chromium at 393pt and 360pt, on the seed and on the hostile
+ledger. Not yet seen on either device** — the owner's Android and the iPhone 17
+Pro simulator are both still to look at this.
 
 Still open, and untouched by all of the above: the items under **Open, waiting
 on the owner** at the foot of this file.
@@ -148,7 +157,41 @@ npx expo start --web --port 8081      # leave running
 node scratchpad/drive.mjs             # screenshots -> scratchpad/shots/
 node scratchpad/analyse.mjs           # the numbers
 node scratchpad/detail.mjs            # the detail sheet and the edit path
+node scratchpad/insights.mjs 393      # insights, both ledgers, all three periods
+node scratchpad/insights.mjs 360      # and again at the owner's Android width
+node scratchpad/hostile.mjs 393       # insights against a ledger built to break it
 ```
+
+### Pin the viewport, never `--window-size`
+
+**Headless-new ignores `--window-size`.** Every shot taken through these
+drivers before this was found laid the app out at **500 CSS px**, not the 393
+the flag asked for — wider gutters, a wider card, and type sitting lighter
+against it than it does on any phone. It is a silent wrong answer: the
+screenshots look fine, they are simply of a device that does not exist, which
+is part of why a page that measured clean here read as cramped on the owner's
+iPhone.
+
+```js
+await send('Emulation.setDeviceMetricsOverride',
+  { width: 393, height: 2100, deviceScaleFactor: 2, mobile: true })
+```
+
+**Set it before navigating.** `sp()` reads `Dimensions` once at module load and
+never again, so an override applied after the bundle has run scales nothing.
+Give it a tall height too — the app scrolls inside a `ScrollView`, so
+`captureBeyondViewport` captures the document and stops at the fold otherwise.
+
+### Drive it with data built to break it
+
+`hostile.mjs` writes a ledger straight into `localStorage` under
+`piggy.ledger.v1` and reloads: one entry three orders of magnitude larger than
+the rest, a counterparty name that will not fit, and a net in the millions. The
+seed is tidy and **every layout failure the owner has caught on device was
+unreachable from it** — the elided balance, `-$6,599,...`, the wrapped axis
+labels, `$1358k`, a chart flattened to dots. It asserts on the four things that
+actually go wrong: elision, wrapping, painting outside the viewport, and the
+compact form.
 
 `drive.mjs` is the composer's measurement rig and is **left alone**, so its
 numbers stay comparable run to run. `detail.mjs` is the other surface: home →
@@ -1179,34 +1222,127 @@ It lives in `theme.ts` because the balance card and the insights hero are the
 same figure in different boxes, and a second copy drifts — the card shipped
 `-$6,599,...` elided before it existed.
 
-### It is chart-led, and that was the second attempt
+### It took three attempts, and each one failed differently
 
-The first rebuild was prose with a number on top: three sentences in a box,
-three tiles of raw figures, and one shape on the entire screen. The owner's
-word for it was **text-heavy**, and the references they had sent were the
-inverse — a chart leads, the words are a caption. So: the flow chart is the
-lead, the donut carries the breakdown, the sentence is cut to **one**, and the
-tiles are gone entirely (the chart's own key states the same two totals, so
-they were filler).
+Worth all three, because the failures are not the same mistake.
 
-`Charts.tsx`, in `react-native-svg` which the app already depends on. Nothing
-new was added for any of it.
+1. **Prose with a number on top** — three sentences in a box, three tiles of
+   raw figures, one shape on the whole screen. The owner's word: *text-heavy*.
+2. **Chart-led, in nobody's material.** The content was right this time. The
+   form was a stock dashboard: every block a flat 1px `rgba(255,255,255,0.06)`
+   border on a flat grey at radius 22, six of them identical down a column,
+   each with a small grey label top-left, a donut in blue-purple-teal-orange,
+   and not one pixel of the app's `#FF5458`. The owner's word: **AI slop**, and
+   *you did not even match the vibe we had in home page*. Both were correct.
+3. **The one that is there now**, which is the same content in Home's own
+   language.
 
-- **Paired bars, not stacked.** Stacked, a month that earned and spent heavily
-  is the same height as one that did neither, and the gap between them — the
-  whole point — cannot be seen.
+**The lesson from the second is the useful one: right content in the wrong
+material still reads as a different app.** Nothing was factually wrong with
+that page. It looked generated because every surface on it was invented
+locally instead of taken from the app that already existed.
+
+### The material is Home's, and that is not negotiable
+
+- **`Panel.tsx` is the only surface.** It is `Glass` — `rim.card`, `fill.card`,
+  `radius.card` — the balance card's exact material. No screen invents its own
+  any more. `PeriodShape` was moved onto it too.
+- **`TickChip.tsx` is the balance card's legend chip**, lifted out so both
+  pages use the one component rather than two copies that agree today.
+  Home passes whole strings (`Credit: $12,840`) so it renders exactly as the
+  frame draws it; Insights splits label from value.
+- **Nothing introduces a colour the app does not own.** Green is money in, red
+  is money out, `#FF5458` is the accent — and the accent arrives on the page in
+  the pig rather than as paint.
+
+### The hero is two gauges, not a ring
+
+`Radial` in `Charts.tsx`. Money in on the outer arc, money out on the inner,
+**both against the same peak**, so the larger completes its sweep and the
+smaller reads as its true fraction of it. A good month is legible before a
+figure has been read.
+
+- **270deg with the gap at the foot, not a full circle.** Closed was the first
+  attempt and wrong twice over: the larger side always shut, so the shape
+  carrying the headline was a solid band saying nothing — and closed at any
+  weight it reads as a border drawn round the figure rather than a measure of
+  it. Round caps and a visible beginning fix both.
+- **8pt stroke, not 13.** At 13 the arc was a highlighter and the card was 700
+  of the screenshot's 1745 pixels.
+- **The stroke is a gradient**, full at the foot to half at the head. Every
+  other surface in this app is a gradient at a stated angle; a flat band of
+  saturated green was the one thing on the page that looked painted on.
+- **The glow washes are centred outside the ring and glow inward**, so neither
+  lands in the hole and greys the figure. Each side's opacity tracks its own
+  share, so a month that barely spent barely reddens — decoration, but tied to
+  the data.
+- **A pie of in-against-out was the obvious alternative and says nothing**: two
+  wedges always fill the same circle however the month went.
+
+### The flow chart is mirrored, and the halves are not equal
+
+In grows up from the axis, out grows down. Paired side-by-side bars were 31
+steps of two hairlines and unreadable, and on the owner's device one entry an
+order of magnitude larger than the rest flattened everything else to dots.
+
+**Each half gets the share of the height its own peak is worth, and scales to
+that peak inside it.** The two work out to the same points per cent — a bar of
+`v` in the top is `v/peakIn * (peakIn/total) * H`, which is `v/total * H`, and
+the bottom reduces identically — so the sides stay comparable *across* the axis
+while neither is left mostly blank. Split evenly, a month that earned ten times
+what it spent drew the whole bottom half empty.
+
+A zero draws nothing; anything non-zero keeps a 2.5pt floor. A floor under
+nothing draws money that is not there, which across a quiet month is most of
+the chart; no floor at all is what made the real days vanish beside the outlier.
+
+### The breakdown ramps one hue, with a gap between wedges
+
+`INCOME_RAMP` tints the credit green five times, `SPEND_RAMP` the debit red.
+Direction is never ambiguous inside a breakdown — *who paid you* is all credits
+and *where it went* is all debits — so the ring can wear the ledger's own
+colour and say which of the two it is before a word has been read. The set
+before it was blue, purple, teal, orange and pink; the set after that swept
+green through teal into blue, which had the same fault at the far end.
+
+**A ramp of one hue is the right palette for a breakdown and the wrong one for
+abutting shapes.** Two adjacent steps of lightness have no edge between them,
+and three payers of similar size read as one wedge. `WEDGE_GAP` cuts 3deg out
+of each, floored at 35% of the slice so a 1% payer keeps a hairline instead of
+vanishing into the gap meant to separate it.
+
+`<1%` rather than `0%` where a share rounds away: a real payer beside a flat
+zero reads as a bug, not as a rounding.
+
+### The pig says the sentence
+
+The one line about the period is in his speech bubble, in a row with **no card
+around it** — the page needs one thing that is not a panel, or the panels stop
+being the rhythm and become the texture. The bubble is the balance card's, with
+the pointer turned to face left by the same borders trick.
+
+His geometry is read off the sprite, not guessed: the sheet's window sits 31.5
+in from the left of whatever box it is given, so the row pulls the box left by
+that much to put his visible edge on the gutter.
+
+It answers the text-heavy complaint properly. A paragraph in a panel is text
+however short it is; in his mouth it is the app talking.
+
+### Still true from the earlier passes
+
 - **The donut's centre carries the concentration**, not the total: most of your
   income coming from one client is a risk a freelancer needs told, and putting
-  it in the hole costs no space. Top five keep their own colour and the rest
-  sum into one grey wedge; eleven coloured slices is a colour wheel.
-- **The wedge colours are deliberately not the ledger's green and red.** Those
-  two mean direction everywhere else, and a category wearing them reads as
-  money coming in.
-- **The donut starts at twelve o'clock via the dash phase**, not a `rotation`
-  on a `<G>`: react-native-svg's web build turns that into a DOM
-  `transform-origin`, which React rejects on every render.
+  it in the hole costs no space.
+- **Arcs and wedges start where they do via the dash phase**, never a
+  `rotation` on a `<G>` — react-native-svg's web build turns that into a DOM
+  `transform-origin`, which React rejects on every render. An SVG circle begins
+  at three o'clock and runs clockwise, so a dash starting `deg` round from
+  there wants `c * (1 - deg / 360)`.
 - **Runway averages six months of outgoings**, not this month's: a quiet month
   would otherwise read as years of runway and a heavy one as days.
+- **The pair is business-only.** Income consistency is a freelancer's business
+  signal; on the personal ledger there is no second thing to set beside runway,
+  and half a row of nothing is worse than a full one.
 
 ### The seeded ledger was an agency, not a freelancer
 
@@ -1294,6 +1430,13 @@ These are settled; do not regress them:
   that settled an argument here.
 - **A measured inner width must subtract the panel's border**, or a three-column
   keypad wraps to six rows of two.
+- **A text box laid out inside an equal share of a row will wrap.** 31 axis
+  slots across 313 is 10pt and `16` needs 14, so the flow chart printed its
+  labels two lines deep on the owner's phone and nowhere else. Position a
+  fixed-width box on the column and let it overflow instead.
+- **`formatCompact` needs every tier it can reach.** Without the millions one
+  a $1,358,000 payer rendered `$1358k` — four digits and a unit, longer and
+  harder to read than the figure being abbreviated.
 - **`boxShadow` works, and takes the CSS string.** Multiple comma-separated
   shadows, from RN 0.76 on the New Architecture — SDK 54 qualifies, Android
   9+ for outset. So a Figma shadow stack goes in as-is; do not substitute an

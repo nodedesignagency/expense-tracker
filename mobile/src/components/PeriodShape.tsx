@@ -3,7 +3,8 @@ import { StyleSheet, Text, View } from 'react-native'
 import { dailySeries, daysInMonth, monthlySeries, type Range } from '../lib/selectors'
 import type { Transaction } from '../lib/types'
 import { formatCompact } from '../lib/money'
-import { color, radius, sp, type } from '../theme'
+import { color, sp, type } from '../theme'
+import { Panel } from './Panel'
 
 interface Props {
   rows: Transaction[]
@@ -44,9 +45,11 @@ function DayGrid({ rows, range }: Props) {
   const lead = new Date(range.from.replace(/-/g, '/')).getDay()
 
   return (
-    <View style={s.panel}>
-      <Text style={s.panelTitle}>The month</Text>
-
+    <Panel
+      title="The month"
+      h={330}
+      aside={<Text style={s.legendPeak}>{`busiest day ${formatCompact(peak)}`}</Text>}
+    >
       <View style={s.week}>
         {WEEKDAYS.map((d, i) => (
           <View key={`${d}${i}`} style={s.cell}>
@@ -93,9 +96,8 @@ function DayGrid({ rows, range }: Props) {
         <Text style={s.legendText}>came out ahead</Text>
         <View style={[s.key, { backgroundColor: 'rgba(255,105,105,0.62)' }]} />
         <Text style={s.legendText}>paid out more</Text>
-        <Text style={s.legendPeak}>busiest day {formatCompact(peak)}</Text>
       </View>
-    </View>
+    </Panel>
   )
 }
 
@@ -106,8 +108,11 @@ function MonthBars({ rows, range }: Props) {
   const peak = Math.max(1, ...bars.map((b) => Math.max(b.creditCents, b.debitCents)))
 
   return (
-    <View style={s.panel}>
-      <Text style={s.panelTitle}>Month by month</Text>
+    <Panel
+      title="Month by month"
+      h={200}
+      aside={<Text style={s.legendPeak}>{`busiest month ${formatCompact(peak)}`}</Text>}
+    >
       <View style={s.bars}>
         {bars.map((bar) => (
           <View key={bar.month} style={s.barCol}>
@@ -137,22 +142,11 @@ function MonthBars({ rows, range }: Props) {
           </View>
         ))}
       </View>
-      <Text style={s.legendPeak}>busiest month {formatCompact(peak)}</Text>
-    </View>
+    </Panel>
   )
 }
 
 const s = StyleSheet.create({
-  panel: {
-    borderRadius: radius.soft,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    backgroundColor: 'rgba(255,255,255,0.035)',
-    padding: sp(16),
-    gap: sp(12),
-  },
-  panelTitle: { ...type.chip, color: color.textDim },
-
   week: { flexDirection: 'row', flexWrap: 'wrap' },
   weekText: { ...type.weekday, color: color.textDim },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
@@ -176,7 +170,7 @@ const s = StyleSheet.create({
   legend: { flexDirection: 'row', alignItems: 'center', gap: sp(6), flexWrap: 'wrap' },
   key: { width: sp(8), height: sp(8), borderRadius: sp(4) },
   legendText: { ...type.tooltip, color: color.textDim, marginRight: sp(6) },
-  legendPeak: { ...type.tooltip, color: color.textDim, marginLeft: 'auto' },
+  legendPeak: { ...type.tooltip, color: color.textDim },
 
   bars: { flexDirection: 'row', height: sp(120), alignItems: 'flex-end', gap: sp(6) },
   barCol: { flexGrow: 1, flexShrink: 1, flexBasis: 0, alignItems: 'center', gap: sp(6) },

@@ -1,10 +1,10 @@
 import { StyleSheet, Text, View } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
 import { formatMoney } from '../lib/money'
 import type { Totals } from '../lib/types'
-import { axisFor, color, figureSize, fill, metric, radius, rim, sp, type } from '../theme'
+import { color, figureSize, fill, metric, radius, rim, sp, type } from '../theme'
 import { Glass } from './Glass'
 import { Mascot, type Arrival } from './Mascot'
+import { TickChip } from './TickChip'
 
 interface BalanceCardProps {
   netCents: number
@@ -70,8 +70,10 @@ export function BalanceCard({ netCents, totals, monthLabel, arrival }: BalanceCa
         </View>
 
         <View style={s.legend}>
-          <Pill kind="credit" text={`Credit: ${formatMoney(totals.creditCents)}`} />
-          <Pill kind="debit" text={`Debit: ${formatMoney(totals.debitCents)}`} />
+          {/* Whole strings rather than label + value, so this card reads
+              exactly as the frame draws it. Insights splits them instead. */}
+          <TickChip kind="credit" value={`Credit: ${formatMoney(totals.creditCents)}`} />
+          <TickChip kind="debit" value={`Debit: ${formatMoney(totals.debitCents)}`} />
         </View>
       </View>
 
@@ -82,21 +84,6 @@ export function BalanceCard({ netCents, totals, monthLabel, arrival }: BalanceCa
 
       <Mascot style={s.mascot} arrival={arrival} />
     </Glass>
-  )
-}
-
-/** The legend pills are square — a 2px coloured edge on the left, no radius. */
-function Pill({ kind, text }: { kind: 'credit' | 'debit'; text: string }) {
-  const axis = axisFor(fill.chip.deg, 102, 26)
-  return (
-    <LinearGradient
-      colors={fill.chip.colors}
-      start={axis.start}
-      end={axis.end}
-      style={[s.pill, { borderLeftColor: kind === 'credit' ? color.credit : color.debit }]}
-    >
-      <Text style={s.pillText}>{text}</Text>
-    </LinearGradient>
   )
 }
 
@@ -123,14 +110,6 @@ const s = StyleSheet.create({
   /* `fontSize` is set per render by `figureSize`, so it is not fixed here. */
   amount: { ...type.display, color: color.text },
   legend: { gap: sp(10), alignItems: 'flex-start' },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: sp(6),
-    paddingHorizontal: sp(10),
-    borderLeftWidth: sp(2),
-  },
-  pillText: { ...type.chip, color: color.text },
   /*
    * Anchored to the right edge, not the left. The frame is 345 wide and puts
    * the bubble at x=209 and the mascot at x=185 — offsets that only mean what
